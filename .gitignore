@@ -1,0 +1,40 @@
+# Laravel/PHP
+/vendor/
+/node_modules/
+/.env
+/.env.*
+/.idea/
+/.vscode/
+/storage/*.key
+/storage/logs/
+/storage/framework/
+/storage/app/
+/public/storage/
+/bootstrap/cache/
+composer.lock
+npm-debug.log
+yarn-error.log
+.DS_Store
+Thumbs.db
+*.log
+*.sqlite
+*.sqlite3
+.env.backup
+.env.local
+.env.development
+.env.production
+.env.testing
+# Misc
+*.swp
+*.swo
+*.bak
+*.tmp
+# OS
+.DS_Store
+Icon?
+# Docs
+/docs/*.pdf
+/docs/*.doc*
+/docs/*.xls*
+# Ignore test coverage
+coverage/
