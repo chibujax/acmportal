@@ -38,3 +38,6 @@ Icon?
 /docs/*.xls*
 # Ignore test coverage
 coverage/
+
+# Split-script output
+/copper/

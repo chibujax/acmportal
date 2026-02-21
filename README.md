@@ -22,6 +22,10 @@ php artisan migrate --seed
 
 # 5. Start local server
 php artisan serve
+
+cd storage/
+mkdir -p framework/{sessions,views,cache}
+chmod -R 775 framework
 ```
 
 **Open:** http://localhost:8000
