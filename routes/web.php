@@ -4,9 +4,12 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
+use App\Http\Controllers\Admin\MeetingController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\CsvImportController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Attendance\CheckInController;
+use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
 use App\Http\Controllers\Payment\ManualPaymentController;
 use App\Http\Controllers\Payment\StripeController;
@@ -53,6 +56,13 @@ Route::middleware(['auth'])->group(function () {
 
     /*
     |----------------------------------------------------------------------
+    | QR Attendance Check-In (authenticated members scan this URL)
+    |----------------------------------------------------------------------
+    */
+    Route::get('/attend/{token}', [CheckInController::class, 'show'])->name('attendance.checkin');
+
+    /*
+    |----------------------------------------------------------------------
     | Admin routes
     |----------------------------------------------------------------------
     */
@@ -91,6 +101,21 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{payment}',   [ManualPaymentController::class, 'show'])->name('show');
             Route::patch('/{payment}', [ManualPaymentController::class, 'update'])->name('update');
         });
+
+        // Meetings & Attendance
+        Route::prefix('meetings')->name('meetings.')->group(function () {
+            Route::get('/',                           [MeetingController::class, 'index'])->name('index');
+            Route::get('/report',                     [MeetingController::class, 'report'])->name('report');
+            Route::get('/create',                     [MeetingController::class, 'create'])->name('create');
+            Route::post('/',                          [MeetingController::class, 'store'])->name('store');
+            Route::get('/{meeting}',                  [MeetingController::class, 'show'])->name('show');
+            Route::get('/{meeting}/edit',             [MeetingController::class, 'edit'])->name('edit');
+            Route::put('/{meeting}',                  [MeetingController::class, 'update'])->name('update');
+            Route::patch('/{meeting}/activate',       [MeetingController::class, 'activate'])->name('activate');
+            Route::patch('/{meeting}/close',          [MeetingController::class, 'close'])->name('close');
+            Route::post('/{meeting}/manual-checkin',  [MeetingController::class, 'manualCheckIn'])->name('manual-checkin');
+            Route::delete('/{meeting}/checkin/{record}', [MeetingController::class, 'removeCheckIn'])->name('remove-checkin');
+        });
     });
 
     /*
@@ -99,10 +124,11 @@ Route::middleware(['auth'])->group(function () {
     |----------------------------------------------------------------------
     */
     Route::prefix('member')->name('member.')->group(function () {
-        Route::get('/dashboard',   [MemberDashboard::class, 'index'])->name('dashboard');
-        Route::get('/profile',     [MemberDashboard::class, 'profile'])->name('profile');
-        Route::post('/profile',    [MemberDashboard::class, 'updateProfile'])->name('profile.update');
-        Route::get('/payments',    [MemberDashboard::class, 'paymentHistory'])->name('payments');
+        Route::get('/dashboard',    [MemberDashboard::class, 'index'])->name('dashboard');
+        Route::get('/profile',      [MemberDashboard::class, 'profile'])->name('profile');
+        Route::post('/profile',     [MemberDashboard::class, 'updateProfile'])->name('profile.update');
+        Route::get('/payments',     [MemberDashboard::class, 'paymentHistory'])->name('payments');
+        Route::get('/attendance',   [MemberAttendanceController::class, 'index'])->name('attendance');
     });
 
     /*

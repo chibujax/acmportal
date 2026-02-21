@@ -55,6 +55,11 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class, 'recorded_by');
     }
 
+    public function attendanceRecords()
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     public function hasVerifiedEmail(): bool
@@ -69,5 +74,25 @@ class User extends Authenticatable
             $q->where('dues_cycle_id', $cycleId);
         }
         return (float) $q->sum('amount');
+    }
+
+    /**
+     * Attendance percentage across all closed meetings in a given year.
+     */
+    public function attendancePercentage(int $year = null): float
+    {
+        $year = $year ?? now()->year;
+
+        $total = Meeting::whereYear('meeting_date', $year)
+            ->whereIn('status', ['active', 'closed'])
+            ->count();
+
+        if ($total === 0) return 0;
+
+        $attended = $this->attendanceRecords()
+            ->whereHas('meeting', fn($q) => $q->whereYear('meeting_date', $year))
+            ->count();
+
+        return round(($attended / $total) * 100, 1);
     }
 }
