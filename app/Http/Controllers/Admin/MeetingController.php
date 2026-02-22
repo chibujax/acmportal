@@ -7,6 +7,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Meeting;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class MeetingController extends Controller
 {
@@ -40,21 +41,36 @@ class MeetingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'title'        => 'required|string|max:255',
-            'meeting_date' => 'required|date',
-            'meeting_time' => 'required',
-            'venue'        => 'nullable|string|max:255',
-            'description'  => 'nullable|string|max:1000',
+            'title'              => 'required|string|max:255',
+            'meeting_date'       => 'required|date',
+            'meeting_time'       => 'required',
+            'venue'              => 'nullable|string|max:255',
+            'description'        => 'nullable|string|max:1000',
+            'venue_postcode'     => 'required|string|max:10',
+            'venue_radius'       => 'nullable|integer|min:50|max:1000',
+            'gps_failure_action' => 'nullable|in:reject,flag',
         ]);
 
+        [$lat, $lng] = $this->geocodePostcode($request->venue_postcode);
+
+        if (is_null($lat)) {
+            return back()->withInput()
+                ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+        }
+
         Meeting::create([
-            'title'        => $request->title,
-            'meeting_date' => $request->meeting_date,
-            'meeting_time' => $request->meeting_time,
-            'venue'        => $request->venue,
-            'description'  => $request->description,
-            'status'       => 'scheduled',
-            'created_by'   => auth()->id(),
+            'title'              => $request->title,
+            'meeting_date'       => $request->meeting_date,
+            'meeting_time'       => $request->meeting_time,
+            'venue'              => $request->venue,
+            'description'        => $request->description,
+            'venue_postcode'     => strtoupper(trim($request->venue_postcode)),
+            'venue_lat'          => $lat,
+            'venue_lng'          => $lng,
+            'venue_radius'       => $request->venue_radius ?? 150,
+            'gps_failure_action' => $request->gps_failure_action ?? 'reject',
+            'status'             => 'scheduled',
+            'created_by'         => auth()->id(),
         ]);
 
         return redirect()->route('admin.meetings.index')
@@ -217,16 +233,68 @@ class MeetingController extends Controller
     public function update(Request $request, Meeting $meeting)
     {
         $request->validate([
-            'title'        => 'required|string|max:255',
-            'meeting_date' => 'required|date',
-            'meeting_time' => 'required',
-            'venue'        => 'nullable|string|max:255',
-            'description'  => 'nullable|string|max:1000',
+            'title'              => 'required|string|max:255',
+            'meeting_date'       => 'required|date',
+            'meeting_time'       => 'required',
+            'venue'              => 'nullable|string|max:255',
+            'description'        => 'nullable|string|max:1000',
+            'venue_postcode'     => 'required|string|max:10',
+            'venue_radius'       => 'nullable|integer|min:50|max:1000',
+            'gps_failure_action' => 'nullable|in:reject,flag',
         ]);
 
-        $meeting->update($request->only('title', 'meeting_date', 'meeting_time', 'venue', 'description'));
+        $postcode = strtoupper(trim($request->venue_postcode));
+        $lat      = $meeting->venue_lat;
+        $lng      = $meeting->venue_lng;
+
+        // Only re-geocode if postcode changed
+        if ($postcode !== strtoupper(trim($meeting->venue_postcode ?? ''))) {
+            [$lat, $lng] = $this->geocodePostcode($postcode);
+
+            if (is_null($lat)) {
+                return back()->withInput()
+                    ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+            }
+        }
+
+        $meeting->update([
+            'title'              => $request->title,
+            'meeting_date'       => $request->meeting_date,
+            'meeting_time'       => $request->meeting_time,
+            'venue'              => $request->venue,
+            'description'        => $request->description,
+            'venue_postcode'     => $postcode,
+            'venue_lat'          => $lat,
+            'venue_lng'          => $lng,
+            'venue_radius'       => $request->venue_radius ?? 150,
+            'gps_failure_action' => $request->gps_failure_action ?? 'reject',
+        ]);
 
         return redirect()->route('admin.meetings.show', $meeting)
             ->with('success', 'Meeting updated.');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+
+    /**
+     * Look up a UK postcode via postcodes.io and return [lat, lng] or [null, null].
+     */
+    private function geocodePostcode(string $postcode): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->get('https://api.postcodes.io/postcodes/' . urlencode($postcode));
+
+            if ($response->successful() && $response->json('status') === 200) {
+                return [
+                    $response->json('result.latitude'),
+                    $response->json('result.longitude'),
+                ];
+            }
+        } catch (\Exception) {
+            // Network error — treat as not found
+        }
+
+        return [null, null];
     }
 }

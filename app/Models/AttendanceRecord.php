@@ -12,6 +12,7 @@ class AttendanceRecord extends Model
     protected $fillable = [
         'meeting_id', 'user_id', 'check_in_time',
         'check_in_method', 'status', 'notes', 'recorded_by',
+        'gps_lat', 'gps_lng', 'gps_distance', 'location_mismatch',
     ];
 
     protected $casts = [

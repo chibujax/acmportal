@@ -55,6 +55,59 @@
                         @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
+                    {{-- ── Location & GPS ───────────────────────────── --}}
+                    <div class="card border-0 bg-light mb-4">
+                        <div class="card-body pb-2">
+                            <h6 class="fw-semibold mb-3">
+                                <i class="bi bi-geo-alt text-success me-1"></i> Location & GPS Check-In
+                            </h6>
+
+                            @if($meeting->venue_lat)
+                                <div class="alert alert-success py-2 small mb-3">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Location resolved: {{ $meeting->venue_lat }}, {{ $meeting->venue_lng }}
+                                    ({{ strtoupper($meeting->venue_postcode) }})
+                                </div>
+                            @endif
+
+                            <div class="mb-3">
+                                <label class="form-label fw-medium">Venue Postcode <span class="text-danger">*</span></label>
+                                <input type="text" name="venue_postcode"
+                                       class="form-control @error('venue_postcode') is-invalid @enderror"
+                                       value="{{ old('venue_postcode', $meeting->venue_postcode) }}"
+                                       placeholder="e.g. M21 9WQ"
+                                       style="text-transform:uppercase">
+                                <div class="form-text">Coordinates are looked up automatically from the postcode.</div>
+                                @error('venue_postcode')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label fw-medium">GPS Radius (metres)</label>
+                                    <input type="number" name="venue_radius"
+                                           class="form-control @error('venue_radius') is-invalid @enderror"
+                                           value="{{ old('venue_radius', $meeting->venue_radius ?? 150) }}"
+                                           min="50" max="1000">
+                                    <div class="form-text">Members must be within this distance to check in.</div>
+                                    @error('venue_radius')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-medium">If Outside Range</label>
+                                    <select name="gps_failure_action"
+                                            class="form-select @error('gps_failure_action') is-invalid @enderror">
+                                        <option value="reject" {{ old('gps_failure_action', $meeting->gps_failure_action) === 'reject' ? 'selected' : '' }}>
+                                            Block &amp; contact admin
+                                        </option>
+                                        <option value="flag" {{ old('gps_failure_action', $meeting->gps_failure_action) === 'flag' ? 'selected' : '' }}>
+                                            Allow but flag for review
+                                        </option>
+                                    </select>
+                                    @error('gps_failure_action')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check-circle me-1"></i>Save Changes

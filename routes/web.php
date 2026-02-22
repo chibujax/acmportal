@@ -59,7 +59,9 @@ Route::middleware(['auth'])->group(function () {
     | QR Attendance Check-In (authenticated members scan this URL)
     |----------------------------------------------------------------------
     */
-    Route::get('/attend/{token}', [CheckInController::class, 'show'])->name('attendance.checkin');
+    Route::get('/attend/{token}',          [CheckInController::class, 'show'])->name('attendance.checkin');
+    Route::post('/attend/{token}/switch',  [CheckInController::class, 'switchUser'])->name('attendance.switch');
+    Route::post('/attend/{token}/checkin', [CheckInController::class, 'checkin'])->name('attendance.checkin.post');
 
     /*
     |----------------------------------------------------------------------

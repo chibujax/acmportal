@@ -197,8 +197,8 @@
 
     </div>
 
-    {{-- Logout --}}
-    <div class="mt-auto p-3" style="position:absolute; bottom:0; left:0; right:0">
+    {{-- Logout (inside scroll flow, visible in sidebar) --}}
+    <div class="p-3 mt-2 border-top border-secondary">
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="btn btn-sm w-100 text-white border-0"
@@ -224,6 +224,13 @@
             <span class="badge" style="background:{{ auth()->user()->isAdmin() ? '#1a6b3c' : (auth()->user()->isFinancialSecretary() ? '#1d4ed8' : '#6b7280') }}">
                 {{ ucfirst(str_replace('_',' ', auth()->user()->role)) }}
             </span>
+            <form method="POST" action="{{ route('logout') }}" class="mb-0">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Sign Out">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="d-none d-md-inline ms-1">Sign Out</span>
+                </button>
+            </form>
         </div>
     </div>
 

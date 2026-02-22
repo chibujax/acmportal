@@ -13,12 +13,15 @@ class Meeting extends Model
 
     protected $fillable = [
         'title', 'meeting_date', 'meeting_time', 'venue',
+        'venue_postcode', 'venue_lat', 'venue_lng', 'venue_radius', 'gps_failure_action',
         'description', 'qr_token', 'qr_expires_at', 'status', 'created_by',
     ];
 
     protected $casts = [
         'meeting_date'  => 'date',
         'qr_expires_at' => 'datetime',
+        'venue_lat'     => 'float',
+        'venue_lng'     => 'float',
     ];
 
     // ── Relationships ─────────────────────────────────────────
@@ -72,6 +75,28 @@ class Meeting extends Model
     public function hasCheckedIn(int $userId): bool
     {
         return $this->attendanceRecords()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Whether this meeting has GPS coordinates set.
+     */
+    public function hasLocation(): bool
+    {
+        return ! is_null($this->venue_lat) && ! is_null($this->venue_lng);
+    }
+
+    /**
+     * Distance in metres from meeting venue to given coordinates (Haversine formula).
+     */
+    public function distanceTo(float $lat, float $lng): float
+    {
+        $R  = 6371000;
+        $φ1 = deg2rad($this->venue_lat);
+        $φ2 = deg2rad($lat);
+        $Δφ = deg2rad($lat - $this->venue_lat);
+        $Δλ = deg2rad($lng - $this->venue_lng);
+        $a  = sin($Δφ / 2) ** 2 + cos($φ1) * cos($φ2) * sin($Δλ / 2) ** 2;
+        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /**
