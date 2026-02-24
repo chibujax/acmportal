@@ -125,11 +125,12 @@ class CheckInController extends Controller
             }
         }
 
-        // Determine late (> 15 min after meeting start time)
-        $meetingDateTime = Carbon::parse(
-            $meeting->meeting_date->format('Y-m-d') . ' ' . $meeting->meeting_time
-        );
-        $isLate = now()->diffInMinutes($meetingDateTime, false) < -15;
+        // Determine late: compare against late_after_time if set, else 15 min after meeting start
+        $lateThreshold = $meeting->late_after_time
+            ? Carbon::parse($meeting->meeting_date->format('Y-m-d') . ' ' . $meeting->late_after_time)
+            : Carbon::parse($meeting->meeting_date->format('Y-m-d') . ' ' . $meeting->meeting_time)->addMinutes(15);
+
+        $isLate = now()->gt($lateThreshold);
 
         $record = AttendanceRecord::create([
             'meeting_id'        => $meeting->id,

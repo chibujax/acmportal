@@ -19,6 +19,10 @@
                     <div class="card-body p-4 p-md-5">
                         <h5 class="fw-semibold mb-4">Sign in to your account</h5>
 
+                        @if(session('success'))
+                            <div class="alert alert-success small">{{ session('success') }}</div>
+                        @endif
+
                         <form method="POST" action="{{ route('login.post') }}">
                             @csrf
 
@@ -57,6 +61,9 @@
                                     <input class="form-check-input" type="checkbox" name="remember" id="remember">
                                     <label class="form-check-label" for="remember">Remember me</label>
                                 </div>
+                                <a href="{{ route('password.forgot') }}" class="small text-muted">
+                                    Forgot password?
+                                </a>
                             </div>
 
                             <button type="submit" class="btn w-100 text-white fw-semibold"

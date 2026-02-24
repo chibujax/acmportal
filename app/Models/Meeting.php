@@ -12,7 +12,7 @@ class Meeting extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'title', 'meeting_date', 'meeting_time', 'venue',
+        'title', 'meeting_date', 'meeting_time', 'late_after_time', 'meeting_end_time', 'venue',
         'venue_postcode', 'venue_lat', 'venue_lng', 'venue_radius', 'gps_failure_action',
         'description', 'qr_token', 'qr_expires_at', 'status', 'created_by',
     ];
@@ -41,11 +41,17 @@ class Meeting extends Model
     /**
      * Generate a secure QR token and activate the meeting.
      */
-    public function activate(int $durationHours = 3): void
+    public function activate(): void
     {
+        // QR expires at the admin-set meeting end time on the meeting date.
+        // Fall back to 4 hours from now if end time not set.
+        $expiresAt = $this->meeting_end_time
+            ? \Carbon\Carbon::parse($this->meeting_date->format('Y-m-d') . ' ' . $this->meeting_end_time)
+            : now()->addHours(4);
+
         $this->update([
             'qr_token'      => Str::random(48),
-            'qr_expires_at' => now()->addHours($durationHours),
+            'qr_expires_at' => $expiresAt,
             'status'        => 'active',
         ]);
     }

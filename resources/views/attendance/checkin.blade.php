@@ -82,7 +82,7 @@
                                     <strong>Location required.</strong> After confirming, your browser will ask for permission to access your location. Please tap <strong>Allow</strong> to complete check-in.
                                 </div>
 
-                                <button id="btn-yes" class="btn btn-success w-100 mb-2">
+                                <button id="btn-yes" class="btn btn-success w-100 mb-2" type="button">
                                     <i class="bi bi-check-circle me-1"></i> Yes, that's me — Check Me In
                                 </button>
                                 <form method="POST" action="{{ route('attendance.switch', $meeting->qr_token) }}">
@@ -111,11 +111,20 @@
                                 <div style="font-size:2.5rem" class="mb-2">📍</div>
                                 <h5 class="fw-bold text-danger" id="gps-error-title">Location Error</h5>
                                 <p class="text-muted small" id="gps-error-msg"></p>
+
+                                {{-- Platform-specific how-to guide (shown only when permission is denied) --}}
+                                <div id="gps-howto" class="alert alert-warning text-start mt-3" style="display:none">
+                                    <strong><i class="bi bi-phone me-1"></i>How to re-enable Location:</strong>
+                                    <p class="small mb-0 mt-1 text-muted" id="gps-howto-msg" style="white-space:pre-line"></p>
+                                </div>
+
+                                <button id="btn-retry" class="btn btn-success w-100 mt-3" type="button">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> Try again
+                                </button>
                                 <a href="mailto:info@abiacommunitymanchester.org.uk"
                                    class="btn btn-outline-success w-100 mt-2">
                                     <i class="bi bi-envelope me-1"></i> Contact Admin
                                 </a>
-                                <button id="btn-retry" class="btn btn-link w-100 mt-1 small">Try again</button>
                             </div>
 
                             {{-- Step: Success (JS-rendered) --}}
@@ -133,7 +142,7 @@
                                 </a>
                             </div>
 
-                            {{-- Hidden CSRF token for JS fetch --}}
+                            {{-- Checkin URL for JS fetch --}}
                             <meta name="checkin-url" content="{{ route('attendance.checkin.post', $meeting->qr_token) }}">
 
                         {{-- ── SUCCESS (server-side fallback) ─────────── --}}
@@ -180,6 +189,7 @@
 </div>
 
 @if(isset($confirm) && $confirm)
+@push('scripts')
 <script>
 (function () {
     const btnYes      = document.getElementById('btn-yes');
@@ -196,9 +206,56 @@
         step.classList.remove('d-none');
     }
 
-    function showGpsError(title, msg) {
+    function isIOS() {
+        return /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    }
+
+    function isAndroid() {
+        return /Android/i.test(navigator.userAgent || '');
+    }
+
+    // Builds platform-specific steps for re-enabling location, shown only when permission is denied.
+    function showHowToGuide() {
+        const howtoEl  = document.getElementById('gps-howto');
+        const howtoMsg = document.getElementById('gps-howto-msg');
+        if (!howtoEl || !howtoMsg) return;
+
+        const domain = window.location.hostname;
+        const lines  = [];
+
+        if (isIOS()) {
+            lines.push('iPhone / iPad:');
+            lines.push('1) Settings → Privacy & Security → Location Services → turn ON.');
+            lines.push('2) Scroll down → Safari → Location → "While Using the App".');
+            lines.push('3) Return here and tap "Try again".');
+            lines.push('');
+            lines.push('If you tapped "Don\'t Allow" before:');
+            lines.push('• Settings → Safari → Location → switch to "While Using the App".');
+            lines.push('• Also check: Settings → Privacy & Security → Location Services → Safari Websites.');
+        } else if (isAndroid()) {
+            lines.push('Android:');
+            lines.push('1) Settings → Location → turn ON.');
+            lines.push('2) Settings → Apps → (your browser) → Permissions → Location → Allow.');
+            lines.push('3) Return here and tap "Try again".');
+            lines.push('');
+            lines.push('Or tap the lock icon in the address bar → Permissions → Location → Allow.');
+        } else {
+            lines.push('• Ensure Location Services is enabled on your device.');
+            lines.push('• Allow location for your browser (Safari / Chrome).');
+            lines.push('• Return here and tap "Try again".');
+        }
+
+        lines.push('');
+        lines.push('Note: Make sure you are on the https:// link for ' + domain + ' — location won\'t work on http://.');
+
+        howtoMsg.textContent  = lines.join('\n');
+        howtoEl.style.display = '';
+    }
+
+    function showGpsError(title, msg, withHowTo) {
         document.getElementById('gps-error-title').textContent = title;
         document.getElementById('gps-error-msg').textContent   = msg;
+        if (withHowTo) showHowToGuide();
         showStep(stepError);
     }
 
@@ -214,9 +271,7 @@
         })
         .then(r => {
             const ct = r.headers.get('content-type') || '';
-            if (!ct.includes('application/json')) {
-                throw new Error('non-json');
-            }
+            if (!ct.includes('application/json')) throw new Error('non-json');
             return r.json();
         })
         .then(data => {
@@ -250,7 +305,7 @@
             } else if (data.gps_error === 'out_of_range') {
                 showGpsError('Too Far from Venue', data.message);
             } else if (data.gps_error === 'location_denied') {
-                showGpsError('Location Required', data.message);
+                showGpsError('Location Required', data.message, true);
             } else {
                 showGpsError('Error', data.error ?? 'Something went wrong. Please try again.');
             }
@@ -259,24 +314,64 @@
     }
 
     function requestLocation() {
-        showStep(stepGps);
+        // Location requires a secure context (HTTPS), except on localhost.
+        const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        if (window.location.protocol !== 'https:' && !isLocalhost) {
+            showGpsError(
+                'Secure link required',
+                'Location only works on secure (HTTPS) pages. Please open the https:// version of this link, or ask an admin to regenerate the QR code.'
+            );
+            return;
+        }
 
-        if (! ('geolocation' in navigator)) {
-            // Device has no GPS — send null, server decides based on meeting settings
+        if (!('geolocation' in navigator)) {
+            // Device has no GPS — send null, server decides based on meeting settings.
             submitCheckin(null, null);
             return;
         }
 
+        showStep(stepGps);
+
         navigator.geolocation.getCurrentPosition(
-            pos  => submitCheckin(pos.coords.latitude, pos.coords.longitude),
-            _err => submitCheckin(null, null),
+            pos => submitCheckin(pos.coords.latitude, pos.coords.longitude),
+            err => {
+                if (err && err.code === 1) {
+                    // PERMISSION_DENIED — no point submitting null; user must re-enable in settings.
+                    showGpsError(
+                        'Location permission denied',
+                        'Location access is required to check in. If you see a prompt, tap "Allow". If you previously tapped "Don\'t Allow", follow the guide below to re-enable location in your phone settings.',
+                        true  // show platform how-to guide
+                    );
+                } else {
+                    // Timeout or position unavailable — submit null, let the server decide.
+                    submitCheckin(null, null);
+                }
+            },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
     }
 
-    btnYes.addEventListener('click', requestLocation);
-    btnRetry && btnRetry.addEventListener('click', requestLocation);
+    // Uses the Permissions API (where available) to show an early warning if location is already
+    // denied — without triggering the browser prompt (iOS requires a user gesture for that).
+    async function maybePreflightPermissionHint() {
+        try {
+            if (!navigator.permissions?.query) return;
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            if (status?.state === 'denied') {
+                const hint = document.createElement('div');
+                hint.className = 'alert alert-warning text-start small mt-3';
+                hint.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i><strong>Location is currently blocked.</strong> You may need to enable it in your phone settings before tapping Check Me In.';
+                stepConfirm && stepConfirm.appendChild(hint);
+            }
+        } catch (_) { /* Permissions API not supported — ignore */ }
+    }
+
+    btnYes.addEventListener('click', (e) => { e.preventDefault(); requestLocation(); });
+    btnRetry && btnRetry.addEventListener('click', (e) => { e.preventDefault(); requestLocation(); });
+
+    maybePreflightPermissionHint();
 })();
 </script>
+@endpush
 @endif
 @endsection

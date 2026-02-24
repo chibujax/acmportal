@@ -32,11 +32,27 @@
                             @error('meeting_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-6">
-                            <label class="form-label fw-medium">Time <span class="text-danger">*</span></label>
+                            <label class="form-label fw-medium">Start Time <span class="text-danger">*</span></label>
                             <input type="time" name="meeting_time"
                                    class="form-control @error('meeting_time') is-invalid @enderror"
                                    value="{{ old('meeting_time', \Carbon\Carbon::parse($meeting->meeting_time)->format('H:i')) }}" required>
                             @error('meeting_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-medium">Late After <span class="text-danger">*</span></label>
+                            <input type="time" name="late_after_time"
+                                   class="form-control @error('late_after_time') is-invalid @enderror"
+                                   value="{{ old('late_after_time', $meeting->late_after_time ? \Carbon\Carbon::parse($meeting->late_after_time)->format('H:i') : '18:15') }}" required>
+                            <div class="form-text">Check-ins after this time are flagged as late.</div>
+                            @error('late_after_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-medium">End Time <span class="text-danger">*</span></label>
+                            <input type="time" name="meeting_end_time"
+                                   class="form-control @error('meeting_end_time') is-invalid @enderror"
+                                   value="{{ old('meeting_end_time', $meeting->meeting_end_time ? \Carbon\Carbon::parse($meeting->meeting_end_time)->format('H:i') : '20:00') }}" required>
+                            <div class="form-text">QR code expires at this time.</div>
+                            @error('meeting_end_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
 
@@ -83,18 +99,18 @@
 
                             <div class="row g-3 mb-3">
                                 <div class="col-6">
-                                    <label class="form-label fw-medium">GPS Radius (metres)</label>
+                                    <label class="form-label fw-medium">GPS Radius (metres) <span class="text-danger">*</span></label>
                                     <input type="number" name="venue_radius"
                                            class="form-control @error('venue_radius') is-invalid @enderror"
-                                           value="{{ old('venue_radius', $meeting->venue_radius ?? 150) }}"
-                                           min="50" max="1000">
+                                           value="{{ old('venue_radius', $meeting->venue_radius ?? 100) }}"
+                                           min="50" max="1000" required>
                                     <div class="form-text">Members must be within this distance to check in.</div>
                                     @error('venue_radius')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-6">
-                                    <label class="form-label fw-medium">If Outside Range</label>
+                                    <label class="form-label fw-medium">If Outside Range <span class="text-danger">*</span></label>
                                     <select name="gps_failure_action"
-                                            class="form-select @error('gps_failure_action') is-invalid @enderror">
+                                            class="form-select @error('gps_failure_action') is-invalid @enderror" required>
                                         <option value="reject" {{ old('gps_failure_action', $meeting->gps_failure_action) === 'reject' ? 'selected' : '' }}>
                                             Block &amp; contact admin
                                         </option>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
@@ -22,7 +23,15 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn() => redirect()->route('login'));
+Route::get('/', function () {
+    if (auth()->check()) {
+        $user = auth()->user();
+        return redirect()->route(
+            $user->isAdmin() || $user->isFinancialSecretary() ? 'admin.dashboard' : 'member.dashboard'
+        );
+    }
+    return redirect()->route('login');
+});
 
 // Auth
 Route::get('/login',   [LoginController::class, 'showLoginForm'])->name('login');
@@ -35,6 +44,14 @@ Route::post('/register',          [RegisterController::class, 'register'])->name
 
 // Email verification
 Route::get('/email/verify/{token}', [EmailVerificationController::class, 'verify'])->name('email.verify');
+
+// Password reset
+Route::get('/forgot-password',             [PasswordResetController::class, 'showForgotForm'])->name('password.forgot');
+Route::post('/forgot-password',            [PasswordResetController::class, 'sendReset'])->name('password.send');
+Route::get('/verify-otp',                  [PasswordResetController::class, 'showOtpForm'])->name('password.otp.form');
+Route::post('/verify-otp',                 [PasswordResetController::class, 'verifyOtp'])->name('password.otp.verify');
+Route::get('/reset-password',              [PasswordResetController::class, 'showResetForm'])->name('password.reset.form');
+Route::post('/reset-password',             [PasswordResetController::class, 'updatePassword'])->name('password.update');
 
 /*
 |--------------------------------------------------------------------------
@@ -108,6 +125,7 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('meetings')->name('meetings.')->group(function () {
             Route::get('/',                           [MeetingController::class, 'index'])->name('index');
             Route::get('/report',                     [MeetingController::class, 'report'])->name('report');
+            Route::get('/report/export',              [MeetingController::class, 'exportReport'])->name('report.export');
             Route::get('/create',                     [MeetingController::class, 'create'])->name('create');
             Route::post('/',                          [MeetingController::class, 'store'])->name('store');
             Route::get('/{meeting}',                  [MeetingController::class, 'show'])->name('show');
@@ -116,6 +134,8 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('/{meeting}/activate',       [MeetingController::class, 'activate'])->name('activate');
             Route::patch('/{meeting}/close',          [MeetingController::class, 'close'])->name('close');
             Route::post('/{meeting}/manual-checkin',  [MeetingController::class, 'manualCheckIn'])->name('manual-checkin');
+            Route::post('/{meeting}/mark-excused',    [MeetingController::class, 'markExcused'])->name('mark-excused');
+            Route::get('/{meeting}/export',           [MeetingController::class, 'exportMeeting'])->name('export');
             Route::delete('/{meeting}/checkin/{record}', [MeetingController::class, 'removeCheckIn'])->name('remove-checkin');
         });
     });

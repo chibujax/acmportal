@@ -14,9 +14,15 @@
         </select>
         <span class="align-self-center text-muted small">{{ $totalMeetings }} meeting(s) held</span>
     </form>
-    <a href="{{ route('admin.meetings.index') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>All Meetings
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('admin.meetings.report.export', ['year' => $year]) }}"
+           class="btn btn-sm btn-outline-success">
+            <i class="bi bi-download me-1"></i>Export CSV
+        </a>
+        <a href="{{ route('admin.meetings.index') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>All Meetings
+        </a>
+    </div>
 </div>
 
 {{-- Summary cards --}}

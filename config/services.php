@@ -27,6 +27,13 @@ return [
         'currency'        => env('STRIPE_CURRENCY', 'GBP'),
     ],
 
+    // ── Vonage (SMS) ───────────────────────────────────────────
+    'vonage' => [
+        'key'      => env('VONAGE_API_KEY'),
+        'secret'   => env('VONAGE_API_SECRET'),
+        'sms_from' => env('VONAGE_SMS_FROM', 'ACMPortal'),
+    ],
+
     // ── Paystack ───────────────────────────────────────────────
     'paystack' => [
         'public_key'      => env('PAYSTACK_PUBLIC_KEY'),

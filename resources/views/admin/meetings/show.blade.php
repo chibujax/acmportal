@@ -118,26 +118,81 @@
     {{-- Right: Attendees + Manual Check-In --}}
     <div class="col-12 col-lg-8">
 
+        {{-- Member search for JS --}}
+        @if($absentees->isNotEmpty())
+        <script>
+        const members = {!! json_encode($absentees->map(fn($m) => ['id' => $m->id, 'name' => $m->name, 'phone' => $m->phone ?? ''])->values()) !!};
+
+        function setupMemberSearch(inputId, hiddenId, dropdownId) {
+            const input    = document.getElementById(inputId);
+            const hidden   = document.getElementById(hiddenId);
+            const dropdown = document.getElementById(dropdownId);
+
+            input.addEventListener('input', function () {
+                const q = this.value.trim().toLowerCase();
+                hidden.value = '';
+
+                if (!q) { dropdown.classList.add('d-none'); return; }
+
+                const matches = members.filter(m =>
+                    m.name.toLowerCase().includes(q) ||
+                    (m.phone && m.phone.toLowerCase().includes(q))
+                ).slice(0, 8);
+
+                if (!matches.length) { dropdown.classList.add('d-none'); return; }
+
+                dropdown.innerHTML = matches.map(m =>
+                    `<button type="button" class="dropdown-item py-2" data-id="${m.id}" data-label="${m.name.replace(/"/g, '&quot;')}">
+                        <span class="fw-medium">${m.name}</span>
+                        <span class="text-muted small ms-2">${m.phone ?? ''}</span>
+                    </button>`
+                ).join('');
+                dropdown.classList.remove('d-none');
+
+                dropdown.querySelectorAll('.dropdown-item').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        input.value  = this.dataset.label;
+                        hidden.value = this.dataset.id;
+                        dropdown.classList.add('d-none');
+                    });
+                });
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('d-none');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            setupMemberSearch('checkinSearch', 'checkinUserId', 'checkinDropdown');
+            setupMemberSearch('excusedSearch', 'excusedUserId', 'excusedDropdown');
+        });
+        </script>
+        @endif
+
         {{-- Manual Check-In --}}
         @if($meeting->status !== 'scheduled')
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm mb-3">
             <div class="card-header bg-white border-0 pt-3 pb-0">
                 <h6 class="fw-semibold mb-3">
                     <i class="bi bi-person-check text-primary me-2"></i>Manual Check-In
                 </h6>
             </div>
             <div class="card-body">
+                @error('error')<div class="alert alert-danger py-2 small">{{ $message }}</div>@enderror
                 <form method="POST" action="{{ route('admin.meetings.manual-checkin', $meeting) }}"
                       class="row g-2">
                     @csrf
-                    <div class="col-12 col-sm-6">
-                        <select name="user_id" class="form-select @error('error') is-invalid @enderror" required>
-                            <option value="">— Select Member —</option>
-                            @foreach($absentees as $m)
-                            <option value="{{ $m->id }}">{{ $m->name }} ({{ $m->phone }})</option>
-                            @endforeach
-                        </select>
-                        @error('error')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div class="col-12 col-sm-6 position-relative">
+                        <input type="text" id="checkinSearch"
+                               class="form-control" placeholder="Search by name or phone…"
+                               autocomplete="off">
+                        <div id="checkinDropdown"
+                             class="d-none w-100 shadow-sm border rounded bg-white"
+                             style="max-height:220px; overflow-y:auto; position:absolute; z-index:1050"></div>
+                        <input type="hidden" name="user_id" id="checkinUserId" required>
                     </div>
                     <div class="col-12 col-sm-4">
                         <input type="text" name="notes" class="form-control"
@@ -151,15 +206,53 @@
                 </form>
             </div>
         </div>
+
+        {{-- Mark Excused / Apologies --}}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <h6 class="fw-semibold mb-3">
+                    <i class="bi bi-patch-check text-info me-2"></i>Mark as Excused / Apologies
+                </h6>
+            </div>
+            <div class="card-body">
+                @error('excused_error')<div class="alert alert-danger py-2 small">{{ $message }}</div>@enderror
+                <form method="POST" action="{{ route('admin.meetings.mark-excused', $meeting) }}"
+                      class="row g-2">
+                    @csrf
+                    <div class="col-12 col-sm-6 position-relative">
+                        <input type="text" id="excusedSearch"
+                               class="form-control" placeholder="Search by name or phone…"
+                               autocomplete="off">
+                        <div id="excusedDropdown"
+                             class="d-none w-100 shadow-sm border rounded bg-white"
+                             style="max-height:220px; overflow-y:auto; position:absolute; z-index:1050"></div>
+                        <input type="hidden" name="user_id" id="excusedUserId" required>
+                    </div>
+                    <div class="col-12 col-sm-4">
+                        <input type="text" name="notes" class="form-control"
+                               placeholder="Reason (e.g. travelling, illness)">
+                    </div>
+                    <div class="col-12 col-sm-2">
+                        <button type="submit" class="btn btn-info text-white w-100">
+                            <i class="bi bi-patch-check"></i> Excuse
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
         @endif
 
         {{-- Attendees list --}}
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between">
+            <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
                 <h6 class="fw-semibold mb-2">
                     <i class="bi bi-people text-success me-2"></i>
                     Who Attended ({{ $meeting->attendanceRecords->count() }})
                 </h6>
+                <a href="{{ route('admin.meetings.export', $meeting) }}"
+                   class="btn btn-sm btn-outline-success mb-2">
+                    <i class="bi bi-download me-1"></i>Export CSV
+                </a>
             </div>
             <div class="card-body p-0">
                 @if($meeting->attendanceRecords->isEmpty())
@@ -187,15 +280,26 @@
                                 <td>
                                     @if($record->check_in_method === 'qr_scan')
                                         <span class="badge bg-primary"><i class="bi bi-qr-code me-1"></i>QR</span>
+                                    @elseif($record->check_in_method === 'excused')
+                                        <span class="badge bg-info text-dark"><i class="bi bi-patch-check me-1"></i>Excused</span>
                                     @else
                                         <span class="badge bg-secondary"><i class="bi bi-hand-index me-1"></i>Manual</span>
                                     @endif
                                 </td>
                                 <td>
-                                    @if($record->status === 'late')
+                                    @if($record->status === 'excused')
+                                        <span class="badge bg-info text-dark">Excused</span>
+                                    @elseif($record->status === 'late')
                                         <span class="badge bg-warning text-dark">Late</span>
                                     @else
                                         <span class="badge bg-success">Present</span>
+                                    @endif
+                                    @if($record->location_mismatch)
+                                        <span class="badge bg-orange text-dark ms-1"
+                                              style="background-color:#fd7e14"
+                                              title="Member was outside GPS radius when checked in">
+                                            <i class="bi bi-geo"></i> GPS Flagged
+                                        </span>
                                     @endif
                                 </td>
                                 <td class="text-muted">{{ $record->notes ?? '—' }}</td>
