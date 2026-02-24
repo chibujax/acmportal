@@ -16,7 +16,8 @@
 <body>
 <div class="wrap">
     <div class="header">
-        <h1>🦅 ACM Portal</h1>
+        <img src="{{ asset('logo.jpg') }}" alt="ACM Portal" style="height:60px; object-fit:contain"><br>
+        <span style="color:#fff; font-size:18px; font-weight:bold">ACM Portal</span>
     </div>
     <div class="body">
         <p>Hello {{ $user->name }},</p>

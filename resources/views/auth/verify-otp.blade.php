@@ -9,7 +9,7 @@
             <div class="col-12 col-sm-10 col-md-7 col-lg-5">
 
                 <div class="text-center mb-4">
-                    <div style="font-size:3rem">🦅</div>
+                    <img src="{{ asset('logo.jpg') }}" alt="ACM Portal" style="height:80px; object-fit:contain">
                     <h2 class="text-white fw-bold mt-2">ACM Portal</h2>
                     <p class="text-white-50">Enter your verification code</p>
                 </div>

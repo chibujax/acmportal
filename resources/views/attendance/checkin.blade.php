@@ -9,7 +9,7 @@
             <div class="col-12 col-sm-8 col-md-5 col-lg-4">
 
                 <div class="text-center mb-4">
-                    <div style="font-size:3rem">🦅</div>
+                    <img src="{{ asset('logo.jpg') }}" alt="ACM Portal" style="height:80px; object-fit:contain">
                     <h4 class="text-white fw-bold mt-2">ACM Attendance</h4>
                 </div>
 

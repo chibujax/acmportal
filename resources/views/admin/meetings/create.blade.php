@@ -59,11 +59,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-medium">Venue</label>
+                        <label class="form-label fw-medium">Venue <span class="text-danger">*</span></label>
                         <input type="text" name="venue"
                                class="form-control @error('venue') is-invalid @enderror"
                                value="{{ old('venue') }}"
-                               placeholder="e.g. Chorlton Irish Club, Manchester">
+                               placeholder="e.g. Chorlton Irish Club, Manchester"
+                               required>
                         @error('venue')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
