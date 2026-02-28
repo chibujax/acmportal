@@ -57,6 +57,19 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label fw-medium">Gender <span class="text-muted small">(optional)</span></label>
+                                <select name="gender" class="form-select @error('gender') is-invalid @enderror">
+                                    <option value="">— Select gender —</option>
+                                    <option value="male"   {{ old('gender') === 'male'   ? 'selected' : '' }}>Male</option>
+                                    <option value="female" {{ old('gender') === 'female' ? 'selected' : '' }}>Female</option>
+                                    <option value="other"  {{ old('gender') === 'other'  ? 'selected' : '' }}>Other</option>
+                                </select>
+                                @error('gender')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label fw-medium">Password <span class="text-danger">*</span></label>
                                 <input type="password" name="password"
                                        class="form-control @error('password') is-invalid @enderror"

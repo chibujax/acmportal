@@ -1,8 +1,55 @@
 @extends('layouts.app')
-@section('title','CSV Import')
-@section('page-title','Import Members via CSV')
+@section('title','Import Members')
+@section('page-title','Import Members')
 
 @section('content')
+{{-- Single invite modal --}}
+<div class="modal fade" id="inviteSingleModal" tabindex="-1" aria-labelledby="inviteSingleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('admin.members.invite.single') }}">
+                @csrf
+                <div class="modal-header">
+                    <h6 class="modal-title fw-semibold" id="inviteSingleModalLabel">
+                        <i class="bi bi-person-plus me-2 text-primary"></i>Invite Individual Member
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}"
+                               class="form-control @error('name') is-invalid @enderror"
+                               placeholder="e.g. John Doe" required>
+                        @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Phone Number <span class="text-danger">*</span></label>
+                        <input type="text" name="phone" value="{{ old('phone') }}"
+                               class="form-control @error('phone') is-invalid @enderror"
+                               placeholder="e.g. 07700900123" required>
+                        @error('phone')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Email <span class="text-muted small">(optional)</span></label>
+                        <input type="email" name="email" value="{{ old('email') }}"
+                               class="form-control @error('email') is-invalid @enderror"
+                               placeholder="e.g. john@example.com">
+                        @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="form-text">If provided, an email invitation will be sent automatically.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send me-1"></i>Add &amp; Send Invite
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
     <!-- Upload Form -->
     <div class="col-12 col-lg-5">
@@ -48,9 +95,14 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
                 <h6 class="fw-semibold mb-0"><i class="bi bi-table text-primary me-2"></i>Import Batches</h6>
-                <a href="{{ route('admin.members.pending') }}" class="btn btn-sm btn-outline-primary">
-                    View Pending
-                </a>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#inviteSingleModal">
+                        <i class="bi bi-person-plus me-1"></i>Invite Individual
+                    </button>
+                    <a href="{{ route('admin.members.pending') }}" class="btn btn-sm btn-outline-primary">
+                        View Pending
+                    </a>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -104,4 +156,15 @@
         @endif
     </div>
 </div>
+@push('scripts')
+@if($errors->any() && old('phone'))
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var modal = new bootstrap.Modal(document.getElementById('inviteSingleModal'));
+        modal.show();
+    });
+</script>
+@endif
+@endpush
+
 @endsection

@@ -18,12 +18,18 @@ class DashboardController extends Controller
             ->where('end_date', '>=', now())
             ->get()
             ->map(function ($cycle) use ($user) {
-                $paid = $user->totalPaid($cycle->id);
-                $cycle->user_paid      = $paid;
-                $cycle->user_remaining = max(0, $cycle->amount - $paid);
-                $cycle->user_percent   = $cycle->amount > 0
-                    ? min(100, round(($paid / $cycle->amount) * 100))
-                    : 0;
+                $obligation = $user->obligationFor($cycle);
+                $paid       = $user->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
+                $remaining  = max(0, $obligation - $paid);
+                $percent    = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
+                $spouse     = $user->spouse();
+
+                $cycle->user_obligation   = $obligation;
+                $cycle->user_paid         = $paid;
+                $cycle->user_remaining    = $remaining;
+                $cycle->user_percent      = $percent;
+                $cycle->is_family_billing = $user->hasSpouse() && $cycle->couple_shared;
+                $cycle->spouse_name       = $spouse ? $spouse->name : null;
                 return $cycle;
             });
 
@@ -53,9 +59,10 @@ class DashboardController extends Controller
             'email'       => "nullable|email|unique:users,email,{$user->id}",
             'address'     => 'nullable|string|max:500',
             'occupation'  => 'nullable|string|max:255',
+            'gender'      => 'nullable|in:male,female,other',
         ]);
 
-        $user->update($request->only('email', 'address', 'occupation'));
+        $user->update($request->only('email', 'address', 'occupation', 'gender'));
 
         return back()->with('success', 'Profile updated.');
     }

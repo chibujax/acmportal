@@ -108,7 +108,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">
                             Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
-                            / £{{ number_format($cycle->amount, 2) }}
+                            / £{{ number_format($cycle->user_obligation, 2) }}
                         </small>
                         @if($cycle->user_remaining > 0)
                             <div class="d-flex gap-2">

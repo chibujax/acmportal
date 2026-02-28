@@ -138,6 +138,54 @@ class CsvImportController extends Controller
     }
 
     /**
+     * Create a single pending member and send them an invite immediately.
+     */
+    public function inviteSingle(Request $request)
+    {
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'phone' => 'required|string|max:30|unique:pending_members,phone|unique:users,phone',
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        $phone = preg_replace('/\s+/', '', $request->phone);
+
+        $member = PendingMember::create([
+            'name'        => $request->name,
+            'phone'       => $phone,
+            'email'       => $request->email ?: null,
+            'status'      => 'pending',
+            'imported_by' => auth()->id(),
+        ]);
+
+        $token = RegistrationToken::generate($member);
+        $registrationUrl = route('register.form', ['token' => $token->token]);
+
+        try {
+            if ($member->email) {
+                Notification::route('mail', $member->email)
+                    ->notify(new RegistrationInviteNotification($member, $registrationUrl));
+            }
+
+            $member->update([
+                'status'     => 'invited',
+                'invited_at' => now(),
+            ]);
+
+            return redirect()->route('admin.members.pending')
+                ->with('success', "Invite created for {$member->name}. Share the registration link from the pending list.");
+        } catch (\Exception $e) {
+            $member->update([
+                'status'         => 'failed',
+                'failure_reason' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('admin.members.pending')
+                ->with('warning', "Member added but invite notification failed: {$e->getMessage()}. You can copy the link manually.");
+        }
+    }
+
+    /**
      * Show pending members list with their registration link so admin can share manually.
      */
     public function pendingList()

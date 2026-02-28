@@ -54,6 +54,7 @@ class RegisterController extends Controller
             'phone'                 => "required|string|unique:users,phone",
             'password'              => 'required|string|min:8|confirmed',
             'email'                 => 'nullable|email|unique:users,email',
+            'gender'                => 'nullable|in:male,female,other',
         ]);
 
         DB::transaction(function () use ($request, $pending, $regToken) {
@@ -64,6 +65,7 @@ class RegisterController extends Controller
                 'password' => Hash::make($request->password),
                 'role'     => 'member',
                 'status'   => 'active',
+                'gender'   => $request->gender,
             ]);
 
             // Mark registration token used

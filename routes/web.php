@@ -9,9 +9,12 @@ use App\Http\Controllers\Admin\MeetingController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\CsvImportController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\DuesCycleController;
+use App\Http\Controllers\Admin\ChildrenController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
+use App\Http\Controllers\Member\RelationshipController;
 use App\Http\Controllers\Payment\ManualPaymentController;
 use App\Http\Controllers\Payment\StripeController;
 use App\Http\Controllers\Payment\PaystackController;
@@ -99,10 +102,11 @@ Route::middleware(['auth'])->group(function () {
         });
 
         // CSV Import
-        Route::get('/import',           [CsvImportController::class, 'showImportForm'])->name('members.import');
-        Route::post('/import',          [CsvImportController::class, 'import'])->name('members.import.post');
-        Route::post('/import/invites',  [CsvImportController::class, 'sendInvites'])->name('members.invites');
-        Route::get('/pending',          [CsvImportController::class, 'pendingList'])->name('members.pending');
+        Route::get('/import',                [CsvImportController::class, 'showImportForm'])->name('members.import');
+        Route::post('/import',               [CsvImportController::class, 'import'])->name('members.import.post');
+        Route::post('/import/invites',       [CsvImportController::class, 'sendInvites'])->name('members.invites');
+        Route::post('/import/invite-single', [CsvImportController::class, 'inviteSingle'])->name('members.invite.single');
+        Route::get('/pending',               [CsvImportController::class, 'pendingList'])->name('members.pending');
 
         // Reports
         Route::prefix('reports')->name('reports.')->group(function () {
@@ -138,6 +142,21 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{meeting}/export',           [MeetingController::class, 'exportMeeting'])->name('export');
             Route::delete('/{meeting}/checkin/{record}', [MeetingController::class, 'removeCheckIn'])->name('remove-checkin');
         });
+
+        // ── Phase 2: Dues Cycles ───────────────────────────────
+        Route::prefix('dues-cycles')->name('dues-cycles.')->group(function () {
+            Route::get('/',                    [DuesCycleController::class, 'index'])->name('index');
+            Route::get('/create',              [DuesCycleController::class, 'create'])->name('create');
+            Route::post('/',                   [DuesCycleController::class, 'store'])->name('store');
+            Route::get('/{duesCycle}',         [DuesCycleController::class, 'show'])->name('show');
+            Route::get('/{duesCycle}/edit',    [DuesCycleController::class, 'edit'])->name('edit');
+            Route::put('/{duesCycle}',         [DuesCycleController::class, 'update'])->name('update');
+            Route::get('/{duesCycle}/export',  [DuesCycleController::class, 'exportCsv'])->name('export');
+        });
+
+        // ── Phase 2: Children (admin overview) ────────────────
+        Route::get('/children',              [ChildrenController::class, 'index'])->name('children.index');
+        Route::delete('/children/{child}',   [ChildrenController::class, 'destroy'])->name('children.destroy');
     });
 
     /*
@@ -151,6 +170,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/profile',     [MemberDashboard::class, 'updateProfile'])->name('profile.update');
         Route::get('/payments',     [MemberDashboard::class, 'paymentHistory'])->name('payments');
         Route::get('/attendance',   [MemberAttendanceController::class, 'index'])->name('attendance');
+
+        // ── Phase 2: Relationships ─────────────────────────────
+        Route::get('/relationships',                              [RelationshipController::class, 'index'])->name('relationships');
+        Route::get('/relationships/spouse/search',               [RelationshipController::class, 'searchSpouse'])->name('relationships.spouse.search');
+        Route::post('/relationships/spouse',                     [RelationshipController::class, 'linkSpouse'])->name('relationships.spouse.link');
+        Route::delete('/relationships/spouse',                   [RelationshipController::class, 'unlinkSpouse'])->name('relationships.spouse.unlink');
+        Route::post('/relationships/children',                   [RelationshipController::class, 'addChild'])->name('relationships.children.add');
+        Route::delete('/relationships/children/{child}',        [RelationshipController::class, 'removeChild'])->name('relationships.children.remove');
     });
 
     /*

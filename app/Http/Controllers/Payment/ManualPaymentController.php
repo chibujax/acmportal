@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payment;
 
 use App\Http\Controllers\Controller;
 use App\Models\DuesCycle;
+use App\Models\MemberRelationship;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -46,7 +47,13 @@ class ManualPaymentController extends Controller
             ->orderBy('name')->get();
         $cycles  = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
 
-        return view('payment.manual.create', compact('members', 'cycles'));
+        $membersWithSpouse = MemberRelationship::where('relationship_type', 'spouse')
+            ->get(['member_id_1', 'member_id_2'])
+            ->flatMap(fn($r) => [$r->member_id_1, $r->member_id_2])
+            ->unique()
+            ->flip();
+
+        return view('payment.manual.create', compact('members', 'cycles', 'membersWithSpouse'));
     }
 
     public function store(Request $request)
@@ -79,7 +86,7 @@ class ManualPaymentController extends Controller
             'proof_of_payment'=> $proofPath,
         ]);
 
-        return redirect()->route('payment.manual.index')
+        return redirect()->route('admin.payments.index')
             ->with('success', 'Payment recorded successfully.');
     }
 

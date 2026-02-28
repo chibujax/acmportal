@@ -167,6 +167,10 @@
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
                 <i class="bi bi-cash-stack"></i> Payments
             </a>
+            <a href="{{ route('admin.dues-cycles.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dues-cycles.*') ? 'active' : '' }}">
+                <i class="bi bi-wallet2"></i> Dues Cycles
+            </a>
             <a href="{{ route('admin.reports.financial') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.financial') ? 'active' : '' }}">
                 <i class="bi bi-graph-up"></i> Financial Report
@@ -174,6 +178,12 @@
             <a href="{{ route('admin.reports.arrears') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.arrears') ? 'active' : '' }}">
                 <i class="bi bi-exclamation-triangle"></i> Arrears
+            </a>
+
+            <div class="nav-section">Family Records</div>
+            <a href="{{ route('admin.children.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.children.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill"></i> Children
             </a>
 
         @else
@@ -195,6 +205,10 @@
             <a href="{{ route('member.profile') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.profile') ? 'active' : '' }}">
                 <i class="bi bi-person-circle"></i> My Profile
+            </a>
+            <a href="{{ route('member.relationships') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.relationships*') ? 'active' : '' }}">
+                <i class="bi bi-heart"></i> Family &amp; Relationships
             </a>
 
         @endif

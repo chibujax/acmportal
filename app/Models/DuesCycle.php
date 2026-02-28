@@ -15,14 +15,15 @@ class DuesCycle extends Model
         'title', 'type', 'amount', 'currency',
         'start_date', 'end_date', 'payment_options',
         'installment_count', 'description', 'status',
-        'send_reminders', 'created_by',
+        'send_reminders', 'couple_shared', 'created_by',
     ];
 
     protected $casts = [
-        'start_date'      => 'date',
-        'end_date'        => 'date',
-        'amount'          => 'float',
-        'send_reminders'  => 'boolean',
+        'start_date'     => 'date',
+        'end_date'       => 'date',
+        'amount'         => 'float',
+        'send_reminders' => 'boolean',
+        'couple_shared'  => 'boolean',
     ];
 
     public function payments(): HasMany

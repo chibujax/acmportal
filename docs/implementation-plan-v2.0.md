@@ -239,7 +239,7 @@ Annual dues are **£120**, but split based on family status:
 
 ### 3.1 Email/SMS Infrastructure
 - **Email** (preferred): via cPanel SMTP — already configured
-- **SMS**: MessageBird or similar (future, optional) — fall back to email only for now
+- **SMS**: vonage or similar (future, optional) — fall back to email only for now
 - Admin creates **message templates** with placeholders (e.g. `{member_name}`, `{meeting_date}`, `{missed_count}`)
 
 ### 3.2 Notification Templates (Admin UI)

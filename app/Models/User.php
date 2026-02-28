@@ -15,7 +15,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'phone', 'email', 'password',
         'role', 'status', 'profile_photo', 'address',
-        'date_of_birth', 'occupation', 'email_verified_at',
+        'date_of_birth', 'gender', 'occupation', 'email_verified_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -60,7 +60,117 @@ class User extends Authenticatable
         return $this->hasMany(AttendanceRecord::class);
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    /**
+     * All MemberRelationship rows involving this user.
+     */
+    public function memberRelationships()
+    {
+        return MemberRelationship::where('member_id_1', $this->id)
+            ->orWhere('member_id_2', $this->id)
+            ->where('relationship_type', 'spouse');
+    }
+
+    /**
+     * Children where this user is the father or mother.
+     */
+    public function childrenAsFather()
+    {
+        return $this->hasMany(MemberChild::class, 'father_id');
+    }
+
+    public function childrenAsMother()
+    {
+        return $this->hasMany(MemberChild::class, 'mother_id');
+    }
+
+    // ── Spouse helpers ────────────────────────────────────────
+
+    /**
+     * Returns the spouse User or null.
+     */
+    public function spouse(): ?self
+    {
+        $rel = MemberRelationship::spouseRelationshipFor($this->id);
+        if (! $rel) return null;
+        return $rel->otherMember($this->id);
+    }
+
+    /**
+     * Returns the MemberRelationship for the spouse link, or null.
+     */
+    public function spouseRelationship(): ?MemberRelationship
+    {
+        return MemberRelationship::spouseRelationshipFor($this->id);
+    }
+
+    public function hasSpouse(): bool
+    {
+        return MemberRelationship::where(function ($q) {
+            $q->where('member_id_1', $this->id)
+              ->orWhere('member_id_2', $this->id);
+        })->where('relationship_type', 'spouse')->exists();
+    }
+
+    /**
+     * All children visible to this user:
+     * - Children they added as father or mother
+     * - If they have a spouse, children of that spouse are also included
+     */
+    public function visibleChildren()
+    {
+        $ids = collect([$this->id]);
+
+        $spouse = $this->spouse();
+        if ($spouse) {
+            $ids->push($spouse->id);
+        }
+
+        return MemberChild::where(function ($q) use ($ids) {
+            $q->whereIn('father_id', $ids)
+              ->orWhereIn('mother_id', $ids);
+        })->with(['father', 'mother'])->get();
+    }
+
+    // ── Family dues helpers ───────────────────────────────────
+
+    /**
+     * If couple_shared: married members owe the full amount (shared),
+     * single members owe half. Otherwise every member owes the full amount.
+     */
+    public function obligationFor(DuesCycle $cycle): float
+    {
+        if ($cycle->couple_shared) {
+            return $this->hasSpouse()
+                ? $cycle->amount
+                : round($cycle->amount / 2, 2);
+        }
+
+        return $cycle->amount;
+    }
+
+    /**
+     * Total paid for a dues cycle.
+     * If couple_shared, includes the spouse's payments too.
+     * If not couple_shared, only this member's own payments count.
+     */
+    public function totalPaidWithSpouse(int $cycleId, bool $coupleShared = true): float
+    {
+        $ids = [$this->id];
+
+        if ($coupleShared) {
+            $spouse = $this->spouse();
+            if ($spouse) {
+                $ids[] = $spouse->id;
+            }
+        }
+
+        return (float) Payment::whereIn('user_id', $ids)
+            ->where('dues_cycle_id', $cycleId)
+            ->where('status', 'completed')
+            ->sum('amount');
+    }
+
+    // ── Existing helpers ──────────────────────────────────────
 
     public function hasVerifiedEmail(): bool
     {

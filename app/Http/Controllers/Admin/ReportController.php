@@ -44,25 +44,29 @@ class ReportController extends Controller
     public function arrears(Request $request)
     {
         $cycleId = $request->get('cycle_id');
-        $cycles  = DuesCycle::where('status', 'active')->get();
+        $cycles  = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
 
         $arrearsMembers = collect();
 
         if ($cycleId) {
-            $cycle   = DuesCycle::findOrFail($cycleId);
-            $paidIds = Payment::where('dues_cycle_id', $cycleId)
-                ->where('status', 'completed')
-                ->pluck('user_id');
+            $cycle = DuesCycle::findOrFail($cycleId);
 
             $arrearsMembers = User::where('role', 'member')
                 ->where('status', 'active')
-                ->whereNotIn('id', $paidIds)
                 ->get()
                 ->map(function ($m) use ($cycle) {
-                    $m->outstanding = $cycle->amount - $m->totalPaid($cycle->id);
+                    $obligation = $m->obligationFor($cycle);
+                    $paid       = $m->totalPaidWithSpouse($cycle->id);
+                    $outstanding = max(0, $obligation - $paid);
+                    $m->obligation  = $obligation;
+                    $m->paid        = $paid;
+                    $m->outstanding = $outstanding;
+                    $m->spouseName  = $m->spouse()?->name;
                     $m->cycle       = $cycle;
                     return $m;
-                });
+                })
+                ->filter(fn($m) => $m->outstanding > 0)
+                ->values();
         }
 
         return view('admin.reports.arrears', compact('cycles', 'cycleId', 'arrearsMembers'));
@@ -75,6 +79,16 @@ class ReportController extends Controller
             ->withCount('payments')
             ->paginate(25);
 
-        return view('admin.reports.members', compact('members'));
+        $genderCounts = User::where('role', 'member')
+            ->where('status', 'active')
+            ->selectRaw("gender, COUNT(*) as total")
+            ->groupBy('gender')
+            ->pluck('total', 'gender');
+
+        $childGenderCounts = \App\Models\MemberChild::selectRaw("gender, COUNT(*) as total")
+            ->groupBy('gender')
+            ->pluck('total', 'gender');
+
+        return view('admin.reports.members', compact('members', 'genderCounts', 'childGenderCounts'));
     }
 }
