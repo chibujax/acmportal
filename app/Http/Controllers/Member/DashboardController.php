@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
+use App\Models\DonationItem;
 use App\Models\DuesCycle;
+use App\Models\MemberPledge;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 
@@ -13,12 +15,30 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        // Pre-load pledges and donation items for this user
+        $myPledges = MemberPledge::where('user_id', $user->id)
+            ->with('duesCycle')
+            ->get()
+            ->keyBy('dues_cycle_id');
+
         $activeCycles = DuesCycle::where('status', 'active')
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->get()
-            ->map(function ($cycle) use ($user) {
-                $obligation = $user->obligationFor($cycle);
+            ->filter(function ($cycle) use ($myPledges) {
+                // Pledge-based cycles only appear for members who have actually pledged
+                return !$cycle->is_pledge_based || $myPledges->has($cycle->id);
+            })
+            ->map(function ($cycle) use ($user, $myPledges) {
+                if ($cycle->is_pledge_based) {
+                    $pledge     = $myPledges->get($cycle->id);
+                    $obligation = $pledge ? $pledge->pledged_amount : 0;
+                    $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
+                } else {
+                    $obligation = $user->obligationFor($cycle);
+                    $cycle->pledge_amount = null;
+                }
+
                 $paid       = $user->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
                 $remaining  = max(0, $obligation - $paid);
                 $percent    = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
@@ -43,7 +63,13 @@ class DashboardController extends Controller
             ->where('status', 'completed')
             ->sum('amount');
 
-        return view('member.dashboard', compact('activeCycles', 'recentPayments', 'totalPaid'));
+        // Donation items this member has contributed
+        $myDonationItems = DonationItem::where('user_id', $user->id)
+            ->with('duesCycle')
+            ->latest()
+            ->get();
+
+        return view('member.dashboard', compact('activeCycles', 'recentPayments', 'totalPaid', 'myDonationItems'));
     }
 
     public function profile()

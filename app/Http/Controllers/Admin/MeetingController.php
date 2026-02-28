@@ -17,10 +17,11 @@ class MeetingController extends Controller
     {
         $year = $request->get('year', now()->year);
 
+        $perPage = in_array((int) $request->get('per_page'), [10, 20, 50, 100]) ? (int) $request->get('per_page') : 20;
         $meetings = Meeting::withCount('attendanceRecords')
             ->whereYear('meeting_date', $year)
             ->orderByDesc('meeting_date')
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString();
 
         $years = Meeting::selectRaw('YEAR(meeting_date) as y')
@@ -230,24 +231,37 @@ class MeetingController extends Controller
         $totalMeetings = $meetings->count();
         $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
 
-        // Per-member stats
+        // Aggregate stats across all members for summary cards (single DB query via withCount)
+        $allStats = User::where('role', 'member')
+            ->where('status', 'active')
+            ->withCount(['attendanceRecords as attended_count' => fn($q) =>
+                $q->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
+                    ->whereIn('status', ['active', 'closed']))
+            ])
+            ->get();
+
+        $avgRate       = $totalMeetings > 0
+            ? round($allStats->avg(fn($u) => ($u->attended_count / $totalMeetings) * 100), 1)
+            : 0;
+        $eligibleCount = $allStats->filter(
+            fn($u) => $totalMeetings > 0 && ($u->attended_count / $totalMeetings * 100) >= 70
+        )->count();
+
+        // Paginated per-member stats for the table
+        $perPage = in_array((int) $request->get('per_page'), [10, 20, 50, 100]) ? (int) $request->get('per_page') : 20;
         $memberStats = User::where('role', 'member')
             ->where('status', 'active')
             ->orderBy('name')
-            ->get()
-            ->map(function ($user) use ($year, $totalMeetings) {
-                $attended = $user->attendanceRecords()
-                    ->whereHas('meeting', fn($q) => $q->whereYear('meeting_date', $year)
-                        ->whereIn('status', ['active', 'closed']))
-                    ->count();
-
-                $percentage = $totalMeetings > 0
-                    ? round(($attended / $totalMeetings) * 100, 1)
-                    : 0;
-
-                $user->attended   = $attended;
-                $user->percentage = $percentage;
-                $user->eligible   = $percentage >= 70; // 70% threshold per spec
+            ->withCount(['attendanceRecords as attended_count' => fn($q) =>
+                $q->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
+                    ->whereIn('status', ['active', 'closed']))
+            ])
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(function ($user) use ($totalMeetings) {
+                $user->attended   = $user->attended_count;
+                $user->percentage = $totalMeetings > 0 ? round(($user->attended_count / $totalMeetings) * 100, 1) : 0;
+                $user->eligible   = $user->percentage >= 70;
                 return $user;
             });
 
@@ -265,7 +279,8 @@ class MeetingController extends Controller
 
         return view('admin.meetings.report', compact(
             'meetings', 'memberStats', 'year', 'years',
-            'totalMeetings', 'totalMembers', 'monthlyChart'
+            'totalMeetings', 'totalMembers', 'monthlyChart',
+            'avgRate', 'eligibleCount'
         ));
     }
 

@@ -21,7 +21,14 @@
                     <option value="suspended" {{ request('status')==='suspended' ? 'selected' : '' }}>Suspended</option>
                 </select>
             </div>
-            <div class="col-6 col-md-3 d-flex gap-2">
+            <div class="col-6 col-md-2">
+                <select name="per_page" class="form-select">
+                    @foreach([10, 20, 50, 100] as $n)
+                        <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-md-1 d-flex gap-2">
                 <button class="btn btn-success flex-grow-1">Filter</button>
                 <a href="{{ route('admin.members.index') }}" class="btn btn-outline-secondary">Reset</a>
             </div>

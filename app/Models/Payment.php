@@ -15,7 +15,7 @@ class Payment extends Model
         'method', 'status', 'gateway_reference', 'gateway_response',
         'gateway_payload', 'recorded_by', 'receipt_number', 'notes',
         'payment_date', 'proof_of_payment', 'installment_number',
-        'total_installments',
+        'total_installments', 'linked_payment_id',
     ];
 
     protected $casts = [
@@ -37,6 +37,11 @@ class Payment extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function pairedPayment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class, 'linked_payment_id');
     }
 
     public function isCompleted(): bool

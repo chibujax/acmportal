@@ -11,6 +11,8 @@ use App\Http\Controllers\Admin\CsvImportController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\DuesCycleController;
 use App\Http\Controllers\Admin\ChildrenController;
+use App\Http\Controllers\Admin\PledgeController;
+use App\Http\Controllers\Admin\DonationItemController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
@@ -153,6 +155,18 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/{duesCycle}',         [DuesCycleController::class, 'update'])->name('update');
             Route::get('/{duesCycle}/export',  [DuesCycleController::class, 'exportCsv'])->name('export');
         });
+
+        // ── Pledges (per dues cycle) ───────────────────────────
+        Route::get('/dues-cycles/{duesCycle}/pledges',  [PledgeController::class, 'index'])->name('pledges.index');
+        Route::post('/dues-cycles/{duesCycle}/pledges', [PledgeController::class, 'store'])->name('pledges.store');
+        Route::delete('/pledges/{pledge}',              [PledgeController::class, 'destroy'])->name('pledges.destroy');
+
+        // ── Donation Items (per dues cycle) ────────────────────
+        Route::get('/dues-cycles/{duesCycle}/items',        [DonationItemController::class, 'index'])->name('donation-items.index');
+        Route::get('/dues-cycles/{duesCycle}/items/create', [DonationItemController::class, 'create'])->name('donation-items.create');
+        Route::post('/dues-cycles/{duesCycle}/items',       [DonationItemController::class, 'store'])->name('donation-items.store');
+        Route::delete('/donation-items/{donationItem}',     [DonationItemController::class, 'destroy'])->name('donation-items.destroy');
+        Route::post('/donation-items/{donationItem}/fulfill', [DonationItemController::class, 'fulfill'])->name('donation-items.fulfill');
 
         // ── Phase 2: Children (admin overview) ────────────────
         Route::get('/children',              [ChildrenController::class, 'index'])->name('children.index');

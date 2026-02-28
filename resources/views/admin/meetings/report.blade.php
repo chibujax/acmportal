@@ -6,13 +6,18 @@
 
 {{-- Year filter --}}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <form method="GET" class="d-flex gap-2">
+    <form method="GET" class="d-flex gap-2 align-items-center">
         <select name="year" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
             @foreach($years->merge([now()->year])->unique()->sortDesc() as $y)
                 <option value="{{ $y }}" {{ $y == $year ? 'selected' : '' }}>{{ $y }}</option>
             @endforeach
         </select>
-        <span class="align-self-center text-muted small">{{ $totalMeetings }} meeting(s) held</span>
+        <select name="per_page" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            @foreach([10, 20, 50, 100] as $n)
+                <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
+            @endforeach
+        </select>
+        <span class="text-muted small">{{ $totalMeetings }} meeting(s) held</span>
     </form>
     <div class="d-flex gap-2">
         <a href="{{ route('admin.meetings.report.export', ['year' => $year]) }}"
@@ -27,12 +32,6 @@
 
 {{-- Summary cards --}}
 <div class="row g-3 mb-4">
-    @php
-        $avgRate = $totalMeetings > 0
-            ? round($memberStats->avg('percentage'), 1)
-            : 0;
-        $eligible = $memberStats->where('eligible', true)->count();
-    @endphp
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center">
             <div class="card-body py-3">
@@ -60,7 +59,7 @@
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center">
             <div class="card-body py-3">
-                <div class="fs-3 fw-bold text-warning">{{ $eligible }}</div>
+                <div class="fs-3 fw-bold text-warning">{{ $eligibleCount }}</div>
                 <div class="small text-muted">Eligible (≥70%)</div>
             </div>
         </div>
@@ -129,6 +128,9 @@
             </table>
         </div>
     </div>
+    @if($memberStats->hasPages())
+    <div class="card-footer bg-white">{{ $memberStats->links() }}</div>
+    @endif
 </div>
 
 {{-- Meetings per-row detail --}}

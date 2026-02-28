@@ -3,7 +3,7 @@
 @section('page-title', $duesCycle->title)
 
 @section('content')
-<div class="d-flex gap-2 mb-3">
+<div class="d-flex gap-2 mb-3 flex-wrap">
     <a href="{{ route('admin.dues-cycles.index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
@@ -13,6 +13,16 @@
     <a href="{{ route('admin.dues-cycles.export', $duesCycle) }}" class="btn btn-sm btn-outline-success">
         <i class="bi bi-download me-1"></i>Export CSV
     </a>
+    @if($duesCycle->is_pledge_based)
+    <a href="{{ route('admin.pledges.index', $duesCycle) }}" class="btn btn-sm btn-outline-info">
+        <i class="bi bi-hand-thumbs-up me-1"></i>Manage Pledges
+    </a>
+    @endif
+    @if($duesCycle->accepts_items && !$duesCycle->is_pledge_based)
+    <a href="{{ route('admin.donation-items.index', $duesCycle) }}" class="btn btn-sm btn-outline-warning">
+        <i class="bi bi-box-seam me-1"></i>Donation Items
+    </a>
+    @endif
 </div>
 
 {{-- Summary Cards --}}
@@ -64,10 +74,16 @@
         @if($duesCycle->description)
             <p class="text-muted small mt-2 mb-0">{{ $duesCycle->description }}</p>
         @endif
-        <div class="mt-2 small text-muted">
-            <i class="bi bi-info-circle me-1"></i>
-            Yearly dues: married couple pays £{{ number_format($duesCycle->amount, 0) }} shared.
-            Single member pays £{{ number_format($duesCycle->amount / 2, 0) }}.
+        <div class="mt-2 small d-flex flex-wrap gap-2">
+            @if($duesCycle->couple_shared)
+            <span class="badge bg-info text-dark"><i class="bi bi-people me-1"></i>Couple shared</span>
+            @endif
+            @if($duesCycle->is_pledge_based)
+            <span class="badge bg-warning text-dark"><i class="bi bi-hand-thumbs-up me-1"></i>Pledge-based</span>
+            @endif
+            @if($duesCycle->accepts_items)
+            <span class="badge bg-secondary"><i class="bi bi-box-seam me-1"></i>Accepts item donations</span>
+            @endif
         </div>
     </div>
 </div>
@@ -129,4 +145,55 @@
         </table>
     </div>
 </div>
+
+@if($duesCycle->accepts_items && $donationItems->isNotEmpty())
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-semibold mb-0"><i class="bi bi-box-seam text-warning me-2"></i>Donation Items</h6>
+        <a href="{{ route('admin.donation-items.create', $duesCycle) }}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-plus me-1"></i>Add Item
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Member</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Quantity</th>
+                    <th>Est. Value</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($donationItems as $item)
+                <tr>
+                    <td class="fw-medium small">{{ $item->user->name }}</td>
+                    <td>
+                        <span class="badge {{ $item->item_type === 'money' ? 'bg-success' : 'bg-secondary' }}">
+                            {{ ucfirst($item->item_type) }}
+                        </span>
+                    </td>
+                    <td class="small">{{ $item->description }}</td>
+                    <td class="small text-muted">{{ $item->quantity ?? '—' }}</td>
+                    <td class="small">{{ $item->formattedValue() }}</td>
+                    <td class="small text-muted">{{ $item->donation_date->format('d M Y') }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@elseif($duesCycle->accepts_items)
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <span class="text-muted small">No donation items recorded yet.</span>
+        <a href="{{ route('admin.donation-items.create', $duesCycle) }}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-plus me-1"></i>Record Item
+        </a>
+    </div>
+</div>
+@endif
+
 @endsection

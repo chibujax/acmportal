@@ -31,66 +31,113 @@
         </div>
     </div>
 
-    {{-- Edit Form --}}
+    {{-- Profile Detail / Edit --}}
     <div class="col-md-8">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-bottom pt-3 pb-2">
-                <h6 class="fw-semibold mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>Update Profile</h6>
+            <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0" id="profile-card-title">
+                    <i class="bi bi-person-lines-fill me-2 text-primary"></i>Profile Details
+                </h6>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="edit-btn" onclick="enterEditMode()">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </button>
             </div>
+
             <div class="card-body">
-                <form method="POST" action="{{ route('member.profile.update') }}">
-                    @csrf
 
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Email Address</label>
-                        <input type="email" name="email" class="form-control @error('email') is-invalid @enderror"
-                               value="{{ old('email', $user->email) }}" placeholder="your@email.com">
-                        @error('email')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                        @if($user->email && $user->hasVerifiedEmail())
-                            <div class="form-text text-success"><i class="bi bi-check-circle me-1"></i>Email verified</div>
-                        @endif
+                {{-- Flash messages --}}
+                @if(session('success'))
+                <div class="alert alert-success py-2 small">{{ session('success') }}</div>
+                @endif
+                <div class="alert alert-info py-2 small d-none" id="no-change-alert">
+                    <i class="bi bi-info-circle me-1"></i>Nothing to change.
+                </div>
+
+                {{-- VIEW MODE --}}
+                <div id="view-mode">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4 text-muted fw-normal small">Email</dt>
+                        <dd class="col-sm-8">{{ $user->email ?: '—' }}
+                            @if($user->email && $user->hasVerifiedEmail())
+                                <span class="badge bg-success-subtle text-success ms-1 small">verified</span>
+                            @elseif($user->email)
+                                <span class="badge bg-warning-subtle text-warning ms-1 small">unverified</span>
+                            @endif
+                        </dd>
+
+                        <dt class="col-sm-4 text-muted fw-normal small">Address</dt>
+                        <dd class="col-sm-8">{{ $user->address ?: '—' }}</dd>
+
+                        <dt class="col-sm-4 text-muted fw-normal small">Occupation</dt>
+                        <dd class="col-sm-8">{{ $user->occupation ?: '—' }}</dd>
+
+                        <dt class="col-sm-4 text-muted fw-normal small">Gender</dt>
+                        <dd class="col-sm-8">{{ $user->gender ? ucfirst($user->gender) : '—' }}</dd>
+                    </dl>
+
+                    @if($user->email && !$user->hasVerifiedEmail())
+                    <div class="alert alert-warning d-flex align-items-center gap-2 py-2 mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div class="small flex-grow-1">Email not verified.</div>
+                        <form method="POST" action="{{ route('email.resend') }}">
+                            @csrf
+                            <button type="submit" class="btn btn-link p-0 text-warning small">Resend</button>
+                        </form>
                     </div>
+                    @endif
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Address</label>
-                        <input type="text" name="address" class="form-control"
-                               value="{{ old('address', $user->address) }}" placeholder="Your home address">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Occupation</label>
-                        <input type="text" name="occupation" class="form-control"
-                               value="{{ old('occupation', $user->occupation) }}" placeholder="e.g. Engineer, Teacher">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Gender</label>
-                        <select name="gender" class="form-select @error('gender') is-invalid @enderror">
-                            <option value="">— Not specified —</option>
-                            <option value="male"   {{ old('gender', $user->gender) === 'male'   ? 'selected' : '' }}>Male</option>
-                            <option value="female" {{ old('gender', $user->gender) === 'female' ? 'selected' : '' }}>Female</option>
-                            <option value="other"  {{ old('gender', $user->gender) === 'other'  ? 'selected' : '' }}>Other</option>
-                        </select>
-                        @error('gender')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <button class="btn btn-primary">Save Changes</button>
-                </form>
-
-                @if($user->email && !$user->hasVerifiedEmail())
-                <div class="alert alert-warning d-flex align-items-center gap-2 py-2 mt-3 mb-0">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <div class="small flex-grow-1">Email not verified.</div>
-                    <form method="POST" action="{{ route('email.resend') }}">
+                {{-- EDIT MODE --}}
+                <div id="edit-mode" class="d-none">
+                    <form method="POST" action="{{ route('member.profile.update') }}" id="profile-form">
                         @csrf
-                        <button type="submit" class="btn btn-link p-0 text-warning small">Resend</button>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Email Address</label>
+                            <input type="email" name="email" id="f-email"
+                                   class="form-control @error('email') is-invalid @enderror"
+                                   value="{{ old('email', $user->email) }}" placeholder="your@email.com"
+                                   data-original="{{ $user->email }}">
+                            @error('email')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Address</label>
+                            <input type="text" name="address" id="f-address" class="form-control"
+                                   value="{{ old('address', $user->address) }}" placeholder="Your home address"
+                                   data-original="{{ $user->address }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Occupation</label>
+                            <input type="text" name="occupation" id="f-occupation" class="form-control"
+                                   value="{{ old('occupation', $user->occupation) }}" placeholder="e.g. Engineer, Teacher"
+                                   data-original="{{ $user->occupation }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Gender</label>
+                            <select name="gender" id="f-gender"
+                                    class="form-select @error('gender') is-invalid @enderror"
+                                    data-original="{{ $user->gender }}">
+                                <option value="">— Not specified —</option>
+                                <option value="male"   {{ old('gender', $user->gender) === 'male'   ? 'selected' : '' }}>Male</option>
+                                <option value="female" {{ old('gender', $user->gender) === 'female' ? 'selected' : '' }}>Female</option>
+                                <option value="other"  {{ old('gender', $user->gender) === 'other'  ? 'selected' : '' }}>Other</option>
+                            </select>
+                            @error('gender')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exitEditMode()">Cancel</button>
+                        </div>
                     </form>
                 </div>
-                @endif
             </div>
         </div>
 
@@ -110,4 +157,44 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+function enterEditMode() {
+    document.getElementById('view-mode').classList.add('d-none');
+    document.getElementById('edit-mode').classList.remove('d-none');
+    document.getElementById('edit-btn').classList.add('d-none');
+    document.getElementById('profile-card-title').innerHTML =
+        '<i class="bi bi-pencil-square me-2 text-primary"></i>Edit Profile';
+    document.getElementById('no-change-alert').classList.add('d-none');
+}
+
+function exitEditMode() {
+    document.getElementById('edit-mode').classList.add('d-none');
+    document.getElementById('view-mode').classList.remove('d-none');
+    document.getElementById('edit-btn').classList.remove('d-none');
+    document.getElementById('profile-card-title').innerHTML =
+        '<i class="bi bi-person-lines-fill me-2 text-primary"></i>Profile Details';
+    document.getElementById('no-change-alert').classList.add('d-none');
+}
+
+document.getElementById('profile-form').addEventListener('submit', function (e) {
+    const fields = ['f-email', 'f-address', 'f-occupation', 'f-gender'];
+    const changed = fields.some(id => {
+        const el = document.getElementById(id);
+        return (el.value || '') !== (el.dataset.original || '');
+    });
+
+    if (!changed) {
+        e.preventDefault();
+        document.getElementById('no-change-alert').classList.remove('d-none');
+    }
+});
+
+// If there were validation errors, stay in edit mode on page load
+@if($errors->any())
+enterEditMode();
+@endif
+</script>
+@endpush
 @endsection

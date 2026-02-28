@@ -20,7 +20,7 @@
                            value="{{ request('search') }}">
                 </div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
                 <select name="status" class="form-select">
                     <option value="">All</option>
                     <option value="completed" {{ request('status')==='completed' ? 'selected' : '' }}>Completed</option>
@@ -29,6 +29,13 @@
                 </select>
             </div>
             <div class="col-6 col-md-2">
+                <select name="per_page" class="form-select">
+                    @foreach([10, 20, 50, 100] as $n)
+                        <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-md-1">
                 <button class="btn btn-success w-100">Filter</button>
             </div>
         </form>

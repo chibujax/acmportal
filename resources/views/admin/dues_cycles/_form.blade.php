@@ -35,14 +35,13 @@
     </div>
 </div>
 
-<div class="mb-3">
-    <label class="form-label fw-medium">Full Amount <span class="text-danger">*</span></label>
+<div class="mb-3" id="amountField">
+    <label class="form-label fw-medium">Full Amount <span class="text-danger" id="amountRequired">*</span></label>
     <div class="input-group">
         <span class="input-group-text">£</span>
-        <input type="number" name="amount" step="0.01" min="0.01"
+        <input type="number" name="amount" id="amountInput" step="0.01" min="0.01"
                class="form-control @error('amount') is-invalid @enderror"
-               value="{{ old('amount', $duesCycle->amount ?? '120.00') }}"
-               required>
+               value="{{ old('amount', $duesCycle->amount ?? '') }}">
     </div>
     @error('amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
 </div>
@@ -120,6 +119,26 @@
 </div>
 
 <div class="form-check mb-2">
+    <input type="hidden" name="is_pledge_based" value="0">
+    <input type="checkbox" name="is_pledge_based" value="1" id="isPledgeBased" class="form-check-input"
+           {{ old('is_pledge_based', $duesCycle->is_pledge_based ?? false) ? 'checked' : '' }}>
+    <label class="form-check-label" for="isPledgeBased">
+        <strong>Pledge-based</strong> — members pledge their own amount
+        <span class="text-muted small d-block">The full amount above is ignored; each member's obligation is set by their individual pledge.</span>
+    </label>
+</div>
+
+<div class="form-check mb-2">
+    <input type="hidden" name="accepts_items" value="0">
+    <input type="checkbox" name="accepts_items" value="1" id="acceptsItems" class="form-check-input"
+           {{ old('accepts_items', $duesCycle->accepts_items ?? false) ? 'checked' : '' }}>
+    <label class="form-check-label" for="acceptsItems">
+        <strong>Accepts item donations</strong> — members can donate physical items (drinks, food, etc.)
+        <span class="text-muted small d-block">Enables recording of non-monetary contributions for this cycle.</span>
+    </label>
+</div>
+
+<div class="form-check mb-2">
     <input type="hidden" name="send_reminders" value="0">
     <input type="checkbox" name="send_reminders" value="1" id="sendReminders" class="form-check-input"
            {{ old('send_reminders', $duesCycle->send_reminders ?? true) ? 'checked' : '' }}>
@@ -133,4 +152,16 @@
         document.getElementById('installmentCountWrap').style.display =
             this.value === 'installments' ? '' : 'none';
     });
+
+    function toggleAmountField() {
+        const isPledgeBased = document.getElementById('isPledgeBased').checked;
+        const amountField = document.getElementById('amountField');
+        const amountInput = document.getElementById('amountInput');
+        amountField.style.display = isPledgeBased ? 'none' : '';
+        amountInput.required = !isPledgeBased;
+        if (isPledgeBased) amountInput.value = '';
+    }
+
+    document.getElementById('isPledgeBased').addEventListener('change', toggleAmountField);
+    toggleAmountField();
 </script>

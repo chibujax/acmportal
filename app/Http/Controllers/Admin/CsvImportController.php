@@ -188,12 +188,14 @@ class CsvImportController extends Controller
     /**
      * Show pending members list with their registration link so admin can share manually.
      */
-    public function pendingList()
+    public function pendingList(Request $request)
     {
+        $perPage = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
         $members = PendingMember::with('registrationToken')
             ->whereIn('status', ['pending', 'invited'])
             ->latest()
-            ->paginate(20);
+            ->paginate($perPage)
+            ->withQueryString();
 
         return view('admin.members.pending', compact('members'));
     }

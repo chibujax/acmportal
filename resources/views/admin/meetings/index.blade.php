@@ -11,6 +11,11 @@
                     <option value="{{ $y }}" {{ $y == $year ? 'selected' : '' }}>{{ $y }}</option>
                 @endforeach
             </select>
+            <select name="per_page" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
+                @endforeach
+            </select>
         </form>
         <span class="text-muted small">{{ $meetings->total() }} meeting(s)</span>
     </div>

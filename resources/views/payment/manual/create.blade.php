@@ -47,6 +47,19 @@
                             @endforeach
                         </select>
                         <div id="obligationHint" class="form-text text-info d-none"></div>
+                        <div id="pledgeHint" class="form-text text-warning d-none"></div>
+                    </div>
+
+                    {{-- Pay for Spouse checkbox (shown dynamically via JS) --}}
+                    <div id="couplePayWrap" class="mb-3 d-none">
+                        <div class="form-check p-3 rounded" style="border:1px solid #e5e7eb; background:#f0fdf4">
+                            <input type="hidden" name="pay_for_spouse" value="0">
+                            <input type="checkbox" name="pay_for_spouse" value="1" id="payForSpouse" class="form-check-input">
+                            <label class="form-check-label" for="payForSpouse">
+                                <strong>Pay for spouse too</strong>
+                                <span id="spouseNameHint" class="text-muted small d-block"></span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -96,42 +109,84 @@
 
 @push('scripts')
 <script type="application/json" id="memberData">{!! json_encode($members->map(fn($m) => ['id' => $m->id, 'name' => $m->name, 'phone' => $m->phone, 'has_spouse' => isset($membersWithSpouse[$m->id])])) !!}</script>
-<script type="application/json" id="cycleData">{!! json_encode($cycles->map(fn($c) => ['id' => $c->id, 'couple_shared' => (bool) $c->couple_shared, 'amount' => $c->amount])) !!}</script>
+<script type="application/json" id="cycleData">{!! json_encode($cycles->map(fn($c) => ['id' => $c->id, 'couple_shared' => (bool) $c->couple_shared, 'is_pledge_based' => (bool) $c->is_pledge_based, 'amount' => $c->amount])) !!}</script>
+<script type="application/json" id="spouseMapData">{!! json_encode($spouseMap) !!}</script>
+<script type="application/json" id="pledgeMapData">{!! json_encode($pledgeMap) !!}</script>
 <script>
 (function () {
-    const members = JSON.parse(document.getElementById('memberData').textContent);
+    const members        = JSON.parse(document.getElementById('memberData').textContent);
+    const cycles         = JSON.parse(document.getElementById('cycleData').textContent);
+    const spouseMap      = JSON.parse(document.getElementById('spouseMapData').textContent);
+    const pledgeMap      = JSON.parse(document.getElementById('pledgeMapData').textContent);
 
-    const cycles        = JSON.parse(document.getElementById('cycleData').textContent);
-    const searchInput   = document.getElementById('memberSearch');
-    const idInput       = document.getElementById('memberIdInput');
-    const suggestions   = document.getElementById('memberSuggestions');
-    const selectedDiv   = document.getElementById('memberSelected');
-    const selectedName  = document.getElementById('memberSelectedName');
-    const clearBtn      = document.getElementById('memberClear');
-    const cycleSelect   = document.getElementById('cycleSelect');
-    const amountInput   = document.querySelector('input[name="amount"]');
+    const searchInput    = document.getElementById('memberSearch');
+    const idInput        = document.getElementById('memberIdInput');
+    const suggestions    = document.getElementById('memberSuggestions');
+    const selectedDiv    = document.getElementById('memberSelected');
+    const selectedName   = document.getElementById('memberSelectedName');
+    const clearBtn       = document.getElementById('memberClear');
+    const cycleSelect    = document.getElementById('cycleSelect');
+    const amountInput    = document.querySelector('input[name="amount"]');
     const obligationHint = document.getElementById('obligationHint');
+    const pledgeHint     = document.getElementById('pledgeHint');
+    const couplePayWrap  = document.getElementById('couplePayWrap');
+    const spouseNameHint = document.getElementById('spouseNameHint');
+    const payForSpouse   = document.getElementById('payForSpouse');
 
     let selectedMember = null;
 
     function updateObligation() {
         const cycleId = parseInt(cycleSelect.value);
-        if (!selectedMember || !cycleId) {
-            obligationHint.classList.add('d-none');
-            return;
-        }
+
+        // Reset UI
+        obligationHint.classList.add('d-none');
+        pledgeHint.classList.add('d-none');
+        couplePayWrap.classList.add('d-none');
+        if (payForSpouse) payForSpouse.checked = false;
+
+        if (!selectedMember || !cycleId) return;
+
         const cycle = cycles.find(c => c.id === cycleId);
         if (!cycle) return;
 
+        const memberId = selectedMember.id;
+
+        // Pledge-based cycle: use pledge amount if available
+        if (cycle.is_pledge_based) {
+            const memberPledges = pledgeMap[memberId];
+            const pledgeAmt = memberPledges ? memberPledges[cycleId] : null;
+            if (pledgeAmt) {
+                amountInput.value = parseFloat(pledgeAmt).toFixed(2);
+                pledgeHint.textContent = `Pledge on record: £${parseFloat(pledgeAmt).toFixed(2)}`;
+                pledgeHint.classList.remove('d-none');
+            } else {
+                pledgeHint.textContent = 'No pledge recorded for this member — enter amount manually.';
+                pledgeHint.classList.remove('d-none');
+            }
+            return;
+        }
+
+        // Flat-rate cycle
         let obligation = cycle.amount;
         if (cycle.couple_shared) {
             obligation = selectedMember.has_spouse ? cycle.amount : cycle.amount / 2;
+            const label = selectedMember.has_spouse ? 'Couple rate' : 'Single rate';
+            obligationHint.textContent = `${label}: £${obligation.toFixed(2)}`;
+            obligationHint.classList.remove('d-none');
+        } else {
+            obligationHint.textContent = `Obligation: £${obligation.toFixed(2)}`;
+            obligationHint.classList.remove('d-none');
         }
-
         amountInput.value = obligation.toFixed(2);
-        const label = selectedMember.has_spouse ? 'Couple rate' : 'Single rate';
-        obligationHint.textContent = `${label}: £${obligation.toFixed(2)}`;
-        obligationHint.classList.remove('d-none');
+
+        // Show "pay for spouse" checkbox only if member has spouse AND cycle is NOT couple_shared
+        if (selectedMember.has_spouse && !cycle.couple_shared) {
+            const spouse = spouseMap[memberId];
+            if (spouse) {
+                spouseNameHint.textContent = `This will also create a £${obligation.toFixed(2)} record for ${spouse.name}.`;
+                couplePayWrap.classList.remove('d-none');
+            }
+        }
     }
 
     cycleSelect.addEventListener('change', updateObligation);
@@ -182,6 +237,8 @@
         searchInput.style.display = '';
         selectedDiv.classList.add('d-none');
         obligationHint.classList.add('d-none');
+        pledgeHint.classList.add('d-none');
+        couplePayWrap.classList.add('d-none');
         searchInput.focus();
     });
 

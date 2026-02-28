@@ -24,7 +24,8 @@ class MemberController extends Controller
             $query->where('status', $request->status);
         }
 
-        $members = $query->latest()->paginate(20)->withQueryString();
+        $perPage = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
+        $members = $query->latest()->paginate($perPage)->withQueryString();
 
         return view('admin.members.index', compact('members'));
     }

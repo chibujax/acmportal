@@ -107,10 +107,18 @@
 
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">
-                            Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
-                            / £{{ number_format($cycle->user_obligation, 2) }}
+                            @if($cycle->is_pledge_based && $cycle->pledge_amount !== null)
+                                Pledge: <strong>£{{ number_format($cycle->pledge_amount, 2) }}</strong>
+                                &middot; Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
+                            @elseif($cycle->is_pledge_based)
+                                <span class="text-warning">No pledge recorded yet</span>
+                                &middot; Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
+                            @else
+                                Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
+                                / £{{ number_format($cycle->user_obligation, 2) }}
+                            @endif
                         </small>
-                        @if($cycle->user_remaining > 0)
+                        @if($cycle->user_remaining > 0 && $cycle->user_obligation > 0)
                             <div class="d-flex gap-2">
                                 <a href="{{ route('payment.stripe.checkout', $cycle) }}"
                                    class="btn btn-sm btn-outline-primary">
@@ -124,7 +132,7 @@
                                     </button>
                                 </form>
                             </div>
-                        @else
+                        @elseif($cycle->user_remaining <= 0 && $cycle->user_obligation > 0)
                             <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Fully Paid</span>
                         @endif
                     </div>
@@ -167,4 +175,38 @@
         </div>
     </div>
 </div>
+
+@if($myDonationItems->isNotEmpty())
+<div class="row g-4 mt-0">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-3">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-box-seam text-warning me-2"></i>My Item Contributions</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @foreach($myDonationItems as $item)
+                    <li class="list-group-item px-3 py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="small fw-medium">{{ $item->description }}</div>
+                                <div class="text-muted" style="font-size:.72rem">
+                                    {{ $item->duesCycle?->title ?? 'General' }}
+                                    @if($item->quantity) &middot; {{ $item->quantity }} @endif
+                                    &middot; {{ $item->donation_date->format('d M Y') }}
+                                </div>
+                            </div>
+                            <span class="badge {{ $item->item_type === 'money' ? 'bg-success' : 'bg-secondary' }}">
+                                {{ $item->estimated_value ? $item->formattedValue() : ucfirst($item->item_type) }}
+                            </span>
+                        </div>
+                    </li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection

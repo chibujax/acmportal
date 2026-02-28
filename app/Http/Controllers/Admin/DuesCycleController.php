@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DuesCycle;
+use App\Models\MemberPledge;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -29,7 +30,7 @@ class DuesCycleController extends Controller
         $data = $request->validate([
             'title'             => 'required|string|max:255',
             'type'              => 'required|in:yearly_dues,donation,event_levy',
-            'amount'            => 'required|numeric|min:0.01',
+            'amount'            => 'nullable|numeric|min:0.01',
             'currency'          => 'required|string|size:3',
             'start_date'        => 'required|date',
             'end_date'          => 'required|date|after:start_date',
@@ -39,11 +40,16 @@ class DuesCycleController extends Controller
             'status'            => 'required|in:draft,active,closed',
             'send_reminders'    => 'nullable|boolean',
             'couple_shared'     => 'nullable|boolean',
+            'is_pledge_based'   => 'nullable|boolean',
+            'accepts_items'     => 'nullable|boolean',
         ]);
 
-        $data['created_by']     = auth()->id();
-        $data['send_reminders'] = $request->boolean('send_reminders');
-        $data['couple_shared']  = $request->boolean('couple_shared');
+        $data['created_by']      = auth()->id();
+        $data['send_reminders']  = $request->boolean('send_reminders');
+        $data['couple_shared']   = $request->boolean('couple_shared');
+        $data['is_pledge_based'] = $request->boolean('is_pledge_based');
+        $data['accepts_items']   = $request->boolean('accepts_items');
+        $data['amount']          = $data['is_pledge_based'] ? 0 : ($data['amount'] ?? 0);
 
         DuesCycle::create($data);
 
@@ -61,7 +67,7 @@ class DuesCycleController extends Controller
         $data = $request->validate([
             'title'             => 'required|string|max:255',
             'type'              => 'required|in:yearly_dues,donation,event_levy',
-            'amount'            => 'required|numeric|min:0.01',
+            'amount'            => 'nullable|numeric|min:0.01',
             'currency'          => 'required|string|size:3',
             'start_date'        => 'required|date',
             'end_date'          => 'required|date|after:start_date',
@@ -71,10 +77,15 @@ class DuesCycleController extends Controller
             'status'            => 'required|in:draft,active,closed',
             'send_reminders'    => 'nullable|boolean',
             'couple_shared'     => 'nullable|boolean',
+            'is_pledge_based'   => 'nullable|boolean',
+            'accepts_items'     => 'nullable|boolean',
         ]);
 
-        $data['send_reminders'] = $request->boolean('send_reminders');
-        $data['couple_shared']  = $request->boolean('couple_shared');
+        $data['send_reminders']  = $request->boolean('send_reminders');
+        $data['couple_shared']   = $request->boolean('couple_shared');
+        $data['is_pledge_based'] = $request->boolean('is_pledge_based');
+        $data['accepts_items']   = $request->boolean('accepts_items');
+        $data['amount']          = $data['is_pledge_based'] ? 0 : ($data['amount'] ?? 0);
 
         $duesCycle->update($data);
 
@@ -86,13 +97,29 @@ class DuesCycleController extends Controller
     {
         $duesCycle->load(['payments.user', 'payments.recordedBy']);
 
+        // Pre-load pledges and items for this cycle
+        $pledgesMap    = $duesCycle->is_pledge_based
+            ? $duesCycle->pledges()->with('user')->get()->keyBy('user_id')
+            : collect();
+        $donationItems = $duesCycle->accepts_items
+            ? $duesCycle->donationItems()->with(['user', 'recordedBy'])->latest()->get()
+            : collect();
+
         // Per-member obligation and payment status
+        // For pledge-based cycles, only show members who have actually pledged
         $members = User::where('role', 'member')
             ->where('status', 'active')
+            ->when($duesCycle->is_pledge_based, fn($q) => $q->whereIn('id', $pledgesMap->keys()->toArray()))
             ->orderBy('name')
             ->get()
-            ->map(function ($user) use ($duesCycle) {
-                $obligation  = $user->obligationFor($duesCycle);
+            ->map(function ($user) use ($duesCycle, $pledgesMap) {
+                if ($duesCycle->is_pledge_based) {
+                    $pledge     = $pledgesMap->get($user->id);
+                    $obligation = $pledge ? $pledge->pledged_amount : 0;
+                } else {
+                    $obligation = $user->obligationFor($duesCycle);
+                }
+
                 $paid        = $user->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
                 $remaining   = max(0, $obligation - $paid);
                 $percent     = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
@@ -102,7 +129,7 @@ class DuesCycleController extends Controller
                 $user->paid        = $paid;
                 $user->remaining   = $remaining;
                 $user->percent     = $percent;
-                $user->settled     = $remaining <= 0;
+                $user->settled     = $remaining <= 0 && $obligation > 0;
                 $user->spouseName  = $spouse ? $spouse->name : null;
                 return $user;
             });
@@ -110,7 +137,10 @@ class DuesCycleController extends Controller
         $totalObligation = $members->sum('obligation');
         $totalCollected  = $duesCycle->totalCollected();
 
-        return view('admin.dues_cycles.show', compact('duesCycle', 'members', 'totalObligation', 'totalCollected'));
+        return view('admin.dues_cycles.show', compact(
+            'duesCycle', 'members', 'totalObligation', 'totalCollected',
+            'pledgesMap', 'donationItems'
+        ));
     }
 
     public function exportCsv(DuesCycle $duesCycle)
