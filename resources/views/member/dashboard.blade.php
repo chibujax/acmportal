@@ -105,14 +105,39 @@
                         <div class="progress-bar bg-success" style="width:{{ $cycle->user_percent }}%"></div>
                     </div>
 
+                    @if($cycle->is_pledge_based && $cycle->my_items->isNotEmpty())
+                    <ul class="list-unstyled mb-2 small text-muted">
+                        @foreach($cycle->my_items as $item)
+                        <li class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                            <span>
+                                <i class="bi bi-box-seam me-1 text-warning"></i>{{ $item->description }}
+                                @if($item->quantity) &middot; {{ $item->quantity }} @endif
+                            </span>
+                            <div class="d-flex gap-1">
+                                <span class="badge bg-secondary">
+                                    {{ $item->estimated_value ? $item->formattedValue() : ucfirst($item->item_type) }}
+                                </span>
+                                @if($item->is_fulfilled)
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Received</span>
+                                @else
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                @endif
+                            </div>
+                        </li>
+                        @endforeach
+                    </ul>
+                    @endif
+
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">
                             @if($cycle->is_pledge_based && $cycle->pledge_amount !== null)
                                 Pledge: <strong>£{{ number_format($cycle->pledge_amount, 2) }}</strong>
                                 &middot; Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
-                            @elseif($cycle->is_pledge_based)
+                            @elseif($cycle->is_pledge_based && $cycle->my_items->isEmpty())
                                 <span class="text-warning">No pledge recorded yet</span>
                                 &middot; Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
+                            @elseif($cycle->is_pledge_based)
+                                Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
                             @else
                                 Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
                                 / £{{ number_format($cycle->user_obligation, 2) }}
@@ -176,37 +201,5 @@
     </div>
 </div>
 
-@if($myDonationItems->isNotEmpty())
-<div class="row g-4 mt-0">
-    <div class="col-12">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-0 pt-3">
-                <h6 class="fw-semibold mb-0"><i class="bi bi-box-seam text-warning me-2"></i>My Item Contributions</h6>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    @foreach($myDonationItems as $item)
-                    <li class="list-group-item px-3 py-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <div class="small fw-medium">{{ $item->description }}</div>
-                                <div class="text-muted" style="font-size:.72rem">
-                                    {{ $item->duesCycle?->title ?? 'General' }}
-                                    @if($item->quantity) &middot; {{ $item->quantity }} @endif
-                                    &middot; {{ $item->donation_date->format('d M Y') }}
-                                </div>
-                            </div>
-                            <span class="badge {{ $item->item_type === 'money' ? 'bg-success' : 'bg-secondary' }}">
-                                {{ $item->estimated_value ? $item->formattedValue() : ucfirst($item->item_type) }}
-                            </span>
-                        </div>
-                    </li>
-                    @endforeach
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
 
 @endsection

@@ -87,3 +87,13 @@ Three launch configs in `.vscode/launch.json`:
 ---
 
 See `docs/implementation-plan-v1.3.md` for full specification.
+
+
+test
+
+
+# Terminal 1
+php artisan serve --env=dusk
+
+# Terminal 2
+php artisan dusk

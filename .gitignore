@@ -38,7 +38,13 @@ Icon?
 /docs/*.xls*
 # Ignore test coverage
 coverage/
+/.phpunit.cache/
+
 
 # Split-script output
 /copper/
 /phase2/
+/.claude/
+
+/database/dusk.sqlite
+database/*.sqlite

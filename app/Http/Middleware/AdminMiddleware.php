@@ -9,7 +9,7 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (! auth()->check() || ! auth()->user()->isAdmin()) {
+        if (! auth()->check() || ! auth()->user()->isFinancialSecretary()) {
             abort(403, 'Admin access required.');
         }
         return $next($request);

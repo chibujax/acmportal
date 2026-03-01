@@ -21,22 +21,26 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('dues_cycle_id');
 
+        $myItemsByCycle = DonationItem::where('user_id', $user->id)
+            ->with('duesCycle')
+            ->latest()
+            ->get()
+            ->groupBy('dues_cycle_id');
+
         $activeCycles = DuesCycle::where('status', 'active')
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->get()
-            ->filter(function ($cycle) use ($myPledges) {
-                // Pledge-based cycles only appear for members who have actually pledged
-                return !$cycle->is_pledge_based || $myPledges->has($cycle->id);
-            })
-            ->map(function ($cycle) use ($user, $myPledges) {
+            ->map(function ($cycle) use ($user, $myPledges, $myItemsByCycle) {
                 if ($cycle->is_pledge_based) {
                     $pledge     = $myPledges->get($cycle->id);
                     $obligation = $pledge ? $pledge->pledged_amount : 0;
                     $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
+                    $cycle->my_items      = $myItemsByCycle->get($cycle->id, collect());
                 } else {
                     $obligation = $user->obligationFor($cycle);
                     $cycle->pledge_amount = null;
+                    $cycle->my_items      = collect();
                 }
 
                 $paid       = $user->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
@@ -63,13 +67,7 @@ class DashboardController extends Controller
             ->where('status', 'completed')
             ->sum('amount');
 
-        // Donation items this member has contributed
-        $myDonationItems = DonationItem::where('user_id', $user->id)
-            ->with('duesCycle')
-            ->latest()
-            ->get();
-
-        return view('member.dashboard', compact('activeCycles', 'recentPayments', 'totalPaid', 'myDonationItems'));
+        return view('member.dashboard', compact('activeCycles', 'recentPayments', 'totalPaid'));
     }
 
     public function profile()

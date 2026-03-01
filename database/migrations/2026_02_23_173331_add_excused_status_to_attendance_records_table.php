@@ -12,12 +12,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add 'excused' to the status enum
-        DB::statement("ALTER TABLE attendance_records MODIFY COLUMN status ENUM('present','late','excused') NOT NULL DEFAULT 'present'");
+        // SQLite does not support MODIFY COLUMN or typed ENUMs – skip on SQLite
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE attendance_records MODIFY COLUMN status ENUM('present','late','excused') NOT NULL DEFAULT 'present'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE attendance_records MODIFY COLUMN status ENUM('present','late') NOT NULL DEFAULT 'present'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE attendance_records MODIFY COLUMN status ENUM('present','late') NOT NULL DEFAULT 'present'");
+        }
     }
 };
