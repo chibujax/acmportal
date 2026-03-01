@@ -11,6 +11,18 @@ use Tests\DuskTestCase;
  */
 class LoginTest extends DuskTestCase
 {
+    public function test_member_cannot_access_admin_dashboard(): void
+    {
+        $this->browse(function (Browser $browser) {
+            $this->loginAsMember($browser, 'member.a@test.com');
+
+            $browser->visit('/admin/dashboard')
+                    ->waitForLocation('/admin/dashboard')
+                    ->assertSee('403')
+                    ->assertSee('Access Denied');
+        });
+    }
+
     public function test_admin_can_login_and_see_admin_dashboard(): void
     {
         $this->browse(function (Browser $browser) {

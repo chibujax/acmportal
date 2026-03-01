@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\DuesCycleController;
 use App\Http\Controllers\Admin\ChildrenController;
 use App\Http\Controllers\Admin\PledgeController;
 use App\Http\Controllers\Admin\DonationItemController;
+use App\Http\Controllers\Admin\SmsTemplateController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
@@ -101,6 +102,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{member}',   [MemberController::class, 'show'])->name('show');
             Route::patch('/{member}/status', [MemberController::class, 'updateStatus'])->name('status');
             Route::patch('/{member}/role',   [MemberController::class, 'updateRole'])->name('role');
+            Route::post('/{member}/sms',     [MemberController::class, 'sendSms'])->name('sms');
         });
 
         // CSV Import
@@ -143,18 +145,24 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{meeting}/mark-excused',    [MeetingController::class, 'markExcused'])->name('mark-excused');
             Route::get('/{meeting}/export',           [MeetingController::class, 'exportMeeting'])->name('export');
             Route::delete('/{meeting}/checkin/{record}', [MeetingController::class, 'removeCheckIn'])->name('remove-checkin');
+            Route::post('/{meeting}/send-absent-sms',    [MeetingController::class, 'sendAbsenteeSms'])->name('send-absent-sms');
         });
 
         // ── Phase 2: Dues Cycles ───────────────────────────────
         Route::prefix('dues-cycles')->name('dues-cycles.')->group(function () {
-            Route::get('/',                    [DuesCycleController::class, 'index'])->name('index');
-            Route::get('/create',              [DuesCycleController::class, 'create'])->name('create');
-            Route::post('/',                   [DuesCycleController::class, 'store'])->name('store');
-            Route::get('/{duesCycle}',         [DuesCycleController::class, 'show'])->name('show');
-            Route::get('/{duesCycle}/edit',    [DuesCycleController::class, 'edit'])->name('edit');
-            Route::put('/{duesCycle}',         [DuesCycleController::class, 'update'])->name('update');
-            Route::get('/{duesCycle}/export',  [DuesCycleController::class, 'exportCsv'])->name('export');
+            Route::get('/',                              [DuesCycleController::class, 'index'])->name('index');
+            Route::get('/create',                        [DuesCycleController::class, 'create'])->name('create');
+            Route::post('/',                             [DuesCycleController::class, 'store'])->name('store');
+            Route::get('/{duesCycle}',                   [DuesCycleController::class, 'show'])->name('show');
+            Route::get('/{duesCycle}/edit',              [DuesCycleController::class, 'edit'])->name('edit');
+            Route::put('/{duesCycle}',                   [DuesCycleController::class, 'update'])->name('update');
+            Route::get('/{duesCycle}/export',            [DuesCycleController::class, 'exportCsv'])->name('export');
+            Route::post('/{duesCycle}/send-reminders',   [DuesCycleController::class, 'sendReminders'])->name('send-reminders');
         });
+
+        // ── SMS Templates ──────────────────────────────────────
+        Route::resource('sms-templates', SmsTemplateController::class)
+            ->names('sms-templates');
 
         // ── Pledges (per dues cycle) ───────────────────────────
         Route::get('/dues-cycles/{duesCycle}/pledges',  [PledgeController::class, 'index'])->name('pledges.index');

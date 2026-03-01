@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DuesCycle;
 use App\Models\MemberPledge;
 use App\Models\User;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 
 class DuesCycleController extends Controller
@@ -141,6 +142,59 @@ class DuesCycleController extends Controller
             'duesCycle', 'members', 'totalObligation', 'totalCollected',
             'pledgesMap', 'donationItems'
         ));
+    }
+
+    public function sendReminders(Request $request, DuesCycle $duesCycle)
+    {
+        $request->validate([
+            'user_ids'   => 'required|array',
+            'user_ids.*' => 'integer',
+            'message'    => 'required|string|max:160',
+        ]);
+
+        $selectedIds   = $request->user_ids;
+        $donationsMap  = $duesCycle->donationItems()->get()->groupBy('user_id');
+
+        $members = User::where('role', 'member')
+            ->where('status', 'active')
+            ->whereNotNull('phone')
+            ->whereIn('id', $selectedIds)
+            ->orderBy('name')
+            ->get();
+
+        $sms    = app(SmsService::class);
+        $sent   = 0;
+        $failed = 0;
+
+        foreach ($members as $member) {
+            $obligation = $member->obligationFor($duesCycle);
+            $paid       = $member->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
+            $remaining  = $obligation - $paid;
+
+            if ($remaining <= 0) {
+                continue;
+            }
+
+            $memberItems = $donationsMap->get($member->id, collect());
+            $donations   = $memberItems->isNotEmpty()
+                ? $memberItems->map(fn ($i) => trim("{$i->quantity} {$i->description}"))->implode(', ')
+                : 'none';
+
+            $message = str_replace(
+                ['{name}', '{amount}', '{cycle}', '{donations}'],
+                [$member->name, number_format($remaining, 2), $duesCycle->title, $donations],
+                $request->message
+            );
+
+            $sms->send($member->phone, $message) ? $sent++ : $failed++;
+        }
+
+        $msg = "SMS reminders sent to {$sent} member(s).";
+        if ($failed > 0) {
+            $msg .= " {$failed} failed — check the application logs for details.";
+        }
+
+        return back()->with($failed > 0 ? 'warning' : 'success', $msg);
     }
 
     public function exportCsv(DuesCycle $duesCycle)

@@ -180,6 +180,11 @@
                 <i class="bi bi-exclamation-triangle"></i> Arrears
             </a>
 
+            <a href="{{ route('admin.sms-templates.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.sms-templates.*') ? 'active' : '' }}">
+                <i class="bi bi-chat-dots"></i> SMS Templates
+            </a>
+
             <div class="nav-section">Family Records</div>
             <a href="{{ route('admin.children.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.children.*') ? 'active' : '' }}">
@@ -265,6 +270,13 @@
         @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="bi bi-exclamation-triangle me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        @if(session('warning'))
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>{{ session('warning') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         @endif

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -48,6 +49,23 @@ class MemberController extends Controller
         $request->validate(['role' => 'required|in:admin,financial_secretary,member']);
         $member->update(['role' => $request->role]);
         return back()->with('success', "Member role updated.");
+    }
+
+    public function sendSms(Request $request, User $member)
+    {
+        $request->validate(['message' => 'required|string|max:160']);
+
+        if (! $member->phone) {
+            return back()->withErrors(['message' => 'This member has no phone number on record.']);
+        }
+
+        $message = str_replace('{name}', $member->name, $request->message);
+
+        $ok = app(SmsService::class)->send($member->phone, $message);
+
+        return $ok
+            ? back()->with('success', "SMS sent to {$member->name}.")
+            : back()->with('warning', "SMS to {$member->name} was not accepted by the provider — check the application logs.");
     }
 
     /**

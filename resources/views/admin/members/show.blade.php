@@ -3,13 +3,6 @@
 @section('page-title', 'Member Profile')
 
 @section('content')
-@if(session('success'))
-<div class="alert alert-success alert-dismissible fade show">
-    {{ session('success') }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-@endif
-
 <div class="row g-4">
 
     {{-- Left: profile card --}}
@@ -58,6 +51,45 @@
             </div>
             <div class="mt-3 small text-muted">Member since {{ $member->created_at->format('F Y') }}</div>
         </div>
+
+        {{-- Send SMS --}}
+        @if(auth()->user()->isFinancialSecretary() && $member->phone)
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white border-bottom pt-3 pb-2">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-phone me-2 text-secondary"></i>Send SMS</h6>
+            </div>
+            <div class="card-body">
+                @error('message')
+                <div class="alert alert-danger py-2 small mb-2">{{ $message }}</div>
+                @enderror
+                <form method="POST" action="{{ route('admin.members.sms', $member) }}">
+                    @csrf
+                    @php $smsTemplates = \App\Models\SmsTemplate::orderBy('name')->get(); @endphp
+                    @if($smsTemplates->isNotEmpty())
+                    <div class="mb-2">
+                        <select id="member-sms-template" class="form-select form-select-sm">
+                            <option value="">— Custom message —</option>
+                            @foreach($smsTemplates as $tpl)
+                            <option value="{{ $tpl->body }}">{{ $tpl->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+                    <textarea name="message" id="member-sms-body" rows="3"
+                              class="form-control form-control-sm mb-1"
+                              maxlength="160" required
+                              placeholder="Type your message…">{{ old('message') }}</textarea>
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="form-text"><code>{name}</code> → member's name</div>
+                        <div class="form-text"><span id="member-sms-count">0</span> / 160</div>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                        <i class="bi bi-send me-1"></i>Send SMS
+                    </button>
+                </form>
+            </div>
+        </div>
+        @endif
 
         {{-- Status management --}}
         <div class="card border-0 shadow-sm mt-3">
@@ -159,4 +191,27 @@
     </div>
 
 </div>
+
+@push('scripts')
+<script>
+    const smsBody    = document.getElementById('member-sms-body');
+    const smsCounter = document.getElementById('member-sms-count');
+    const smsTpl     = document.getElementById('member-sms-template');
+
+    if (smsBody && smsCounter) {
+        function updateSmsCount() { smsCounter.textContent = smsBody.value.length; }
+        smsBody.addEventListener('input', updateSmsCount);
+        updateSmsCount();
+    }
+
+    if (smsTpl && smsBody) {
+        smsTpl.addEventListener('change', function () {
+            if (this.value) {
+                smsBody.value = this.value;
+                smsBody.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+</script>
+@endpush
 @endsection

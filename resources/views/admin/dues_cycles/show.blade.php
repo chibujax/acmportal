@@ -23,6 +23,11 @@
         <i class="bi bi-box-seam me-1"></i>Donation Items
     </a>
     @endif
+    @if($duesCycle->send_reminders && auth()->user()->isFinancialSecretary() && $members->where('remaining', '>', 0)->isNotEmpty())
+    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#smsRemindersModal">
+        <i class="bi bi-phone me-1"></i>SMS Reminders ({{ $members->where('remaining', '>', 0)->count() }})
+    </button>
+    @endif
 </div>
 
 {{-- Summary Cards --}}
@@ -194,6 +199,118 @@
         </a>
     </div>
 </div>
+@endif
+
+@if($duesCycle->send_reminders && auth()->user()->isFinancialSecretary())
+@php $outstandingMembers = $members->filter(fn($m) => $m->remaining > 0); @endphp
+@if($outstandingMembers->isNotEmpty())
+{{-- SMS Reminders Modal --}}
+<div class="modal fade" id="smsRemindersModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('admin.dues-cycles.send-reminders', $duesCycle) }}">
+                @csrf
+                <div class="modal-header">
+                    <h6 class="modal-title fw-semibold"><i class="bi bi-phone me-2"></i>Send SMS Reminders</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {{-- Template picker --}}
+                    @php $smsTemplates = \App\Models\SmsTemplate::orderBy('name')->get(); @endphp
+                    @if($smsTemplates->isNotEmpty())
+                    <div class="mb-3">
+                        <label class="form-label small fw-medium">Load a template</label>
+                        <select id="reminder-template" class="form-select form-select-sm">
+                            <option value="">— Custom message —</option>
+                            @foreach($smsTemplates as $tpl)
+                            <option value="{{ $tpl->body }}">{{ $tpl->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    {{-- Message --}}
+                    <div class="mb-2">
+                        <label class="form-label small fw-medium">Message</label>
+                        <textarea name="message" id="reminder-message" rows="3" class="form-control @error('message') is-invalid @enderror"
+                                  maxlength="160" required
+                                  placeholder="Hi {name}, you have an outstanding balance of £{amount} for {cycle}.">{{ old('message') }}</textarea>
+                        @error('message')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="d-flex justify-content-between mt-1">
+                            <div class="form-text">
+                                <code>{name}</code> &nbsp;·&nbsp;
+                                <code>{amount}</code> &nbsp;·&nbsp;
+                                <code>{cycle}</code> &nbsp;·&nbsp;
+                                <code>{donations}</code> items donated
+                            </div>
+                            <div class="form-text"><span id="reminder-char-count">0</span> / 160</div>
+                        </div>
+                    </div>
+
+                    {{-- Recipient list --}}
+                    <div class="mb-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-medium mb-0">
+                                Recipients — {{ $outstandingMembers->count() }} with outstanding balance
+                            </label>
+                            <button type="button" id="reminder-toggle-all" class="btn btn-link btn-sm p-0 text-decoration-none small">
+                                Deselect all
+                            </button>
+                        </div>
+                        <div class="border rounded p-2" style="max-height:200px; overflow-y:auto">
+                            @foreach($outstandingMembers as $om)
+                            <div class="form-check py-1 border-bottom">
+                                <input class="form-check-input reminder-recipient"
+                                       type="checkbox" name="user_ids[]"
+                                       value="{{ $om->id }}" id="rm-{{ $om->id }}" checked>
+                                <label class="form-check-label small d-flex justify-content-between w-100" for="rm-{{ $om->id }}">
+                                    <span>{{ $om->name }}</span>
+                                    <span class="text-danger ms-2">£{{ number_format($om->remaining, 2) }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-danger">
+                        <i class="bi bi-send me-1"></i>Send Reminders
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    const tplSelect  = document.getElementById('reminder-template');
+    const msgArea    = document.getElementById('reminder-message');
+    const counter    = document.getElementById('reminder-char-count');
+    const toggleBtn  = document.getElementById('reminder-toggle-all');
+
+    function updateCount() { counter.textContent = msgArea.value.length; }
+    msgArea.addEventListener('input', updateCount);
+    updateCount();
+
+    if (tplSelect) {
+        tplSelect.addEventListener('change', function () {
+            if (this.value) { msgArea.value = this.value; updateCount(); }
+        });
+    }
+
+    if (toggleBtn) {
+        let allSelected = true;
+        toggleBtn.addEventListener('click', function () {
+            allSelected = !allSelected;
+            document.querySelectorAll('.reminder-recipient').forEach(cb => cb.checked = allSelected);
+            this.textContent = allSelected ? 'Deselect all' : 'Select all';
+        });
+    }
+</script>
+@endpush
+@endif
 @endif
 
 @endsection

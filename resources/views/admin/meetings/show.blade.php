@@ -39,6 +39,11 @@
         <a href="{{ route('admin.meetings.edit', $meeting) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
+        @if($absentees->isNotEmpty() && auth()->user()->isFinancialSecretary())
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#smsAbsentModal">
+            <i class="bi bi-phone me-1"></i>SMS Absent ({{ $absentees->count() }})
+        </button>
+        @endif
     </div>
 </div>
 
@@ -348,4 +353,117 @@
 
     </div>
 </div>
+
+@if($absentees->isNotEmpty() && auth()->user()->isFinancialSecretary())
+{{-- SMS Absent Members Modal --}}
+<div class="modal fade" id="smsAbsentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('admin.meetings.send-absent-sms', $meeting) }}">
+                @csrf
+                <div class="modal-header">
+                    <h6 class="modal-title fw-semibold"><i class="bi bi-phone me-2"></i>SMS Absent Members</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {{-- Template picker --}}
+                    @php $smsTpls = \App\Models\SmsTemplate::orderBy('name')->get(); @endphp
+                    @if($smsTpls->isNotEmpty())
+                    <div class="mb-3">
+                        <label class="form-label small fw-medium">Load a template</label>
+                        <select id="absent-template" class="form-select form-select-sm">
+                            <option value="">— Custom message —</option>
+                            @foreach($smsTpls as $tpl)
+                            <option value="{{ $tpl->body }}">{{ $tpl->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    {{-- Message --}}
+                    <div class="mb-2">
+                        <label class="form-label small fw-medium">Message</label>
+                        <textarea name="message" id="absent-message" rows="3"
+                                  class="form-control @error('message') is-invalid @enderror"
+                                  maxlength="160" required
+                                  placeholder="Hi {name}, you missed our meeting on {date}. Please contact us.">{{ old('message') }}</textarea>
+                        @error('message')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="d-flex justify-content-between mt-1">
+                            <div class="form-text">
+                                <code>{name}</code> &nbsp;·&nbsp;
+                                <code>{meeting}</code> &nbsp;·&nbsp;
+                                <code>{date}</code>
+                            </div>
+                            <div class="form-text"><span id="absent-char-count">0</span> / 160</div>
+                        </div>
+                    </div>
+
+                    {{-- Recipient list --}}
+                    <div class="mb-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-medium mb-0">
+                                Recipients — {{ $absentees->count() }} absent
+                            </label>
+                            <button type="button" id="absent-toggle-all" class="btn btn-link btn-sm p-0 text-decoration-none small">
+                                Deselect all
+                            </button>
+                        </div>
+                        <div class="border rounded p-2" style="max-height:200px; overflow-y:auto">
+                            @foreach($absentees as $ab)
+                            <div class="form-check py-1 border-bottom">
+                                <input class="form-check-input absent-recipient"
+                                       type="checkbox" name="user_ids[]"
+                                       value="{{ $ab->id }}" id="ab-{{ $ab->id }}"
+                                       {{ $ab->phone ? 'checked' : 'disabled' }}>
+                                <label class="form-check-label small d-flex justify-content-between w-100" for="ab-{{ $ab->id }}">
+                                    <span>{{ $ab->name }}</span>
+                                    <span class="text-muted ms-2">{{ $ab->phone ?? 'no phone' }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-danger">
+                        <i class="bi bi-send me-1"></i>Send SMS
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    const absentTpl    = document.getElementById('absent-template');
+    const absentMsg    = document.getElementById('absent-message');
+    const absentCount  = document.getElementById('absent-char-count');
+    const absentToggle = document.getElementById('absent-toggle-all');
+
+    if (absentMsg && absentCount) {
+        function updateAbsentCount() { absentCount.textContent = absentMsg.value.length; }
+        absentMsg.addEventListener('input', updateAbsentCount);
+        updateAbsentCount();
+    }
+
+    if (absentTpl && absentMsg) {
+        absentTpl.addEventListener('change', function () {
+            if (this.value) { absentMsg.value = this.value; updateAbsentCount(); }
+        });
+    }
+
+    if (absentToggle) {
+        let allSelected = true;
+        absentToggle.addEventListener('click', function () {
+            allSelected = !allSelected;
+            document.querySelectorAll('.absent-recipient:not(:disabled)').forEach(cb => cb.checked = allSelected);
+            this.textContent = allSelected ? 'Deselect all' : 'Select all';
+        });
+    }
+</script>
+@endpush
+@endif
+
 @endsection

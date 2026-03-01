@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SmsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -93,7 +93,10 @@ class PasswordResetController extends Controller
             'created_at' => now(),
         ]);
 
-        $this->sendSmsOtp($user->phone, $otp);
+        app(SmsService::class)->send(
+            $user->phone,
+            "Your ACM Portal password reset code is: {$otp}\nExpires in 10 minutes."
+        );
 
         // Store phone in session so OTP form knows who to verify
         session(['reset_phone' => $user->phone]);
@@ -233,30 +236,4 @@ class PasswordResetController extends Controller
             ->with('success', 'Password updated successfully. Please sign in.');
     }
 
-    // ── Send SMS via Vonage REST API ──────────────────────────
-
-    private function sendSmsOtp(string $phone, string $otp): void
-    {
-        $key    = config('services.vonage.key');
-        $secret = config('services.vonage.secret');
-        $from   = config('services.vonage.sms_from', 'ACMPortal');
-
-        if (! $key || ! $secret) {
-            // Vonage not configured — log for admin awareness
-            \Log::warning("SMS OTP not sent (Vonage not configured). Phone: {$phone}, OTP: {$otp}");
-            return;
-        }
-
-        try {
-            Http::asForm()->post('https://rest.nexmo.com/sms/json', [
-                'api_key'    => $key,
-                'api_secret' => $secret,
-                'to'         => preg_replace('/\D/', '', $phone),
-                'from'       => $from,
-                'text'       => "Your ACM Portal password reset code is: {$otp}\nExpires in 10 minutes.",
-            ]);
-        } catch (\Exception $e) {
-            \Log::error("Failed to send SMS OTP: " . $e->getMessage());
-        }
-    }
 }

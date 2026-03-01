@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\Meeting;
 use App\Models\User;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -457,5 +458,40 @@ class MeetingController extends Controller
         }
 
         return [null, null];
+    }
+
+    // ── Send SMS to absent members ────────────────────────────
+
+    public function sendAbsenteeSms(Request $request, Meeting $meeting)
+    {
+        $request->validate([
+            'user_ids'   => 'required|array',
+            'user_ids.*' => 'integer',
+            'message'    => 'required|string|max:160',
+        ]);
+
+        $absentees = User::whereIn('id', $request->user_ids)
+            ->whereNotNull('phone')
+            ->get();
+
+        $sms    = app(SmsService::class);
+        $sent   = 0;
+        $failed = 0;
+
+        foreach ($absentees as $member) {
+            $message = str_replace(
+                ['{name}', '{meeting}', '{date}'],
+                [$member->name, $meeting->title, $meeting->meeting_date->format('d M Y')],
+                $request->message
+            );
+            $sms->send($member->phone, $message) ? $sent++ : $failed++;
+        }
+
+        $msg = "SMS sent to {$sent} absent member(s).";
+        if ($failed > 0) {
+            $msg .= " {$failed} failed — check the application logs for details.";
+        }
+
+        return back()->with($failed > 0 ? 'warning' : 'success', $msg);
     }
 }

@@ -27,11 +27,23 @@ return [
         'currency'        => env('STRIPE_CURRENCY', 'GBP'),
     ],
 
+    // ── SMS provider switching ──────────────────────────────────
+    'sms' => [
+        'provider' => env('SMS_PROVIDER', 'vonage'),
+    ],
+
     // ── Vonage (SMS) ───────────────────────────────────────────
     'vonage' => [
         'key'      => env('VONAGE_API_KEY'),
         'secret'   => env('VONAGE_API_SECRET'),
         'sms_from' => env('VONAGE_SMS_FROM', 'ACMPortal'),
+    ],
+
+    // ── Twilio (SMS fallback) ───────────────────────────────────
+    'twilio' => [
+        'sid'   => env('TWILIO_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        'from'  => env('TWILIO_FROM'),
     ],
 
     // ── Paystack ───────────────────────────────────────────────
