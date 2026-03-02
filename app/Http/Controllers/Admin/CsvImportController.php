@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PendingMember;
 use App\Models\RegistrationToken;
 use App\Notifications\RegistrationInviteNotification;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -105,21 +106,22 @@ class CsvImportController extends Controller
 
         $members = $query->get();
         $sent    = 0;
+        $sms     = app(SmsService::class);
 
         foreach ($members as $member) {
-            $token = RegistrationToken::generate($member);
-
+            $token           = RegistrationToken::generate($member);
             $registrationUrl = route('register.form', ['token' => $token->token]);
 
-            // Send via SMS or Email (whichever available)
             try {
                 if ($member->email) {
-                    // Email notification (requires MAIL config)
                     Notification::route('mail', $member->email)
                         ->notify(new RegistrationInviteNotification($member, $registrationUrl));
+                } elseif ($member->phone) {
+                    // SMS fallback when no email is available
+                    $appName = config('app.name');
+                    $smsBody = "Hi {$member->name}, you are invited to join {$appName}. Register here: {$registrationUrl}";
+                    $sms->send($member->phone, $smsBody);
                 }
-                // TODO: integrate SMS gateway for phone invites (Twilio, Vonage)
-                // For now, the admin can copy the link manually.
 
                 $member->update([
                     'status'     => 'invited',
@@ -165,6 +167,10 @@ class CsvImportController extends Controller
             if ($member->email) {
                 Notification::route('mail', $member->email)
                     ->notify(new RegistrationInviteNotification($member, $registrationUrl));
+            } elseif ($member->phone) {
+                $appName = config('app.name');
+                $smsBody = "Hi {$member->name}, you are invited to join {$appName}. Register here: {$registrationUrl}";
+                app(SmsService::class)->send($member->phone, $smsBody);
             }
 
             $member->update([

@@ -134,6 +134,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/',                           [MeetingController::class, 'index'])->name('index');
             Route::get('/report',                     [MeetingController::class, 'report'])->name('report');
             Route::get('/report/export',              [MeetingController::class, 'exportReport'])->name('report.export');
+            Route::get('/consecutive-absentees',          [MeetingController::class, 'consecutiveAbsentees'])->name('consecutive-absentees');
+            Route::post('/send-consecutive-sms',          [MeetingController::class, 'sendConsecutiveAbsenteeSms'])->name('send-consecutive-sms');
             Route::get('/create',                     [MeetingController::class, 'create'])->name('create');
             Route::post('/',                          [MeetingController::class, 'store'])->name('store');
             Route::get('/{meeting}',                  [MeetingController::class, 'show'])->name('show');

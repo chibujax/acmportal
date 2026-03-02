@@ -21,6 +21,15 @@ class SmsService
     {
         $to = preg_replace('/\D/', '', $to);
 
+        // Normalise to UK E.164 digits (without leading +)
+        if (str_starts_with($to, '44')) {
+            // already correct: 447xxxxxxxxx
+        } elseif (str_starts_with($to, '0')) {
+            $to = '44' . substr($to, 1);   // 07xxx → 447xxx
+        } elseif (strlen($to) === 10) {
+            $to = '44' . $to;              // 7xxxxxxxxx → 447xxxxxxxxx
+        }
+
         return match ($this->provider) {
             'twilio' => $this->sendViaTwilio($to, $message),
             default  => $this->sendViaVonage($to, $message),

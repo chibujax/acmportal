@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DuesCycle;
 use App\Models\MemberPledge;
 use App\Models\User;
+use App\Services\EmailService;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 
@@ -146,25 +147,37 @@ class DuesCycleController extends Controller
 
     public function sendReminders(Request $request, DuesCycle $duesCycle)
     {
-        $request->validate([
+        $channel = $request->input('channel', 'sms');
+
+        $rules = [
             'user_ids'   => 'required|array',
             'user_ids.*' => 'integer',
-            'message'    => 'required|string|max:160',
-        ]);
+            'channel'    => 'required|in:sms,email',
+            'message'    => 'required|string' . ($channel === 'sms' ? '|max:160' : ''),
+        ];
+        if ($channel === 'email') {
+            $rules['subject'] = 'required|string|max:255';
+        }
+        $request->validate($rules);
 
-        $selectedIds   = $request->user_ids;
-        $donationsMap  = $duesCycle->donationItems()->get()->groupBy('user_id');
+        $selectedIds  = $request->user_ids;
+        $donationsMap = $duesCycle->donationItems()->get()->groupBy('user_id');
 
+        $contactFilter = $channel === 'email' ? 'whereNotNull:email' : 'whereNotNull:phone';
         $members = User::where('role', 'member')
             ->where('status', 'active')
-            ->whereNotNull('phone')
+            ->when($channel === 'email', fn ($q) => $q->whereNotNull('email'))
+            ->when($channel === 'sms',   fn ($q) => $q->whereNotNull('phone'))
             ->whereIn('id', $selectedIds)
             ->orderBy('name')
             ->get();
 
-        $sms    = app(SmsService::class);
         $sent   = 0;
         $failed = 0;
+        $placeholders = ['{name}', '{amount}', '{cycle}', '{donations}'];
+
+        $emailSvc = $channel === 'email' ? app(EmailService::class) : null;
+        $smsSvc   = $channel === 'sms'   ? app(SmsService::class)   : null;
 
         foreach ($members as $member) {
             $obligation = $member->obligationFor($duesCycle);
@@ -180,16 +193,19 @@ class DuesCycleController extends Controller
                 ? $memberItems->map(fn ($i) => trim("{$i->quantity} {$i->description}"))->implode(', ')
                 : 'none';
 
-            $message = str_replace(
-                ['{name}', '{amount}', '{cycle}', '{donations}'],
-                [$member->name, number_format($remaining, 2), $duesCycle->title, $donations],
-                $request->message
-            );
+            $values  = [$member->name, number_format($remaining, 2), $duesCycle->title, $donations];
+            $body    = str_replace($placeholders, $values, $request->message);
 
-            $sms->send($member->phone, $message) ? $sent++ : $failed++;
+            if ($channel === 'email') {
+                $subject = str_replace($placeholders, $values, $request->subject);
+                $emailSvc->send($member->email, $subject, $body) ? $sent++ : $failed++;
+            } else {
+                $smsSvc->send($member->phone, $body) ? $sent++ : $failed++;
+            }
         }
 
-        $msg = "SMS reminders sent to {$sent} member(s).";
+        $label = $channel === 'email' ? 'Email reminders' : 'SMS reminders';
+        $msg   = "{$label} sent to {$sent} member(s).";
         if ($failed > 0) {
             $msg .= " {$failed} failed — check the application logs for details.";
         }

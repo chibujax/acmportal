@@ -23,6 +23,9 @@
         <a href="{{ route('admin.meetings.report') }}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-bar-chart me-1"></i>Attendance Report
         </a>
+        <a href="{{ route('admin.meetings.consecutive-absentees') }}" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-person-x me-1"></i>Consecutive Absentees
+        </a>
         <a href="{{ route('admin.meetings.create') }}" class="btn btn-success btn-sm">
             <i class="bi bi-plus-circle me-1"></i>New Meeting
         </a>

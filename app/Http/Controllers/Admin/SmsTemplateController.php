@@ -10,7 +10,7 @@ class SmsTemplateController extends Controller
 {
     public function index()
     {
-        $templates = SmsTemplate::orderBy('name')->get();
+        $templates = SmsTemplate::orderBy('channel')->orderBy('name')->get();
         return view('admin.sms_templates.index', compact('templates'));
     }
 
@@ -21,10 +21,16 @@ class SmsTemplateController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:100|unique:sms_templates,name',
-            'body' => 'required|string|max:160',
-        ]);
+        $channel = $request->input('channel', 'sms');
+
+        $rules = [
+            'name'    => 'required|string|max:100|unique:sms_templates,name',
+            'channel' => 'required|in:sms,email',
+            'body'    => 'required|string' . ($channel === 'sms' ? '|max:160' : ''),
+            'subject' => $channel === 'email' ? 'required|string|max:255' : 'nullable|string|max:255',
+        ];
+
+        $data = $request->validate($rules);
 
         SmsTemplate::create($data);
 
@@ -39,10 +45,16 @@ class SmsTemplateController extends Controller
 
     public function update(Request $request, SmsTemplate $smsTemplate)
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:100|unique:sms_templates,name,' . $smsTemplate->id,
-            'body' => 'required|string|max:160',
-        ]);
+        $channel = $request->input('channel', 'sms');
+
+        $rules = [
+            'name'    => 'required|string|max:100|unique:sms_templates,name,' . $smsTemplate->id,
+            'channel' => 'required|in:sms,email',
+            'body'    => 'required|string' . ($channel === 'sms' ? '|max:160' : ''),
+            'subject' => $channel === 'email' ? 'required|string|max:255' : 'nullable|string|max:255',
+        ];
+
+        $data = $request->validate($rules);
 
         $smsTemplate->update($data);
 

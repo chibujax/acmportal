@@ -182,7 +182,7 @@
 
             <a href="{{ route('admin.sms-templates.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.sms-templates.*') ? 'active' : '' }}">
-                <i class="bi bi-chat-dots"></i> SMS Templates
+                <i class="bi bi-chat-dots"></i> Message Templates
             </a>
 
             <div class="nav-section">Family Records</div>

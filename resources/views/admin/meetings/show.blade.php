@@ -366,6 +366,17 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+
+                    {{-- Channel selector --}}
+                    <div class="mb-3">
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <input type="radio" class="btn-check" name="channel" id="ab-ch-sms" value="sms" checked>
+                            <label class="btn btn-outline-primary" for="ab-ch-sms"><i class="bi bi-phone me-1"></i>SMS</label>
+                            <input type="radio" class="btn-check" name="channel" id="ab-ch-email" value="email">
+                            <label class="btn btn-outline-primary" for="ab-ch-email"><i class="bi bi-envelope me-1"></i>Email</label>
+                        </div>
+                    </div>
+
                     {{-- Template picker --}}
                     @php $smsTpls = \App\Models\SmsTemplate::orderBy('name')->get(); @endphp
                     @if($smsTpls->isNotEmpty())
@@ -374,11 +385,21 @@
                         <select id="absent-template" class="form-select form-select-sm">
                             <option value="">— Custom message —</option>
                             @foreach($smsTpls as $tpl)
-                            <option value="{{ $tpl->body }}">{{ $tpl->name }}</option>
+                            <option value="{{ $tpl->body }}"
+                                    data-channel="{{ $tpl->channel }}"
+                                    data-subject="{{ $tpl->subject ?? '' }}">{{ $tpl->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     @endif
+
+                    {{-- Subject (email only) --}}
+                    <div class="mb-2 d-none" id="absent-subject-wrap">
+                        <label class="form-label small fw-medium">Subject</label>
+                        <input type="text" name="subject" id="absent-subject"
+                               class="form-control form-control-sm" maxlength="255"
+                               placeholder="e.g. You missed our meeting">
+                    </div>
 
                     {{-- Message --}}
                     <div class="mb-2">
@@ -394,7 +415,7 @@
                                 <code>{meeting}</code> &nbsp;·&nbsp;
                                 <code>{date}</code>
                             </div>
-                            <div class="form-text"><span id="absent-char-count">0</span> / 160</div>
+                            <div class="form-text" id="absent-char-wrap"><span id="absent-char-count">0</span> / 160</div>
                         </div>
                     </div>
 
@@ -414,10 +435,13 @@
                                 <input class="form-check-input absent-recipient"
                                        type="checkbox" name="user_ids[]"
                                        value="{{ $ab->id }}" id="ab-{{ $ab->id }}"
-                                       {{ $ab->phone ? 'checked' : 'disabled' }}>
+                                       data-phone="{{ $ab->phone ? '1' : '0' }}"
+                                       data-email="{{ $ab->email ? '1' : '0' }}"
+                                       {{ $ab->phone ? '' : 'disabled' }}>
                                 <label class="form-check-label small d-flex justify-content-between w-100" for="ab-{{ $ab->id }}">
                                     <span>{{ $ab->name }}</span>
-                                    <span class="text-muted ms-2">{{ $ab->phone ?? 'no phone' }}</span>
+                                    <span class="ab-phone-info text-muted ms-2">{{ $ab->phone ?? 'no phone' }}</span>
+                                    <span class="ab-email-info text-muted ms-2 d-none">{{ $ab->email ?? 'no email' }}</span>
                                 </label>
                             </div>
                             @endforeach
@@ -426,7 +450,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm btn-danger">
+                    <button type="submit" id="absent-send-btn" class="btn btn-sm btn-danger">
                         <i class="bi bi-send me-1"></i>Send SMS
                     </button>
                 </div>
@@ -437,31 +461,75 @@
 
 @push('scripts')
 <script>
+(function () {
     const absentTpl    = document.getElementById('absent-template');
     const absentMsg    = document.getElementById('absent-message');
     const absentCount  = document.getElementById('absent-char-count');
+    const absentCharW  = document.getElementById('absent-char-wrap');
     const absentToggle = document.getElementById('absent-toggle-all');
+    const absentForm   = document.querySelector('#smsAbsentModal form');
+    const absentSendBtn= document.getElementById('absent-send-btn');
+    const subjectWrap  = document.getElementById('absent-subject-wrap');
+    const subjectIn    = document.getElementById('absent-subject');
+    const chSms        = document.getElementById('ab-ch-sms');
+    const chEmail      = document.getElementById('ab-ch-email');
 
-    if (absentMsg && absentCount) {
-        function updateAbsentCount() { absentCount.textContent = absentMsg.value.length; }
-        absentMsg.addEventListener('input', updateAbsentCount);
-        updateAbsentCount();
+    function updateAbsentCount() { absentCount.textContent = absentMsg.value.length; }
+    absentMsg.addEventListener('input', updateAbsentCount);
+    updateAbsentCount();
+
+    function applyChannel(ch) {
+        if (ch === 'sms') {
+            absentMsg.setAttribute('maxlength', '160');
+            absentCharW.classList.remove('d-none');
+            subjectWrap.classList.add('d-none');
+            subjectIn.removeAttribute('required');
+        } else {
+            absentMsg.removeAttribute('maxlength');
+            absentCharW.classList.add('d-none');
+            subjectWrap.classList.remove('d-none');
+            subjectIn.setAttribute('required', '');
+        }
+        document.querySelectorAll('.absent-recipient').forEach(cb => {
+            const has = ch === 'email' ? cb.dataset.email === '1' : cb.dataset.phone === '1';
+            cb.disabled = !has;
+            if (!has) cb.checked = false;
+        });
+        document.querySelectorAll('.ab-phone-info').forEach(el => el.classList.toggle('d-none', ch === 'email'));
+        document.querySelectorAll('.ab-email-info').forEach(el => el.classList.toggle('d-none', ch === 'sms'));
     }
 
-    if (absentTpl && absentMsg) {
+    chSms.addEventListener('change',   () => applyChannel('sms'));
+    chEmail.addEventListener('change', () => applyChannel('email'));
+
+    if (absentTpl) {
         absentTpl.addEventListener('change', function () {
-            if (this.value) { absentMsg.value = this.value; updateAbsentCount(); }
+            const opt = this.options[this.selectedIndex];
+            if (this.value) {
+                absentMsg.value = this.value;
+                if (opt.dataset.subject) subjectIn.value = opt.dataset.subject;
+                updateAbsentCount();
+            }
+        });
+    }
+
+    if (absentForm && absentSendBtn) {
+        absentForm.addEventListener('submit', function () {
+            absentSendBtn.disabled = true;
+            absentSendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Sending…';
         });
     }
 
     if (absentToggle) {
-        let allSelected = true;
+        let allSelected = false;
+        absentToggle.textContent = 'Select all';
         absentToggle.addEventListener('click', function () {
             allSelected = !allSelected;
             document.querySelectorAll('.absent-recipient:not(:disabled)').forEach(cb => cb.checked = allSelected);
             this.textContent = allSelected ? 'Deselect all' : 'Select all';
         });
     }
+})();
 </script>
 @endpush
 @endif

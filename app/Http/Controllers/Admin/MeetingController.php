@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\Meeting;
 use App\Models\User;
+use App\Services\EmailService;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -460,38 +461,138 @@ class MeetingController extends Controller
         return [null, null];
     }
 
-    // ── Send SMS to absent members ────────────────────────────
+    // ── Send SMS / Email to absent members ───────────────────
 
     public function sendAbsenteeSms(Request $request, Meeting $meeting)
     {
-        $request->validate([
+        $channel = $request->input('channel', 'sms');
+
+        $rules = [
             'user_ids'   => 'required|array',
             'user_ids.*' => 'integer',
-            'message'    => 'required|string|max:160',
-        ]);
+            'channel'    => 'required|in:sms,email',
+            'message'    => 'required|string' . ($channel === 'sms' ? '|max:160' : ''),
+        ];
+        if ($channel === 'email') {
+            $rules['subject'] = 'required|string|max:255';
+        }
+        $request->validate($rules);
 
-        $absentees = User::whereIn('id', $request->user_ids)
-            ->whereNotNull('phone')
-            ->get();
-
-        $sms    = app(SmsService::class);
+        $placeholders = ['{name}', '{meeting}', '{date}'];
         $sent   = 0;
         $failed = 0;
 
-        foreach ($absentees as $member) {
-            $message = str_replace(
-                ['{name}', '{meeting}', '{date}'],
-                [$member->name, $meeting->title, $meeting->meeting_date->format('d M Y')],
-                $request->message
-            );
-            $sms->send($member->phone, $message) ? $sent++ : $failed++;
+        if ($channel === 'email') {
+            $absentees = User::whereIn('id', $request->user_ids)->whereNotNull('email')->get();
+            $email = app(EmailService::class);
+            foreach ($absentees as $member) {
+                $values  = [$member->name, $meeting->title, $meeting->meeting_date->format('d M Y')];
+                $subject = str_replace($placeholders, $values, $request->subject);
+                $body    = str_replace($placeholders, $values, $request->message);
+                $email->send($member->email, $subject, $body) ? $sent++ : $failed++;
+            }
+            $label = 'email';
+        } else {
+            $absentees = User::whereIn('id', $request->user_ids)->whereNotNull('phone')->get();
+            $sms = app(SmsService::class);
+            foreach ($absentees as $member) {
+                $values  = [$member->name, $meeting->title, $meeting->meeting_date->format('d M Y')];
+                $message = str_replace($placeholders, $values, $request->message);
+                $sms->send($member->phone, $message) ? $sent++ : $failed++;
+            }
+            $label = 'SMS';
         }
 
-        $msg = "SMS sent to {$sent} absent member(s).";
+        $msg = "{$label} sent to {$sent} absent member(s).";
         if ($failed > 0) {
             $msg .= " {$failed} failed — check the application logs for details.";
         }
 
         return back()->with($failed > 0 ? 'warning' : 'success', $msg);
+    }
+
+    // ── Members absent from last 3 consecutive meetings ──────
+
+    public function consecutiveAbsentees()
+    {
+        $lastMeetings = Meeting::whereIn('status', ['active', 'closed'])
+            ->orderByDesc('meeting_date')
+            ->take(3)
+            ->get();
+
+        if ($lastMeetings->count() < 3) {
+            return view('admin.meetings.consecutive_absentees', [
+                'members'      => collect(),
+                'lastMeetings' => $lastMeetings,
+                'enough'       => false,
+            ]);
+        }
+
+        $meetingIds = $lastMeetings->pluck('id');
+
+        // Members who attended at least one of the 3 meetings
+        $attendedAny = AttendanceRecord::whereIn('meeting_id', $meetingIds)
+            ->pluck('user_id')
+            ->unique();
+
+        $members = User::where('role', 'member')
+            ->where('status', 'active')
+            ->whereNotIn('id', $attendedAny)
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.meetings.consecutive_absentees', [
+            'members'      => $members,
+            'lastMeetings' => $lastMeetings,
+            'enough'       => true,
+        ]);
+    }
+
+    // ── Send SMS / Email to consecutive absentees ─────────────
+
+    public function sendConsecutiveAbsenteeSms(Request $request)
+    {
+        $channel = $request->input('channel', 'sms');
+
+        $rules = [
+            'user_ids'   => 'required|array',
+            'user_ids.*' => 'integer',
+            'channel'    => 'required|in:sms,email',
+            'message'    => 'required|string' . ($channel === 'sms' ? '|max:160' : ''),
+        ];
+        if ($channel === 'email') {
+            $rules['subject'] = 'required|string|max:255';
+        }
+        $request->validate($rules);
+
+        $sent   = 0;
+        $failed = 0;
+
+        if ($channel === 'email') {
+            $members = User::whereIn('id', $request->user_ids)->whereNotNull('email')->get();
+            $email   = app(EmailService::class);
+            foreach ($members as $member) {
+                $subject = str_replace('{name}', $member->name, $request->subject);
+                $body    = str_replace('{name}', $member->name, $request->message);
+                $email->send($member->email, $subject, $body) ? $sent++ : $failed++;
+            }
+            $label = 'Email';
+        } else {
+            $members = User::whereIn('id', $request->user_ids)->whereNotNull('phone')->get();
+            $sms     = app(SmsService::class);
+            foreach ($members as $member) {
+                $message = str_replace('{name}', $member->name, $request->message);
+                $sms->send($member->phone, $message) ? $sent++ : $failed++;
+            }
+            $label = 'SMS';
+        }
+
+        $msg = "{$label} sent to {$sent} member(s).";
+        if ($failed > 0) {
+            $msg .= " {$failed} failed — check logs.";
+        }
+
+        return redirect()->route('admin.meetings.consecutive-absentees')
+            ->with($failed > 0 ? 'warning' : 'success', $msg);
     }
 }
