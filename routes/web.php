@@ -14,6 +14,9 @@ use App\Http\Controllers\Admin\ChildrenController;
 use App\Http\Controllers\Admin\PledgeController;
 use App\Http\Controllers\Admin\DonationItemController;
 use App\Http\Controllers\Admin\SmsTemplateController;
+use App\Http\Controllers\Admin\BulkMessageController;
+use App\Http\Controllers\Admin\NotificationRecipientController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
@@ -95,6 +98,11 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
 
         Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard')->middleware('superadmin');
+
+        // Audit Trail
+        Route::middleware('page:audit')->group(function () {
+            Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+        });
 
         // ── Role Management (super admin only) ────────────────
         Route::middleware('superadmin')->prefix('roles')->name('roles.')->group(function () {
@@ -207,6 +215,20 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('page:communications')->group(function () {
             Route::resource('sms-templates', SmsTemplateController::class)
                 ->names('sms-templates');
+        });
+
+        // Bulk Messaging
+        Route::middleware('page:messaging')->group(function () {
+            Route::get('/messages',       [BulkMessageController::class, 'index'])->name('messages.index');
+            Route::post('/messages/send', [BulkMessageController::class, 'send'])->name('messages.send');
+        });
+
+        // Cron Alert Recipients
+        Route::middleware('page:recipients')->group(function () {
+            Route::get('/notification-recipients',                                  [NotificationRecipientController::class, 'index'])->name('notification-recipients.index');
+            Route::post('/notification-recipients',                                 [NotificationRecipientController::class, 'store'])->name('notification-recipients.store');
+            Route::patch('/notification-recipients/{notificationRecipient}/toggle', [NotificationRecipientController::class, 'toggle'])->name('notification-recipients.toggle');
+            Route::delete('/notification-recipients/{notificationRecipient}',       [NotificationRecipientController::class, 'destroy'])->name('notification-recipients.destroy');
         });
 
         // Children (admin overview)

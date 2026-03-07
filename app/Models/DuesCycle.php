@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use App\Models\DonationItem;
 
 class DuesCycle extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'title', 'type', 'amount', 'currency',

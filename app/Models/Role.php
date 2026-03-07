@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
+    use LogsActivity;
+
     protected $fillable = ['name', 'description', 'pages'];
 
     protected $casts = [
@@ -25,8 +28,11 @@ class Role extends Model
         'reports'        => 'Financial Reports',
         'arrears'        => 'Arrears Report',
         'communications' => 'Message Templates',
+        'messaging'      => 'Bulk Message',
+        'recipients'     => 'Cron Alert Recipients',
         'import'         => 'CSV Import & Pending Invites',
         'children'       => 'Children & Family Records',
+        'audit'          => 'Audit Trail',
     ];
 
     public function users()

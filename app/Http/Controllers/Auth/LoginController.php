@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -54,6 +55,16 @@ class LoginController extends Controller
             Auth::logout();
             return back()->withErrors(['login' => 'Your account has been suspended. Please contact an administrator.']);
         }
+
+        ActivityLog::create([
+            'user_id'       => $user->id,
+            'action'        => 'login',
+            'resource_type' => 'User',
+            'resource_id'   => $user->id,
+            'description'   => 'Logged in',
+            'ip_address'    => $request->ip(),
+            'created_at'    => now(),
+        ]);
 
         return redirect()->intended($user->isSuperAdmin()
             ? route('admin.dashboard')

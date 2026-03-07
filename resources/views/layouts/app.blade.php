@@ -147,11 +147,22 @@
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                 <i class="bi bi-speedometer2"></i> Admin Dashboard
             </a>
+            @endif
+
+            @if($user->isSuperAdmin() || $user->hasAccess('audit'))
             <div class="nav-section">Administration</div>
+            @if($user->isSuperAdmin())
             <a href="{{ route('admin.roles.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
                 <i class="bi bi-shield-lock"></i> Role Management
             </a>
+            @endif
+            @if($user->isSuperAdmin() || $user->hasAccess('audit'))
+            <a href="{{ route('admin.audit.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.audit.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Audit Trail
+            </a>
+            @endif
             @endif
 
             @if($user->hasAccess('members'))
@@ -220,11 +231,26 @@
             @endif
             @endif
 
+            @if($user->hasAccess('communications') || $user->hasAccess('messaging') || $user->hasAccess('recipients'))
+            <div class="nav-section">Communications</div>
             @if($user->hasAccess('communications'))
             <a href="{{ route('admin.sms-templates.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.sms-templates.*') ? 'active' : '' }}">
                 <i class="bi bi-chat-dots"></i> Message Templates
             </a>
+            @endif
+            @if($user->hasAccess('messaging'))
+            <a href="{{ route('admin.messages.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">
+                <i class="bi bi-send"></i> Bulk Message
+            </a>
+            @endif
+            @if($user->hasAccess('recipients'))
+            <a href="{{ route('admin.notification-recipients.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.notification-recipients.*') ? 'active' : '' }}">
+                <i class="bi bi-bell"></i> Alert Recipients
+            </a>
+            @endif
             @endif
 
             @if($user->hasAccess('children'))

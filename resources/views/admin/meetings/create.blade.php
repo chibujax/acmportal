@@ -104,7 +104,7 @@
                                 @error('venue_postcode')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 <div id="lookupStatus" class="mt-2">
                                     @if(old('geocode_source') === 'ideal_postcodes')
-                                        <span class="badge bg-success"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed</span>
+                                        <span class="text-success small"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed: {{ old('venue') }}</span>
                                     @else
                                         <span class="text-muted small">Enter the postcode and click Look Up to find addresses.</span>
                                     @endif
@@ -125,8 +125,8 @@
                                     <label class="form-label fw-medium">GPS Radius (metres) <span class="text-danger">*</span></label>
                                     <input type="number" name="venue_radius"
                                            class="form-control @error('venue_radius') is-invalid @enderror"
-                                           value="{{ old('venue_radius', 100) }}"
-                                           min="50" max="1000" required>
+                                           value="{{ old('venue_radius', 25) }}"
+                                           min="10" max="1000" required>
                                     <div class="form-text">Members must be within this distance to check in.</div>
                                     @error('venue_radius')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
@@ -262,7 +262,7 @@
         sourceField.value = 'ideal_postcodes';
         addressConfirmed  = true;
         submitBtn.disabled = false;
-        statusDiv.innerHTML = `<span class="badge bg-success"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed: ${escHtml(opt.dataset.address)}</span>`;
+        statusDiv.innerHTML = `<span class="text-success small"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed: ${escHtml(opt.dataset.address)}</span>`;
     });
 
     // Block submit if no address confirmed

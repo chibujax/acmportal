@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MemberChild extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'first_name',
         'last_name',

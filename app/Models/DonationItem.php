@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DonationItem extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'user_id', 'dues_cycle_id', 'item_type', 'description',

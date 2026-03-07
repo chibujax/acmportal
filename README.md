@@ -97,3 +97,38 @@ php artisan serve --env=dusk
 
 # Terminal 2
 php artisan dusk
+
+
+Production (cPanel)
+On cPanel you add one single cron job that runs every minute. Laravel's scheduler handles the rest from there.
+
+Steps:
+
+Log into cPanel → Cron Jobs
+Set frequency to: * * * * * (every minute)
+Set the command to:
+
+/usr/local/bin/php /home/YOUR_CPANEL_USERNAME/public_html/artisan schedule:run >> /dev/null 2>&1
+Finding the right paths — SSH into the server and run:
+
+
+which php          # gets the PHP binary path
+pwd                # run from your project root to get the artisan path
+The comment already in routes/console.php documents this:
+
+
+* * * * * /usr/bin/php /path/to/artisan schedule:run >> /dev/null 2>&1
+What that one cron job controls
+Once the every-minute cron is set, all your scheduled tasks are handled automatically:
+
+Task	When it runs
+queue:work --stop-when-empty	Every minute
+acm:monthly-absentee-alert	00:00 on the last Saturday of the month
+You never need to add more cron jobs for future scheduled commands — just add them to routes/console.php and the same minute-cron picks them up.
+
+Testing options:
+
+What you want	Command
+Fire it right now (ignores schedule)	php artisan acm:monthly-absentee-alert
+See when it will next run	php artisan schedule:list
+Force the scheduler to check right now	php artisan schedule:run
