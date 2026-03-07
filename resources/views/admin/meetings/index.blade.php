@@ -20,15 +20,21 @@
         <span class="text-muted small">{{ $meetings->total() }} meeting(s)</span>
     </div>
     <div class="d-flex gap-2">
+        @if(auth()->user()->hasAccess('attendance'))
         <a href="{{ route('admin.meetings.report') }}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-bar-chart me-1"></i>Attendance Report
         </a>
+        @endif
+        @if(auth()->user()->hasAccess('absentees'))
         <a href="{{ route('admin.meetings.consecutive-absentees') }}" class="btn btn-outline-danger btn-sm">
             <i class="bi bi-person-x me-1"></i>Consecutive Absentees
         </a>
+        @endif
+        @if(auth()->user()->hasAccess('meetings'))
         <a href="{{ route('admin.meetings.create') }}" class="btn btn-success btn-sm">
             <i class="bi bi-plus-circle me-1"></i>New Meeting
         </a>
+        @endif
     </div>
 </div>
 

@@ -19,23 +19,23 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // ── Admin ─────────────────────────────────────────────
+        // ── Super Admin ───────────────────────────────────────
         $admin = User::firstOrCreate(['phone' => '07000000001'], [
             'name'     => 'ACM Admin',
             'email'    => 'admin@abiacommunitymanchester.org',
             'phone'    => '07000000001',
             'password' => Hash::make('Admin@1234'),
-            'role'     => 'admin',
+            'role'     => 'super_admin',
             'status'   => 'active',
         ]);
 
-        // ── Financial Secretary ───────────────────────────────
+        // ── Admin (with all pages access via a default role) ──
         $finSec = User::firstOrCreate(['phone' => '07000000002'], [
             'name'     => 'Financial Secretary',
             'email'    => 'finsec@abiacommunitymanchester.org',
             'phone'    => '07000000002',
             'password' => Hash::make('FinSec@1234'),
-            'role'     => 'financial_secretary',
+            'role'     => 'admin',
             'status'   => 'active',
         ]);
 
@@ -230,8 +230,8 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->command->info('✅ Demo data seeded (Phase 1 + 2).');
-        $this->command->info('   Admin:      07000000001 / Admin@1234');
-        $this->command->info('   Fin. Sec.:  07000000002 / FinSec@1234');
+        $this->command->info('   Super Admin:  07000000001 / Admin@1234');
+        $this->command->info('   Admin:        07000000002 / FinSec@1234');
         $this->command->info('   Members:    07111111001–005 / Member@1234');
         $this->command->info('   Couple:     Chukwuemeka (001) married to Ngozi (002) — £120 shared');
         $this->command->info('   Single:     Emeka (003) — £60');

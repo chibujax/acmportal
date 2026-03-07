@@ -12,8 +12,12 @@
                 </h6>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ route('admin.meetings.store') }}">
+                <form method="POST" action="{{ route('admin.meetings.store') }}" id="meetingForm">
                     @csrf
+                    {{-- Hidden geocode fields populated by JS after address lookup --}}
+                    <input type="hidden" name="venue_lat"      id="venueLat"      value="{{ old('venue_lat') }}">
+                    <input type="hidden" name="venue_lng"      id="venueLng"      value="{{ old('venue_lng') }}">
+                    <input type="hidden" name="geocode_source" id="geocodeSource" value="{{ old('geocode_source') }}">
 
                     <div class="mb-3">
                         <label class="form-label fw-medium">Title <span class="text-danger">*</span></label>
@@ -44,7 +48,7 @@
                             <label class="form-label fw-medium">Late After <span class="text-danger">*</span></label>
                             <input type="time" name="late_after_time"
                                    class="form-control @error('late_after_time') is-invalid @enderror"
-                                   value="{{ old('late_after_time', '18:15') }}" required>
+                                   value="{{ old('late_after_time', '18:30') }}" required>
                             <div class="form-text">Check-ins after this time are flagged as late.</div>
                             @error('late_after_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
@@ -59,12 +63,13 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-medium">Venue <span class="text-danger">*</span></label>
-                        <input type="text" name="venue"
+                        <label class="form-label fw-medium">Venue Address <span class="text-danger">*</span></label>
+                        <input type="text" name="venue" id="venueInput"
                                class="form-control @error('venue') is-invalid @enderror"
                                value="{{ old('venue') }}"
-                               placeholder="e.g. Chorlton Irish Club, Manchester"
-                               required>
+                               placeholder="Auto-filled when you select an address below"
+                               readonly required>
+                        <div class="form-text">Look up a postcode in the Location section below to select the venue address.</div>
                         @error('venue')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
@@ -85,13 +90,34 @@
 
                             <div class="mb-3">
                                 <label class="form-label fw-medium">Venue Postcode <span class="text-danger">*</span></label>
-                                <input type="text" name="venue_postcode"
-                                       class="form-control @error('venue_postcode') is-invalid @enderror"
-                                       value="{{ old('venue_postcode') }}"
-                                       placeholder="e.g. M21 9WQ"
-                                       style="text-transform:uppercase">
-                                <div class="form-text">Coordinates are looked up automatically from the postcode.</div>
+                                <div class="input-group">
+                                    <input type="text" name="venue_postcode" id="venuePostcode"
+                                           class="form-control @error('venue_postcode') is-invalid @enderror"
+                                           value="{{ old('venue_postcode') }}"
+                                           placeholder="e.g. M21 9WQ"
+                                           required
+                                           style="text-transform:uppercase">
+                                    <button type="button" class="btn btn-outline-success" id="lookupBtn">
+                                        <i class="bi bi-search me-1"></i>Look Up
+                                    </button>
+                                </div>
                                 @error('venue_postcode')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <div id="lookupStatus" class="mt-2">
+                                    @if(old('geocode_source') === 'ideal_postcodes')
+                                        <span class="badge bg-success"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed</span>
+                                    @else
+                                        <span class="text-muted small">Enter the postcode and click Look Up to find addresses.</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Address dropdown (shown after lookup) --}}
+                            <div id="addressSelectWrap" class="mb-3 {{ old('geocode_source') === 'ideal_postcodes' ? '' : 'd-none' }}">
+                                <label class="form-label fw-medium">Select Address <span class="text-danger">*</span></label>
+                                <select id="addressSelect" class="form-select">
+                                    <option value="">— select an address —</option>
+                                </select>
+                                <div class="form-text">Select the specific address for GPS check-in accuracy.</div>
                             </div>
 
                             <div class="row g-3 mb-3">
@@ -122,7 +148,7 @@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
+                        <button type="submit" class="btn btn-success" id="submitBtn">
                             <i class="bi bi-check-circle me-1"></i>Create Meeting
                         </button>
                         <a href="{{ route('admin.meetings.index') }}" class="btn btn-outline-secondary">Cancel</a>
@@ -132,4 +158,126 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+(function () {
+    const lookupUrl   = '{{ route('admin.meetings.verify-address') }}';
+    const csrfToken   = document.querySelector('meta[name="csrf-token"]').content;
+
+    const venueInput    = document.getElementById('venueInput');
+    const postcodeInput = document.getElementById('venuePostcode');
+    const lookupBtn     = document.getElementById('lookupBtn');
+    const statusDiv     = document.getElementById('lookupStatus');
+    const latField      = document.getElementById('venueLat');
+    const lngField      = document.getElementById('venueLng');
+    const sourceField   = document.getElementById('geocodeSource');
+    const addressSelect = document.getElementById('addressSelect');
+    const addressWrap   = document.getElementById('addressSelectWrap');
+    const form          = document.getElementById('meetingForm');
+    const submitBtn     = document.getElementById('submitBtn');
+
+    // Address confirmed if lat/lng already set (e.g. validation error with old values)
+    let addressConfirmed = !!(latField.value && lngField.value);
+    submitBtn.disabled = !addressConfirmed;
+
+    // Postcode changes → reset everything
+    postcodeInput.addEventListener('input', resetState);
+
+    function resetState() {
+        latField.value    = '';
+        lngField.value    = '';
+        sourceField.value = '';
+        venueInput.value  = '';
+        addressSelect.innerHTML = '<option value="">— select an address —</option>';
+        addressWrap.classList.add('d-none');
+        addressConfirmed = false;
+        submitBtn.disabled = true;
+        statusDiv.innerHTML = '<span class="text-muted small">Enter the postcode and click Look Up to find addresses.</span>';
+    }
+
+    lookupBtn.addEventListener('click', doLookup);
+
+    async function doLookup() {
+        const postcode = postcodeInput.value.trim();
+
+        if (!postcode) {
+            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please enter a postcode first.</span>';
+            return;
+        }
+
+        lookupBtn.disabled = true;
+        lookupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Looking up…';
+        statusDiv.innerHTML = '';
+        addressWrap.classList.add('d-none');
+        addressConfirmed = false;
+        submitBtn.disabled = true;
+
+        try {
+            const res  = await fetch(lookupUrl, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                body:    JSON.stringify({ postcode }),
+            });
+            const data = await res.json();
+
+            if (data.success && data.addresses.length > 0) {
+                addressSelect.innerHTML = '<option value="">— select an address —</option>';
+                data.addresses.forEach((addr, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = addr.address;
+                    opt.dataset.lat     = addr.lat;
+                    opt.dataset.lng     = addr.lng;
+                    opt.dataset.address = addr.address;
+                    addressSelect.appendChild(opt);
+                });
+                addressWrap.classList.remove('d-none');
+                statusDiv.innerHTML = `<span class="text-success small"><i class="bi bi-list-ul me-1"></i>${data.addresses.length} address(es) found — please select one below.</span>`;
+            } else {
+                statusDiv.innerHTML = `<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>${escHtml(data.message || 'No addresses found for this postcode.')}</span>`;
+            }
+        } catch (e) {
+            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>Network error. Please try again.</span>';
+        } finally {
+            lookupBtn.disabled = false;
+            lookupBtn.innerHTML = '<i class="bi bi-search me-1"></i>Look Up';
+        }
+    }
+
+    addressSelect.addEventListener('change', function () {
+        if (this.value === '') {
+            venueInput.value  = '';
+            latField.value    = '';
+            lngField.value    = '';
+            sourceField.value = '';
+            addressConfirmed  = false;
+            submitBtn.disabled = true;
+            return;
+        }
+        const opt = this.options[this.selectedIndex];
+        venueInput.value  = opt.dataset.address;
+        latField.value    = opt.dataset.lat;
+        lngField.value    = opt.dataset.lng;
+        sourceField.value = 'ideal_postcodes';
+        addressConfirmed  = true;
+        submitBtn.disabled = false;
+        statusDiv.innerHTML = `<span class="badge bg-success"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed: ${escHtml(opt.dataset.address)}</span>`;
+    });
+
+    // Block submit if no address confirmed
+    form.addEventListener('submit', function (e) {
+        if (!addressConfirmed) {
+            e.preventDefault();
+            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please look up the postcode and select an address before saving.</span>';
+            postcodeInput.focus();
+        }
+    });
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+})();
+</script>
+@endpush
 @endsection

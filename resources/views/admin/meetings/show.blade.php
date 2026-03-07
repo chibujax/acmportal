@@ -39,7 +39,7 @@
         <a href="{{ route('admin.meetings.edit', $meeting) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
-        @if($absentees->isNotEmpty() && auth()->user()->isFinancialSecretary())
+        @if($absentees->isNotEmpty() && auth()->user()->hasAccess('communications'))
         <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#smsAbsentModal">
             <i class="bi bi-phone me-1"></i>SMS Absent ({{ $absentees->count() }})
         </button>
@@ -272,6 +272,7 @@
                                 <th>Check-In Time</th>
                                 <th>Method</th>
                                 <th>Status</th>
+                                <th>Recorded By</th>
                                 <th>Notes</th>
                                 <th></th>
                             </tr>
@@ -305,6 +306,13 @@
                                               title="Member was outside GPS radius when checked in">
                                             <i class="bi bi-geo"></i> GPS Flagged
                                         </span>
+                                    @endif
+                                </td>
+                                <td class="text-muted">
+                                    @if($record->check_in_method !== 'qr_scan' && $record->recordedBy)
+                                        {{ $record->recordedBy->name }}
+                                    @else
+                                        —
                                     @endif
                                 </td>
                                 <td class="text-muted">{{ $record->notes ?? '—' }}</td>
@@ -354,7 +362,7 @@
     </div>
 </div>
 
-@if($absentees->isNotEmpty() && auth()->user()->isFinancialSecretary())
+@if($absentees->isNotEmpty() && auth()->user()->hasAccess('communications'))
 {{-- SMS Absent Members Modal --}}
 <div class="modal fade" id="smsAbsentModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">

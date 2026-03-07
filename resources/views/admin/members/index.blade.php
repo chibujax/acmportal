@@ -13,12 +13,19 @@
                            value="{{ request('search') }}">
                 </div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
                     <option value="active"    {{ request('status')==='active'    ? 'selected' : '' }}>Active</option>
                     <option value="inactive"  {{ request('status')==='inactive'  ? 'selected' : '' }}>Inactive</option>
                     <option value="suspended" {{ request('status')==='suspended' ? 'selected' : '' }}>Suspended</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select name="role" class="form-select">
+                    <option value="">All Roles</option>
+                    <option value="member" {{ request('role')==='member' ? 'selected' : '' }}>Members</option>
+                    <option value="admin"  {{ request('role')==='admin'  ? 'selected' : '' }}>Admins</option>
                 </select>
             </div>
             <div class="col-6 col-md-2">
@@ -28,7 +35,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-6 col-md-1 d-flex gap-2">
+            <div class="col-12 col-md-2 d-flex gap-2">
                 <button class="btn btn-success flex-grow-1">Filter</button>
                 <a href="{{ route('admin.members.index') }}" class="btn btn-outline-secondary">Reset</a>
             </div>

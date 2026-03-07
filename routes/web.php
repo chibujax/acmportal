@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\ChildrenController;
 use App\Http\Controllers\Admin\PledgeController;
 use App\Http\Controllers\Admin\DonationItemController;
 use App\Http\Controllers\Admin\SmsTemplateController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
@@ -33,7 +34,7 @@ Route::get('/', function () {
     if (auth()->check()) {
         $user = auth()->user();
         return redirect()->route(
-            $user->isAdmin() || $user->isFinancialSecretary() ? 'admin.dashboard' : 'member.dashboard'
+            $user->isSuperAdmin() ? 'admin.dashboard' : 'member.dashboard'
         );
     }
     return redirect()->route('login');
@@ -41,7 +42,7 @@ Route::get('/', function () {
 
 // Auth
 Route::get('/login',   [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login',  [LoginController::class, 'login'])->name('login.post');
+Route::post('/login',  [LoginController::class, 'login'])->name('login.post')->middleware('throttle:20,1');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Token-based registration (from invite link)
@@ -93,10 +94,22 @@ Route::middleware(['auth'])->group(function () {
     */
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
 
-        Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard')->middleware('superadmin');
+
+        // ── Role Management (super admin only) ────────────────
+        Route::middleware('superadmin')->prefix('roles')->name('roles.')->group(function () {
+            Route::get('/',                 [RoleController::class, 'index'])->name('index');
+            Route::get('/create',           [RoleController::class, 'create'])->name('create');
+            Route::post('/',                [RoleController::class, 'store'])->name('store');
+            Route::get('/{role}/edit',      [RoleController::class, 'edit'])->name('edit');
+            Route::put('/{role}',           [RoleController::class, 'update'])->name('update');
+            Route::delete('/{role}',        [RoleController::class, 'destroy'])->name('destroy');
+            Route::get('/assign',           [RoleController::class, 'assign'])->name('assign');
+            Route::post('/assign',          [RoleController::class, 'assignUpdate'])->name('assign.update');
+        });
 
         // Members
-        Route::prefix('members')->name('members.')->group(function () {
+        Route::middleware('page:members')->prefix('members')->name('members.')->group(function () {
             Route::get('/',           [MemberController::class, 'index'])->name('index');
             Route::post('/',          [MemberController::class, 'store'])->name('store');
             Route::get('/{member}',   [MemberController::class, 'show'])->name('show');
@@ -106,81 +119,105 @@ Route::middleware(['auth'])->group(function () {
         });
 
         // CSV Import
-        Route::get('/import',                [CsvImportController::class, 'showImportForm'])->name('members.import');
-        Route::post('/import',               [CsvImportController::class, 'import'])->name('members.import.post');
-        Route::post('/import/invites',       [CsvImportController::class, 'sendInvites'])->name('members.invites');
-        Route::post('/import/invite-single', [CsvImportController::class, 'inviteSingle'])->name('members.invite.single');
-        Route::get('/pending',               [CsvImportController::class, 'pendingList'])->name('members.pending');
-
-        // Reports
-        Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/',           [ReportController::class, 'index'])->name('index');
-            Route::get('/financial',  [ReportController::class, 'financial'])->name('financial');
-            Route::get('/arrears',    [ReportController::class, 'arrears'])->name('arrears');
-            Route::get('/members',    [ReportController::class, 'memberSummary'])->name('members');
+        Route::middleware('page:import')->group(function () {
+            Route::get('/import',                [CsvImportController::class, 'showImportForm'])->name('members.import');
+            Route::post('/import',               [CsvImportController::class, 'import'])->name('members.import.post');
+            Route::post('/import/invites',       [CsvImportController::class, 'sendInvites'])->name('members.invites');
+            Route::post('/import/invite-single', [CsvImportController::class, 'inviteSingle'])->name('members.invite.single');
+            Route::get('/pending',               [CsvImportController::class, 'pendingList'])->name('members.pending');
         });
 
-        // Financial Secretary – manual payments
-        Route::prefix('payments')->name('payments.')->group(function () {
-            Route::get('/',            [ManualPaymentController::class, 'index'])->name('index');
-            Route::get('/create',      [ManualPaymentController::class, 'create'])->name('create');
-            Route::post('/',           [ManualPaymentController::class, 'store'])->name('store');
-            Route::get('/{payment}',   [ManualPaymentController::class, 'show'])->name('show');
-            Route::patch('/{payment}', [ManualPaymentController::class, 'update'])->name('update');
+        // Reports (financial + member summary)
+        Route::middleware('page:reports')->prefix('reports')->name('reports.')->group(function () {
+            Route::get('/',          [ReportController::class, 'index'])->name('index');
+            Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
+            Route::get('/members',   [ReportController::class, 'memberSummary'])->name('members');
         });
 
-        // Meetings & Attendance
-        Route::prefix('meetings')->name('meetings.')->group(function () {
-            Route::get('/',                           [MeetingController::class, 'index'])->name('index');
-            Route::get('/report',                     [MeetingController::class, 'report'])->name('report');
-            Route::get('/report/export',              [MeetingController::class, 'exportReport'])->name('report.export');
-            Route::get('/consecutive-absentees',          [MeetingController::class, 'consecutiveAbsentees'])->name('consecutive-absentees');
-            Route::post('/send-consecutive-sms',          [MeetingController::class, 'sendConsecutiveAbsenteeSms'])->name('send-consecutive-sms');
-            Route::get('/create',                     [MeetingController::class, 'create'])->name('create');
-            Route::post('/',                          [MeetingController::class, 'store'])->name('store');
-            Route::get('/{meeting}',                  [MeetingController::class, 'show'])->name('show');
-            Route::get('/{meeting}/edit',             [MeetingController::class, 'edit'])->name('edit');
-            Route::put('/{meeting}',                  [MeetingController::class, 'update'])->name('update');
-            Route::patch('/{meeting}/activate',       [MeetingController::class, 'activate'])->name('activate');
-            Route::patch('/{meeting}/close',          [MeetingController::class, 'close'])->name('close');
-            Route::post('/{meeting}/manual-checkin',  [MeetingController::class, 'manualCheckIn'])->name('manual-checkin');
-            Route::post('/{meeting}/mark-excused',    [MeetingController::class, 'markExcused'])->name('mark-excused');
-            Route::get('/{meeting}/export',           [MeetingController::class, 'exportMeeting'])->name('export');
+        // Arrears report (separate slug so it can be granted independently)
+        Route::middleware('page:arrears')->group(function () {
+            Route::get('/reports/arrears', [ReportController::class, 'arrears'])->name('reports.arrears');
+        });
+
+        // Payments & Dues Cycles
+        Route::middleware('page:payments')->group(function () {
+            Route::prefix('payments')->name('payments.')->group(function () {
+                Route::get('/',            [ManualPaymentController::class, 'index'])->name('index');
+                Route::get('/create',      [ManualPaymentController::class, 'create'])->name('create');
+                Route::post('/',           [ManualPaymentController::class, 'store'])->name('store');
+                Route::get('/{payment}',   [ManualPaymentController::class, 'show'])->name('show');
+                Route::patch('/{payment}', [ManualPaymentController::class, 'update'])->name('update');
+            });
+
+            Route::prefix('dues-cycles')->name('dues-cycles.')->group(function () {
+                Route::get('/',                              [DuesCycleController::class, 'index'])->name('index');
+                Route::get('/create',                        [DuesCycleController::class, 'create'])->name('create');
+                Route::post('/',                             [DuesCycleController::class, 'store'])->name('store');
+                Route::get('/{duesCycle}',                   [DuesCycleController::class, 'show'])->name('show');
+                Route::get('/{duesCycle}/edit',              [DuesCycleController::class, 'edit'])->name('edit');
+                Route::put('/{duesCycle}',                   [DuesCycleController::class, 'update'])->name('update');
+                Route::get('/{duesCycle}/export',            [DuesCycleController::class, 'exportCsv'])->name('export');
+                Route::post('/{duesCycle}/send-reminders',   [DuesCycleController::class, 'sendReminders'])->name('send-reminders');
+            });
+
+            Route::get('/dues-cycles/{duesCycle}/pledges',  [PledgeController::class, 'index'])->name('pledges.index');
+            Route::post('/dues-cycles/{duesCycle}/pledges', [PledgeController::class, 'store'])->name('pledges.store');
+            Route::delete('/pledges/{pledge}',              [PledgeController::class, 'destroy'])->name('pledges.destroy');
+
+            Route::get('/dues-cycles/{duesCycle}/items',        [DonationItemController::class, 'index'])->name('donation-items.index');
+            Route::get('/dues-cycles/{duesCycle}/items/create', [DonationItemController::class, 'create'])->name('donation-items.create');
+            Route::post('/dues-cycles/{duesCycle}/items',       [DonationItemController::class, 'store'])->name('donation-items.store');
+            Route::delete('/donation-items/{donationItem}',     [DonationItemController::class, 'destroy'])->name('donation-items.destroy');
+            Route::post('/donation-items/{donationItem}/fulfill', [DonationItemController::class, 'fulfill'])->name('donation-items.fulfill');
+        });
+
+        // Attendance reports – must be defined BEFORE meeting management so that
+        // /report and /consecutive-absentees are not swallowed by the /{meeting} wildcard.
+        // Attendance report – 'attendance' slug only (meetings slug does NOT grant this)
+        Route::middleware('page:attendance')->prefix('meetings')->name('meetings.')->group(function () {
+            Route::get('/report',        [MeetingController::class, 'report'])->name('report');
+            Route::get('/report/export', [MeetingController::class, 'exportReport'])->name('report.export');
+        });
+
+        // Consecutive absentees – 'absentees' slug only (meetings slug does NOT grant this)
+        Route::middleware('page:absentees')->prefix('meetings')->name('meetings.')->group(function () {
+            Route::get('/consecutive-absentees', [MeetingController::class, 'consecutiveAbsentees'])->name('consecutive-absentees');
+            Route::post('/send-consecutive-sms', [MeetingController::class, 'sendConsecutiveAbsenteeSms'])->name('send-consecutive-sms');
+        });
+
+        // Meeting management (wildcard /{meeting} routes must come AFTER specific paths above)
+        Route::middleware('page:meetings')->prefix('meetings')->name('meetings.')->group(function () {
+            Route::get('/',                              [MeetingController::class, 'index'])->name('index');
+            Route::get('/create',                        [MeetingController::class, 'create'])->name('create');
+            Route::post('/',                             [MeetingController::class, 'store'])->name('store');
+            Route::post('/verify-address',               [MeetingController::class, 'verifyAddress'])->name('verify-address');
+            Route::get('/{meeting}',                     [MeetingController::class, 'show'])->name('show');
+            Route::get('/{meeting}/edit',                [MeetingController::class, 'edit'])->name('edit');
+            Route::put('/{meeting}',                     [MeetingController::class, 'update'])->name('update');
+            Route::patch('/{meeting}/activate',          [MeetingController::class, 'activate'])->name('activate');
+            Route::patch('/{meeting}/close',             [MeetingController::class, 'close'])->name('close');
+            Route::post('/{meeting}/manual-checkin',     [MeetingController::class, 'manualCheckIn'])->name('manual-checkin');
+            Route::post('/{meeting}/mark-excused',       [MeetingController::class, 'markExcused'])->name('mark-excused');
+            Route::get('/{meeting}/export',              [MeetingController::class, 'exportMeeting'])->name('export');
             Route::delete('/{meeting}/checkin/{record}', [MeetingController::class, 'removeCheckIn'])->name('remove-checkin');
             Route::post('/{meeting}/send-absent-sms',    [MeetingController::class, 'sendAbsenteeSms'])->name('send-absent-sms');
         });
 
-        // ── Phase 2: Dues Cycles ───────────────────────────────
-        Route::prefix('dues-cycles')->name('dues-cycles.')->group(function () {
-            Route::get('/',                              [DuesCycleController::class, 'index'])->name('index');
-            Route::get('/create',                        [DuesCycleController::class, 'create'])->name('create');
-            Route::post('/',                             [DuesCycleController::class, 'store'])->name('store');
-            Route::get('/{duesCycle}',                   [DuesCycleController::class, 'show'])->name('show');
-            Route::get('/{duesCycle}/edit',              [DuesCycleController::class, 'edit'])->name('edit');
-            Route::put('/{duesCycle}',                   [DuesCycleController::class, 'update'])->name('update');
-            Route::get('/{duesCycle}/export',            [DuesCycleController::class, 'exportCsv'])->name('export');
-            Route::post('/{duesCycle}/send-reminders',   [DuesCycleController::class, 'sendReminders'])->name('send-reminders');
+        // SMS Templates
+        Route::middleware('page:communications')->group(function () {
+            Route::resource('sms-templates', SmsTemplateController::class)
+                ->names('sms-templates');
         });
 
-        // ── SMS Templates ──────────────────────────────────────
-        Route::resource('sms-templates', SmsTemplateController::class)
-            ->names('sms-templates');
-
-        // ── Pledges (per dues cycle) ───────────────────────────
-        Route::get('/dues-cycles/{duesCycle}/pledges',  [PledgeController::class, 'index'])->name('pledges.index');
-        Route::post('/dues-cycles/{duesCycle}/pledges', [PledgeController::class, 'store'])->name('pledges.store');
-        Route::delete('/pledges/{pledge}',              [PledgeController::class, 'destroy'])->name('pledges.destroy');
-
-        // ── Donation Items (per dues cycle) ────────────────────
-        Route::get('/dues-cycles/{duesCycle}/items',        [DonationItemController::class, 'index'])->name('donation-items.index');
-        Route::get('/dues-cycles/{duesCycle}/items/create', [DonationItemController::class, 'create'])->name('donation-items.create');
-        Route::post('/dues-cycles/{duesCycle}/items',       [DonationItemController::class, 'store'])->name('donation-items.store');
-        Route::delete('/donation-items/{donationItem}',     [DonationItemController::class, 'destroy'])->name('donation-items.destroy');
-        Route::post('/donation-items/{donationItem}/fulfill', [DonationItemController::class, 'fulfill'])->name('donation-items.fulfill');
-
-        // ── Phase 2: Children (admin overview) ────────────────
-        Route::get('/children',              [ChildrenController::class, 'index'])->name('children.index');
-        Route::delete('/children/{child}',   [ChildrenController::class, 'destroy'])->name('children.destroy');
+        // Children (admin overview)
+        Route::middleware('page:children')->group(function () {
+            Route::get('/children',                   [ChildrenController::class, 'index'])->name('children.index');
+            Route::get('/children/create',            [ChildrenController::class, 'create'])->name('children.create');
+            Route::post('/children',                  [ChildrenController::class, 'store'])->name('children.store');
+            Route::get('/children/{child}/edit',      [ChildrenController::class, 'edit'])->name('children.edit');
+            Route::put('/children/{child}',           [ChildrenController::class, 'update'])->name('children.update');
+            Route::delete('/children/{child}',        [ChildrenController::class, 'destroy'])->name('children.destroy');
+        });
     });
 
     /*

@@ -13,7 +13,7 @@ class Meeting extends Model
 
     protected $fillable = [
         'title', 'meeting_date', 'meeting_time', 'late_after_time', 'meeting_end_time', 'venue',
-        'venue_postcode', 'venue_lat', 'venue_lng', 'venue_radius', 'gps_failure_action',
+        'venue_postcode', 'venue_w3w', 'venue_lat', 'venue_lng', 'venue_radius', 'gps_failure_action',
         'description', 'qr_token', 'qr_expires_at', 'status', 'created_by',
     ];
 

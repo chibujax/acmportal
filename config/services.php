@@ -46,6 +46,16 @@ return [
         'from'  => env('TWILIO_FROM'),
     ],
 
+    // ── What3Words ─────────────────────────────────────────────
+    'what3words' => [
+        'key' => env('WHAT3WORDS_API_KEY'),
+    ],
+
+    // ── Ideal Postcodes ────────────────────────────────────────
+    'ideal_postcodes' => [
+        'key' => env('IDEAL_POSTCODES_KEY'),
+    ],
+
     // ── Paystack ───────────────────────────────────────────────
     'paystack' => [
         'public_key'      => env('PAYSTACK_PUBLIC_KEY'),

@@ -10,16 +10,6 @@ use Illuminate\Http\Request;
 
 class DonationItemController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(function ($request, $next) {
-            if (! auth()->user()->isFinancialSecretary()) {
-                abort(403, 'Access denied.');
-            }
-            return $next($request);
-        });
-    }
-
     public function index(DuesCycle $duesCycle)
     {
         $items = $duesCycle->donationItems()->with(['user', 'recordedBy'])->latest()->get();

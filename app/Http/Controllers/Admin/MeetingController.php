@@ -61,13 +61,22 @@ class MeetingController extends Controller
             'venue_postcode'     => 'required|string|max:10',
             'venue_radius'       => 'required|integer|min:50|max:1000',
             'gps_failure_action' => 'required|in:reject,flag',
+            'venue_lat'          => 'nullable|numeric',
+            'venue_lng'          => 'nullable|numeric',
+            'geocode_source'     => 'nullable|string|max:50',
         ]);
 
-        [$lat, $lng] = $this->geocodePostcode($request->venue_postcode);
+        $lat = $request->filled('venue_lat') ? $request->venue_lat : null;
+        $lng = $request->filled('venue_lng') ? $request->venue_lng : null;
 
         if (is_null($lat)) {
-            return back()->withInput()
-                ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+            // Fall back to postcode geocoding
+            [$lat, $lng] = $this->geocodePostcode($request->venue_postcode);
+
+            if (is_null($lat)) {
+                return back()->withInput()
+                    ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+            }
         }
 
         Meeting::create([
@@ -87,15 +96,14 @@ class MeetingController extends Controller
             'created_by'         => auth()->id(),
         ]);
 
-        return redirect()->route('admin.meetings.index')
-            ->with('success', 'Meeting created successfully.');
+        return redirect()->route('admin.meetings.index')->with('success', 'Meeting created successfully.');
     }
 
     // ── Show meeting detail + attendance ─────────────────────
 
     public function show(Meeting $meeting)
     {
-        $meeting->load('attendanceRecords.user');
+        $meeting->load('attendanceRecords.user', 'attendanceRecords.recordedBy');
 
         $allMembers = User::where('role', 'member')
             ->where('status', 'active')
@@ -306,19 +314,30 @@ class MeetingController extends Controller
             'venue_postcode'     => 'required|string|max:10',
             'venue_radius'       => 'required|integer|min:50|max:1000',
             'gps_failure_action' => 'required|in:reject,flag',
+            'venue_lat'          => 'nullable|numeric',
+            'venue_lng'          => 'nullable|numeric',
+            'geocode_source'     => 'nullable|string|max:50',
         ]);
 
         $postcode = strtoupper(trim($request->venue_postcode));
-        $lat      = $meeting->venue_lat;
-        $lng      = $meeting->venue_lng;
+        $lat      = $request->filled('venue_lat') ? $request->venue_lat : null;
+        $lng      = $request->filled('venue_lng') ? $request->venue_lng : null;
 
-        // Only re-geocode if postcode changed
-        if ($postcode !== strtoupper(trim($meeting->venue_postcode ?? ''))) {
-            [$lat, $lng] = $this->geocodePostcode($postcode);
+        if (is_null($lat)) {
+            // Use existing coords if venue/postcode unchanged, otherwise re-geocode
+            $venueChanged    = trim($request->venue) !== trim($meeting->venue ?? '');
+            $postcodeChanged = $postcode !== strtoupper(trim($meeting->venue_postcode ?? ''));
 
-            if (is_null($lat)) {
-                return back()->withInput()
-                    ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+            if (!$venueChanged && !$postcodeChanged && $meeting->venue_lat) {
+                $lat = $meeting->venue_lat;
+                $lng = $meeting->venue_lng;
+            } else {
+                [$lat, $lng] = $this->geocodePostcode($postcode);
+
+                if (is_null($lat)) {
+                    return back()->withInput()
+                        ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+                }
             }
         }
 
@@ -337,8 +356,7 @@ class MeetingController extends Controller
             'gps_failure_action' => $request->gps_failure_action,
         ]);
 
-        return redirect()->route('admin.meetings.show', $meeting)
-            ->with('success', 'Meeting updated.');
+        return redirect()->route('admin.meetings.show', $meeting)->with('success', 'Meeting updated.');
     }
 
     // ── Export per-meeting attendance as CSV ─────────────────
@@ -438,6 +456,57 @@ class MeetingController extends Controller
     }
 
     // ── Helpers ───────────────────────────────────────────────
+
+    /**
+     * AJAX: look up addresses for a UK postcode via Ideal Postcodes.
+     * Returns a list of addresses the user can select from.
+     */
+    public function verifyAddress(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'postcode' => 'required|string|max:10',
+        ]);
+
+        $postcode = strtoupper(str_replace(' ', '', trim($request->postcode)));
+        $apiKey   = config('services.ideal_postcodes.key');
+
+        try {
+            $response = Http::timeout(8)
+                ->get("https://api.ideal-postcodes.co.uk/v1/postcodes/{$postcode}", [
+                    'api_key' => $apiKey,
+                ]);
+
+            $body = $response->json();
+
+            if (($body['code'] ?? 0) === 2000) {
+                $addresses = collect($body['result'])->map(function ($addr) {
+                    $parts = array_filter([
+                        $addr['line_1'] ?? '',
+                        $addr['line_2'] ?? '',
+                        $addr['line_3'] ?? '',
+                        $addr['post_town'] ?? '',
+                        $addr['postcode'] ?? '',
+                    ]);
+                    return [
+                        'address'  => implode(', ', $parts),
+                        'postcode' => $addr['postcode'] ?? '',
+                        'lat'      => (float) ($addr['latitude'] ?? 0),
+                        'lng'      => (float) ($addr['longitude'] ?? 0),
+                    ];
+                })->values()->toArray();
+
+                return response()->json(['success' => true, 'addresses' => $addresses]);
+            }
+
+            if (($body['code'] ?? 0) === 4040) {
+                return response()->json(['success' => false, 'message' => 'Postcode not found. Please check and try again.']);
+            }
+        } catch (\Exception) {
+            // Fall through
+        }
+
+        return response()->json(['success' => false, 'message' => 'Could not look up this postcode. Please try again.']);
+    }
 
     /**
      * Look up a UK postcode via postcodes.io and return [lat, lng] or [null, null].

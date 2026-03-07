@@ -23,7 +23,7 @@
         <i class="bi bi-box-seam me-1"></i>Donation Items
     </a>
     @endif
-    @if($duesCycle->send_reminders && auth()->user()->isFinancialSecretary() && $members->where('remaining', '>', 0)->isNotEmpty())
+    @if($duesCycle->send_reminders && auth()->user()->hasAccess('communications') && $members->where('remaining', '>', 0)->isNotEmpty())
     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#smsRemindersModal">
         <i class="bi bi-phone me-1"></i>SMS Reminders ({{ $members->where('remaining', '>', 0)->count() }})
     </button>
@@ -201,7 +201,7 @@
 </div>
 @endif
 
-@if($duesCycle->send_reminders && auth()->user()->isFinancialSecretary())
+@if($duesCycle->send_reminders && auth()->user()->hasAccess('communications'))
 @php $outstandingMembers = $members->filter(fn($m) => $m->remaining > 0); @endphp
 @if($outstandingMembers->isNotEmpty())
 {{-- SMS Reminders Modal --}}

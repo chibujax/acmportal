@@ -12,16 +12,6 @@ use Illuminate\Http\Request;
 
 class PledgeController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(function ($request, $next) {
-            if (! auth()->user()->isFinancialSecretary()) {
-                abort(403, 'Access denied.');
-            }
-            return $next($request);
-        });
-    }
-
     public function index(DuesCycle $duesCycle)
     {
         $pledges = $duesCycle->pledges()->with(['user', 'recordedBy'])->orderBy('pledged_amount', 'desc')->get();

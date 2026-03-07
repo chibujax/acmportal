@@ -12,16 +12,6 @@ use Illuminate\Http\Request;
 
 class ManualPaymentController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(function ($request, $next) {
-            if (! auth()->user()->isFinancialSecretary()) {
-                abort(403, 'Access denied. Financial Secretary or Admin role required.');
-            }
-            return $next($request);
-        });
-    }
-
     public function index(Request $request)
     {
         $query = Payment::with(['user', 'duesCycle', 'recordedBy'])

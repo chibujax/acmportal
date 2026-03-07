@@ -3,24 +3,22 @@
 @section('page-title', "Members' Children")
 
 @section('content')
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show">
-        {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
-
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body pb-2">
-        <form method="GET" class="d-flex gap-2">
-            <input type="text" name="search" class="form-control form-control-sm" style="max-width:280px"
-                   placeholder="Search by child name or parent…"
-                   value="{{ request('search') }}">
-            <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
-            @if(request('search'))
-                <a href="{{ route('admin.children.index') }}" class="btn btn-sm btn-link text-muted">Clear</a>
-            @endif
-        </form>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <form method="GET" class="d-flex gap-2 flex-grow-1">
+                <input type="text" name="search" class="form-control form-control-sm" style="max-width:280px"
+                       placeholder="Search by child name or parent…"
+                       value="{{ request('search') }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+                @if(request('search'))
+                    <a href="{{ route('admin.children.index') }}" class="btn btn-sm btn-link text-muted">Clear</a>
+                @endif
+            </form>
+            <a href="{{ route('admin.children.create') }}" class="btn btn-sm btn-primary ms-auto">
+                <i class="bi bi-plus-circle me-1"></i>Add Child
+            </a>
+        </div>
     </div>
 </div>
 
@@ -60,13 +58,19 @@
                         <td class="small text-muted">{{ $child->addedBy?->name ?? '—' }}</td>
                         <td class="small text-muted">{{ $child->notes ?? '—' }}</td>
                         <td class="text-end">
-                            <form method="POST" action="{{ route('admin.children.destroy', $child) }}"
-                                  onsubmit="return confirm('Delete this child record?')">
-                                @csrf @method('DELETE')
-                                <button class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ route('admin.children.edit', $child) }}"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="POST" action="{{ route('admin.children.destroy', $child) }}"
+                                      onsubmit="return confirm('Delete this child record?')">
+                                    @csrf @method('DELETE')
+                                    <button class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty

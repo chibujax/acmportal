@@ -144,18 +144,11 @@
                             @endif
                         </small>
                         @if($cycle->user_remaining > 0 && $cycle->user_obligation > 0)
-                            <div class="d-flex gap-2">
-                                <a href="{{ route('payment.stripe.checkout', $cycle) }}"
-                                   class="btn btn-sm btn-outline-primary">
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-outline-primary" disabled>
                                     <i class="bi bi-credit-card me-1"></i>Pay by Card
-                                </a>
-                                <form method="POST" action="{{ route('payment.paystack.initiate') }}">
-                                    @csrf
-                                    <input type="hidden" name="dues_cycle_id" value="{{ $cycle->id }}">
-                                    <button class="btn btn-sm btn-outline-success">
-                                        <i class="bi bi-phone me-1"></i>Pay via Paystack
-                                    </button>
-                                </form>
+                                </button>
+                                <div class="text-muted mt-1" style="font-size:.7rem">Coming soon</div>
                             </div>
                         @elseif($cycle->user_remaining <= 0 && $cycle->user_obligation > 0)
                             <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Fully Paid</span>

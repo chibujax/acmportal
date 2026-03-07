@@ -53,7 +53,7 @@
         </div>
 
         {{-- Send SMS --}}
-        @if(auth()->user()->isFinancialSecretary() && $member->phone)
+        @if(auth()->user()->hasAccess('communications') && $member->phone)
         <div class="card border-0 shadow-sm mt-3">
             <div class="card-header bg-white border-bottom pt-3 pb-2">
                 <h6 class="fw-semibold mb-0"><i class="bi bi-phone me-2 text-secondary"></i>Send SMS</h6>
@@ -91,7 +91,8 @@
         </div>
         @endif
 
-        {{-- Status management --}}
+        {{-- Status & Role management – super_admin or roles with 'manage' access only --}}
+        @if(auth()->user()->hasAccess('manage'))
         <div class="card border-0 shadow-sm mt-3">
             <div class="card-header bg-white border-bottom pt-3 pb-2">
                 <h6 class="fw-semibold mb-0"><i class="bi bi-sliders me-2 text-secondary"></i>Manage</h6>
@@ -114,80 +115,183 @@
                     <label class="form-label small fw-medium">Role</label>
                     <div class="input-group input-group-sm">
                         <select name="role" class="form-select">
-                            @foreach(['member','financial_secretary','admin'] as $r)
+                            @foreach(['member','admin'] as $r)
                             <option value="{{ $r }}" {{ $member->role === $r ? 'selected' : '' }}>{{ ucfirst(str_replace('_',' ',$r)) }}</option>
                             @endforeach
+                            @if(auth()->user()->isSuperAdmin())
+                            <option value="super_admin" {{ $member->role === 'super_admin' ? 'selected' : '' }}>Super Admin</option>
+                            @endif
                         </select>
                         <button class="btn btn-outline-secondary">Save</button>
                     </div>
                 </form>
             </div>
         </div>
+        @endif
     </div>
 
-    {{-- Right: payments --}}
+    {{-- Right: tabs --}}
     <div class="col-md-8">
-        @php
-            $totalPaid = $member->payments->where('status','completed')->sum('amount');
-        @endphp
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body py-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div>
-                        <div class="small text-muted">Total Paid (all time)</div>
-                        <div class="fs-5 fw-bold text-success">£{{ number_format($totalPaid, 2) }}</div>
+
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#tab-dues">
+                    <i class="bi bi-calendar2-check me-1"></i>Dues &amp; Obligations
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-payments">
+                    <i class="bi bi-receipt me-1"></i>Payments
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-family">
+                    <i class="bi bi-people me-1"></i>Family
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+
+            {{-- Dues & Obligations --}}
+            <div class="tab-pane fade show active" id="tab-dues">
+                @forelse($activeCycles as $cycle)
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="fw-semibold">{{ $cycle->title }}</div>
+                                <small class="text-muted">
+                                    {{ $cycle->start_date->format('d M Y') }} – {{ $cycle->end_date->format('d M Y') }}
+                                    @if($cycle->is_family_billing)
+                                        &middot; <i class="bi bi-people-fill text-success"></i> Family billing
+                                    @endif
+                                </small>
+                            </div>
+                            @if($cycle->user_remaining <= 0 && $cycle->user_obligation > 0)
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Fully Paid</span>
+                            @elseif($cycle->user_remaining > 0)
+                                <span class="badge bg-warning text-dark">£{{ number_format($cycle->user_remaining, 2) }} outstanding</span>
+                            @endif
+                        </div>
+                        <div class="progress mb-2" style="height:8px; border-radius:4px">
+                            <div class="progress-bar bg-success" style="width:{{ $cycle->user_percent }}%"></div>
+                        </div>
+                        <div class="d-flex gap-4 small text-muted">
+                            @if($cycle->is_pledge_based)
+                                <span>Pledge: <strong>£{{ number_format($cycle->pledge_amount ?? 0, 2) }}</strong></span>
+                            @else
+                                <span>Obligation: <strong>£{{ number_format($cycle->user_obligation, 2) }}</strong></span>
+                            @endif
+                            <span>Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong></span>
+                        </div>
                     </div>
-                    <div class="ms-4">
-                        <div class="small text-muted">Payments</div>
-                        <div class="fs-5 fw-bold">{{ $member->payments->count() }}</div>
+                </div>
+                @empty
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center text-muted py-4">
+                        <i class="bi bi-calendar2 fs-4 mb-2 d-block"></i>No active dues cycles.
+                    </div>
+                </div>
+                @endforelse
+            </div>
+
+            {{-- Payments --}}
+            <div class="tab-pane fade" id="tab-payments">
+                @php $totalPaid = $member->payments->where('status','completed')->sum('amount'); @endphp
+                <div class="d-flex gap-4 mb-3">
+                    <div><div class="small text-muted">Total Paid</div><div class="fs-5 fw-bold text-success">£{{ number_format($totalPaid, 2) }}</div></div>
+                    <div><div class="small text-muted">Records</div><div class="fs-5 fw-bold">{{ $member->payments->count() }}</div></div>
+                </div>
+                <div class="card border-0 shadow-sm">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr><th>Date</th><th>Cycle</th><th>Amount</th><th>Method</th><th>Status</th><th>Receipt</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse($member->payments->sortByDesc('created_at') as $p)
+                                <tr>
+                                    <td class="small">{{ $p->payment_date ? $p->payment_date->format('d M Y') : $p->created_at->format('d M Y') }}</td>
+                                    <td class="small">{{ $p->duesCycle?->title ?? '—' }}</td>
+                                    <td class="fw-medium">£{{ number_format($p->amount, 2) }}</td>
+                                    <td class="small text-muted">{{ ucfirst($p->method ?? '—') }}</td>
+                                    <td>
+                                        @if($p->status === 'completed') <span class="badge bg-success">Completed</span>
+                                        @elseif($p->status === 'pending') <span class="badge bg-warning text-dark">Pending</span>
+                                        @else <span class="badge bg-secondary">{{ ucfirst($p->status) }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="small text-muted">{{ $p->receipt_number ?? '—' }}</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="6" class="text-center text-muted py-4">No payments recorded.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-bottom pt-3 pb-2">
-                <h6 class="fw-semibold mb-0"><i class="bi bi-receipt me-2 text-primary"></i>Payment History</h6>
+            {{-- Family --}}
+            <div class="tab-pane fade" id="tab-family">
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h6 class="fw-semibold mb-0"><i class="bi bi-heart me-2 text-danger"></i>Spouse</h6>
+                    </div>
+                    <div class="card-body">
+                        @if($spouse)
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                                 style="width:40px;height:40px;font-size:1rem;font-weight:700">
+                                {{ strtoupper(substr($spouse->name, 0, 1)) }}
+                            </div>
+                            <div>
+                                <a href="{{ route('admin.members.show', $spouse) }}" class="fw-medium text-decoration-none">
+                                    {{ $spouse->name }}
+                                </a>
+                                <div class="small text-muted">{{ $spouse->phone }}</div>
+                            </div>
+                        </div>
+                        @else
+                        <p class="text-muted small mb-0">No spouse linked.</p>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h6 class="fw-semibold mb-0"><i class="bi bi-people-fill me-2 text-secondary"></i>Children</h6>
+                    </div>
+                    <div class="card-body">
+                        @if($children->isNotEmpty())
+                        <ul class="list-unstyled mb-0">
+                            @foreach($children as $child)
+                            <li class="d-flex justify-content-between align-items-center py-2 {{ !$loop->last ? 'border-bottom' : '' }}">
+                                <div>
+                                    <div class="fw-medium">{{ $child->first_name }} {{ $child->last_name }}</div>
+                                    @if($child->date_of_birth)
+                                    <div class="small text-muted">
+                                        Born {{ $child->date_of_birth->format('d M Y') }}
+                                        &middot; Age {{ $child->date_of_birth->age }}
+                                    </div>
+                                    @endif
+                                </div>
+                                <div class="small text-muted text-end">
+                                    @if($child->father) <div>Father: {{ $child->father->name }}</div> @endif
+                                    @if($child->mother) <div>Mother: {{ $child->mother->name }}</div> @endif
+                                </div>
+                            </li>
+                            @endforeach
+                        </ul>
+                        @else
+                        <p class="text-muted small mb-0">No children recorded.</p>
+                        @endif
+                    </div>
+                </div>
             </div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>Cycle</th>
-                            <th>Amount</th>
-                            <th>Method</th>
-                            <th>Status</th>
-                            <th>Receipt</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($member->payments->sortByDesc('created_at') as $p)
-                        <tr>
-                            <td class="small">{{ $p->payment_date ? $p->payment_date->format('d M Y') : $p->created_at->format('d M Y') }}</td>
-                            <td class="small">{{ $p->duesCycle?->name ?? '—' }}</td>
-                            <td class="fw-medium">£{{ number_format($p->amount, 2) }}</td>
-                            <td class="small text-muted">{{ ucfirst($p->method ?? '—') }}</td>
-                            <td>
-                                @if($p->status === 'completed')
-                                    <span class="badge bg-success">Completed</span>
-                                @elseif($p->status === 'pending')
-                                    <span class="badge bg-warning text-dark">Pending</span>
-                                @else
-                                    <span class="badge bg-secondary">{{ ucfirst($p->status) }}</span>
-                                @endif
-                            </td>
-                            <td class="small text-muted">{{ $p->receipt_number ?? '—' }}</td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-4">No payments recorded.</td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
+
+        </div>{{-- end tab-content --}}
     </div>
 
 </div>

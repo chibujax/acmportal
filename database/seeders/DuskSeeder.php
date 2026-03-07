@@ -35,16 +35,16 @@ class DuskSeeder extends Seeder
             'email'    => 'admin@test.com',
             'phone'    => '07900000001',
             'password' => Hash::make('Admin@1234'),
-            'role'     => 'admin',
+            'role'     => 'super_admin',
             'status'   => 'active',
         ]);
 
         $finSec = User::create([
-            'name'     => 'Dusk FinSec',
+            'name'     => 'Dusk Admin',
             'email'    => 'finsec@test.com',
             'phone'    => '07900000002',
             'password' => Hash::make('FinSec@1234'),
-            'role'     => 'financial_secretary',
+            'role'     => 'admin',
             'status'   => 'active',
         ]);
 

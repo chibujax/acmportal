@@ -24,13 +24,21 @@
         /* Sidebar */
         #sidebar {
             width: var(--sidebar-w);
-            min-height: 100vh;
+            height: 100vh;
             background: var(--acm-dark);
             position: fixed;
             top: 0; left: 0;
             transition: transform .3s;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
         }
+        #sidebar .nav-scroll {
+            flex: 1 1 0;
+            overflow-y: auto;
+        }
+        #sidebar .nav-scroll::-webkit-scrollbar { width: 4px; }
+        #sidebar .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 2px; }
         #sidebar .brand {
             padding: 1.25rem 1.5rem;
             background: var(--acm-green);
@@ -127,22 +135,32 @@
 
     @php $user = auth()->user(); @endphp
 
+    <div class="nav-scroll">
     <div class="py-2">
 
-        @if($user->isAdmin() || $user->isFinancialSecretary())
+        @if($user->isAdmin())
 
-            {{-- ADMIN / FINANCIAL SECRETARY NAV --}}
+            {{-- ADMIN NAV --}}
+            @if($user->isSuperAdmin())
             <div class="nav-section">Overview</div>
             <a href="{{ route('admin.dashboard') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-                <i class="bi bi-speedometer2"></i> Dashboard
+                <i class="bi bi-speedometer2"></i> Admin Dashboard
             </a>
+            <div class="nav-section">Administration</div>
+            <a href="{{ route('admin.roles.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+                <i class="bi bi-shield-lock"></i> Role Management
+            </a>
+            @endif
 
+            @if($user->hasAccess('members'))
             <div class="nav-section">Members</div>
             <a href="{{ route('admin.members.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.members.*') ? 'active' : '' }}">
                 <i class="bi bi-people"></i> All Members
             </a>
+            @if($user->hasAccess('import'))
             <a href="{{ route('admin.members.import') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.members.import*') ? 'active' : '' }}">
                 <i class="bi bi-upload"></i> Import (CSV)
@@ -151,18 +169,34 @@
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.members.pending') ? 'active' : '' }}">
                 <i class="bi bi-person-plus"></i> Pending Invites
             </a>
+            @endif
+            @endif
 
+            @if($user->hasAccess('meetings') || $user->hasAccess('attendance') || $user->hasAccess('absentees'))
             <div class="nav-section">Attendance</div>
+            @if($user->hasAccess('meetings'))
             <a href="{{ route('admin.meetings.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.meetings.index') || request()->routeIs('admin.meetings.create') || request()->routeIs('admin.meetings.show') || request()->routeIs('admin.meetings.edit') ? 'active' : '' }}">
                 <i class="bi bi-calendar-event"></i> Meetings
             </a>
+            @endif
+            @if($user->hasAccess('attendance'))
             <a href="{{ route('admin.meetings.report') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.meetings.report') ? 'active' : '' }}">
                 <i class="bi bi-bar-chart-line"></i> Attendance Report
             </a>
+            @endif
+            @if($user->hasAccess('absentees'))
+            <a href="{{ route('admin.meetings.consecutive-absentees') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.meetings.consecutive-absentees') ? 'active' : '' }}">
+                <i class="bi bi-person-x"></i> Consecutive Absentees
+            </a>
+            @endif
+            @endif
 
+            @if($user->hasAccess('payments') || $user->hasAccess('reports') || $user->hasAccess('arrears'))
             <div class="nav-section">Finance</div>
+            @if($user->hasAccess('payments'))
             <a href="{{ route('admin.payments.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
                 <i class="bi bi-cash-stack"></i> Payments
@@ -171,56 +205,65 @@
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dues-cycles.*') ? 'active' : '' }}">
                 <i class="bi bi-wallet2"></i> Dues Cycles
             </a>
+            @endif
+            @if($user->hasAccess('reports'))
             <a href="{{ route('admin.reports.financial') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.financial') ? 'active' : '' }}">
                 <i class="bi bi-graph-up"></i> Financial Report
             </a>
+            @endif
+            @if($user->hasAccess('arrears'))
             <a href="{{ route('admin.reports.arrears') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.arrears') ? 'active' : '' }}">
                 <i class="bi bi-exclamation-triangle"></i> Arrears
             </a>
+            @endif
+            @endif
 
+            @if($user->hasAccess('communications'))
             <a href="{{ route('admin.sms-templates.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.sms-templates.*') ? 'active' : '' }}">
                 <i class="bi bi-chat-dots"></i> Message Templates
             </a>
+            @endif
 
+            @if($user->hasAccess('children'))
             <div class="nav-section">Family Records</div>
             <a href="{{ route('admin.children.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.children.*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i> Children
             </a>
-
-        @else
-
-            {{-- MEMBER NAV --}}
-            <div class="nav-section">My Portal</div>
-            <a href="{{ route('member.dashboard') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.dashboard') ? 'active' : '' }}">
-                <i class="bi bi-house"></i> Dashboard
-            </a>
-            <a href="{{ route('member.attendance') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.attendance') ? 'active' : '' }}">
-                <i class="bi bi-calendar-check"></i> My Attendance
-            </a>
-            <a href="{{ route('member.payments') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.payments') ? 'active' : '' }}">
-                <i class="bi bi-receipt"></i> Payment History
-            </a>
-            <a href="{{ route('member.profile') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.profile') ? 'active' : '' }}">
-                <i class="bi bi-person-circle"></i> My Profile
-            </a>
-            <a href="{{ route('member.relationships') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.relationships*') ? 'active' : '' }}">
-                <i class="bi bi-heart"></i> Family &amp; Relationships
-            </a>
+            @endif
 
         @endif
 
-    </div>
+        {{-- MY PORTAL – visible to all users (members and admins alike) --}}
+        <div class="nav-section">My Portal</div>
+        <a href="{{ route('member.dashboard') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.dashboard') ? 'active' : '' }}">
+            <i class="bi bi-house"></i> Dashboard
+        </a>
+        <a href="{{ route('member.attendance') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.attendance') ? 'active' : '' }}">
+            <i class="bi bi-calendar-check"></i> My Attendance
+        </a>
+        <a href="{{ route('member.payments') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.payments') ? 'active' : '' }}">
+            <i class="bi bi-receipt"></i> Payment History
+        </a>
+        <a href="{{ route('member.profile') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.profile') ? 'active' : '' }}">
+            <i class="bi bi-person-circle"></i> My Profile
+        </a>
+        <a href="{{ route('member.relationships') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.relationships*') ? 'active' : '' }}">
+            <i class="bi bi-heart"></i> Family &amp; Relationships
+        </a>
 
-    {{-- Logout (inside scroll flow, visible in sidebar) --}}
+    </div>
+    </div>{{-- end nav-scroll --}}
+
+    {{-- Logout pinned at sidebar bottom --}}
     <div class="p-3 mt-2 border-top border-secondary">
         <form method="POST" action="{{ route('logout') }}">
             @csrf
@@ -244,7 +287,14 @@
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="small text-muted d-none d-sm-inline">{{ auth()->user()->name }}</span>
-            <span class="badge" style="background:{{ auth()->user()->isAdmin() ? '#1a6b3c' : (auth()->user()->isFinancialSecretary() ? '#1d4ed8' : '#6b7280') }}">
+            @php
+                $badgeColor = match(auth()->user()->role) {
+                    'super_admin' => '#7c3aed',
+                    'admin'       => '#1d4ed8',
+                    default       => '#6b7280',
+                };
+            @endphp
+            <span class="badge" style="background:{{ $badgeColor }}">
                 {{ ucfirst(str_replace('_',' ', auth()->user()->role)) }}
             </span>
             <form method="POST" action="{{ route('logout') }}" class="mb-0">

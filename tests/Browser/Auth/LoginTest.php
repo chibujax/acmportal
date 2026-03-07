@@ -35,7 +35,7 @@ class LoginTest extends DuskTestCase
         });
     }
 
-    public function test_financial_secretary_can_login_and_see_admin_dashboard(): void
+    public function test_admin_can_login_and_see_admin_dashboard(): void
     {
         $this->browse(function (Browser $browser) {
             $browser->visit('/login')

@@ -28,14 +28,14 @@ class User extends Authenticatable
 
     // ── Roles ─────────────────────────────────────────────────
 
-    public function isAdmin(): bool
+    public function isSuperAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'super_admin';
     }
 
-    public function isFinancialSecretary(): bool
+    public function isAdmin(): bool
     {
-        return in_array($this->role, ['admin', 'financial_secretary']);
+        return in_array($this->role, ['super_admin', 'admin']);
     }
 
     public function isMember(): bool
@@ -43,7 +43,26 @@ class User extends Authenticatable
         return $this->role === 'member';
     }
 
+    /**
+     * Whether this user can access a given admin page slug.
+     * Super admins always have full access.
+     * Regular admins need at least one assigned role that grants access to the page.
+     */
+    public function hasAccess(string $page): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->roles->contains(fn($role) => in_array($page, $role->pages ?? []));
+    }
+
     // ── Relationships ─────────────────────────────────────────
+
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class);
+    }
 
     public function payments()
     {

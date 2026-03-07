@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DonationItem;
+use App\Models\DuesCycle;
+use App\Models\MemberPledge;
+use App\Models\Payment;
 use App\Models\User;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
@@ -12,7 +16,8 @@ class MemberController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::where('role', 'member');
+        // Show members AND admins (exclude super_admin)
+        $query = User::where('role', '!=', 'super_admin');
 
         if ($request->search) {
             $s = $request->search;
@@ -25,6 +30,10 @@ class MemberController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->role) {
+            $query->where('role', $request->role);
+        }
+
         $perPage = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
         $members = $query->latest()->paginate($perPage)->withQueryString();
 
@@ -34,11 +43,50 @@ class MemberController extends Controller
     public function show(User $member)
     {
         $member->load('payments.duesCycle');
-        return view('admin.members.show', compact('member'));
+
+        $spouse = $member->spouse();
+        $children = $member->visibleChildren();
+
+        $myPledges = MemberPledge::where('user_id', $member->id)
+            ->get()->keyBy('dues_cycle_id');
+
+        $myItemsByCycle = DonationItem::where('user_id', $member->id)
+            ->latest()->get()->groupBy('dues_cycle_id');
+
+        $activeCycles = DuesCycle::where('status', 'active')
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->get()
+            ->map(function ($cycle) use ($member, $myPledges, $myItemsByCycle) {
+                if ($cycle->is_pledge_based) {
+                    $pledge               = $myPledges->get($cycle->id);
+                    $obligation           = $pledge ? $pledge->pledged_amount : 0;
+                    $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
+                    $cycle->my_items      = $myItemsByCycle->get($cycle->id, collect());
+                } else {
+                    $obligation           = $member->obligationFor($cycle);
+                    $cycle->pledge_amount = null;
+                    $cycle->my_items      = collect();
+                }
+
+                $paid              = $member->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
+                $remaining         = max(0, $obligation - $paid);
+                $percent           = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
+
+                $cycle->user_obligation   = $obligation;
+                $cycle->user_paid         = $paid;
+                $cycle->user_remaining    = $remaining;
+                $cycle->user_percent      = $percent;
+                $cycle->is_family_billing = $member->hasSpouse() && $cycle->couple_shared;
+                return $cycle;
+            });
+
+        return view('admin.members.show', compact('member', 'spouse', 'children', 'activeCycles'));
     }
 
     public function updateStatus(Request $request, User $member)
     {
+        abort_unless(auth()->user()->hasAccess('manage'), 403);
         $request->validate(['status' => 'required|in:active,inactive,suspended']);
         $member->update(['status' => $request->status]);
         return back()->with('success', "Member status updated to {$request->status}.");
@@ -46,7 +94,8 @@ class MemberController extends Controller
 
     public function updateRole(Request $request, User $member)
     {
-        $request->validate(['role' => 'required|in:admin,financial_secretary,member']);
+        abort_unless(auth()->user()->hasAccess('manage'), 403);
+        $request->validate(['role' => 'required|in:super_admin,admin,member']);
         $member->update(['role' => $request->role]);
         return back()->with('success', "Member role updated.");
     }
@@ -78,7 +127,7 @@ class MemberController extends Controller
             'phone'    => 'required|string|unique:users',
             'email'    => 'nullable|email|unique:users',
             'password' => 'required|string|min:8',
-            'role'     => 'required|in:admin,financial_secretary,member',
+            'role'     => 'required|in:super_admin,admin,member',
         ]);
 
         User::create([
