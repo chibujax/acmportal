@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Auth\SelfRegisterController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Admin\MeetingController;
@@ -51,6 +52,12 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 // Token-based registration (from invite link)
 Route::get('/register/{token}',   [RegisterController::class, 'showForm'])->name('register.form');
 Route::post('/register',          [RegisterController::class, 'register'])->name('register.post');
+
+// Self-service registration (lookup by phone/email → OTP → registration form)
+Route::get('/join',               [SelfRegisterController::class, 'showLookup'])->name('join');
+Route::post('/join/lookup',       [SelfRegisterController::class, 'lookup'])->name('join.lookup')->middleware('throttle:10,1');
+Route::get('/join/verify',        [SelfRegisterController::class, 'showOtp'])->name('join.otp.form');
+Route::post('/join/verify',       [SelfRegisterController::class, 'verifyOtp'])->name('join.otp.verify');
 
 // Email verification
 Route::get('/email/verify/{token}', [EmailVerificationController::class, 'verify'])->name('email.verify');

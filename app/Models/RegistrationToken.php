@@ -27,7 +27,7 @@ class RegistrationToken extends Model
 
         return static::create([
             'pending_member_id' => $member->id,
-            'token'             => Str::random(64),
+            'token'             => Str::random(32),
             'expires_at'        => now()->addDays(config('app.registration_token_expiry', 7)),
         ]);
     }
