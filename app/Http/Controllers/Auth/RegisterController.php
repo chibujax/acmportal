@@ -50,11 +50,14 @@ class RegisterController extends Controller
         $pending = $regToken->pendingMember;
 
         $request->validate([
-            'token'                 => 'required|string',
-            'phone'                 => "required|string|unique:users,phone",
-            'password'              => 'required|string|min:8|confirmed',
-            'email'                 => 'nullable|email|unique:users,email',
-            'gender'                => 'nullable|in:male,female,other',
+            'token'        => 'required|string',
+            'phone'        => 'required|string|unique:users,phone',
+            'password'     => 'required|string|min:8|confirmed',
+            'email'        => 'nullable|email|unique:users,email',
+            'gender'       => 'nullable|in:male,female,other',
+            'data_consent' => 'accepted',
+        ], [
+            'data_consent.accepted' => 'You must consent to the data privacy policy to create an account.',
         ]);
 
         DB::transaction(function () use ($request, $pending, $regToken) {

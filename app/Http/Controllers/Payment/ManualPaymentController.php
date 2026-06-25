@@ -33,11 +33,14 @@ class ManualPaymentController extends Controller
         return view('payment.manual.index', compact('payments'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $members = User::where('role', 'member')->where('status', 'active')
             ->orderBy('name')->get();
         $cycles  = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
+
+        $prefillUserId  = $request->integer('user_id') ?: null;
+        $prefillCycleId = $request->integer('dues_cycle_id') ?: null;
 
         // Map: member_id => spouse {id, name}
         $spouseMap = [];
@@ -60,20 +63,27 @@ class ManualPaymentController extends Controller
             ->groupBy('user_id')
             ->map(fn($pledges) => $pledges->pluck('pledged_amount', 'dues_cycle_id'));
 
-        return view('payment.manual.create', compact('members', 'cycles', 'membersWithSpouse', 'spouseMap', 'pledgeMap'));
+        return view('payment.manual.create', compact('members', 'cycles', 'membersWithSpouse', 'spouseMap', 'pledgeMap', 'prefillUserId', 'prefillCycleId'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'user_id'        => 'required|exists:users,id',
-            'dues_cycle_id'  => 'nullable|exists:dues_cycles,id',
+            'dues_cycle_id'  => ['required', function ($attr, $value, $fail) {
+                if ($value !== 'general' && ! DuesCycle::where('id', $value)->exists()) {
+                    $fail('Please select a valid dues cycle.');
+                }
+            }],
             'amount'         => 'required|numeric|min:0.01',
             'payment_date'   => 'required|date',
             'pay_for_spouse' => 'nullable|boolean',
             'notes'          => 'nullable|string|max:1000',
             'proof'          => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
         ]);
+
+        // Convert 'general' sentinel to null for storage
+        $request->merge(['dues_cycle_id' => $request->dues_cycle_id === 'general' ? null : $request->dues_cycle_id]);
 
         $proofPath = null;
         if ($request->hasFile('proof')) {

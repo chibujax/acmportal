@@ -15,7 +15,7 @@ class DonationItem extends Model
         'user_id', 'dues_cycle_id', 'item_type', 'description',
         'quantity', 'estimated_value', 'currency', 'donation_date',
         'recorded_by', 'notes',
-        'is_fulfilled', 'fulfilled_at', 'fulfilled_by',
+        'is_fulfilled', 'fulfilled_at', 'fulfilled_by', 'fulfilled_quantity',
     ];
 
     protected $casts = [

@@ -384,6 +384,14 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('show');
     document.getElementById('sidebar-overlay').classList.toggle('show');
 }
+
+// Scroll active nav item into view on page load
+document.addEventListener('DOMContentLoaded', function () {
+    const active = document.querySelector('#sidebar .nav-scroll .nav-link.active');
+    if (active) {
+        active.scrollIntoView({ block: 'nearest' });
+    }
+});
 </script>
 
 @stack('scripts')

@@ -20,16 +20,21 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-medium">Member <span class="text-danger">*</span></label>
-                        <input type="hidden" name="user_id" id="memberIdInput" value="{{ old('user_id') }}" required>
+                        @php
+                            $resolvedUserId = old('user_id', $prefillUserId);
+                            $resolvedMember = $resolvedUserId ? $members->firstWhere('id', $resolvedUserId) : null;
+                        @endphp
+                        <input type="hidden" name="user_id" id="memberIdInput" value="{{ $resolvedUserId }}" required>
                         <input type="text" id="memberSearch"
                                class="form-control @error('user_id') is-invalid @enderror"
                                placeholder="Type name or phone to search…"
                                autocomplete="off"
-                               value="{{ old('user_id') ? $members->firstWhere('id', old('user_id'))?->name : '' }}">
+                               value="{{ $resolvedMember?->name ?? '' }}"
+                               {{ $resolvedMember ? 'style=display:none' : '' }}>
                         <div id="memberSuggestions" class="list-group shadow-sm mt-1" style="display:none; max-height:220px; overflow-y:auto; position:absolute; z-index:999; width:100%"></div>
-                        <div id="memberSelected" class="mt-1 small text-success {{ old('user_id') ? '' : 'd-none' }}">
+                        <div id="memberSelected" class="mt-1 small text-success {{ $resolvedMember ? '' : 'd-none' }}">
                             <i class="bi bi-check-circle me-1"></i><span id="memberSelectedName">
-                                {{ old('user_id') ? $members->firstWhere('id', old('user_id'))?->name : '' }}
+                                {{ $resolvedMember ? $resolvedMember->name . ' (' . $resolvedMember->phone . ')' : '' }}
                             </span>
                             <a href="#" id="memberClear" class="ms-2 text-danger small">Change</a>
                         </div>
@@ -37,15 +42,18 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-medium">Dues Cycle</label>
-                        <select name="dues_cycle_id" id="cycleSelect" class="form-select">
-                            <option value="">— General / Unspecified —</option>
+                        <label class="form-label fw-medium">Dues Cycle <span class="text-danger">*</span></label>
+                        <select name="dues_cycle_id" id="cycleSelect" class="form-select @error('dues_cycle_id') is-invalid @enderror" required>
+                            @php $resolvedCycleId = old('dues_cycle_id', $prefillCycleId); @endphp
+                            <option value="" disabled {{ !$resolvedCycleId && !old('_token') ? 'selected' : '' }}>— Select a cycle —</option>
+                            <option value="general" {{ $resolvedCycleId === 'general' ? 'selected' : '' }}>— General / Unspecified —</option>
                             @foreach($cycles as $c)
-                            <option value="{{ $c->id }}" {{ old('dues_cycle_id') == $c->id ? 'selected' : '' }}>
+                            <option value="{{ $c->id }}" {{ $resolvedCycleId == $c->id ? 'selected' : '' }}>
                                 {{ $c->title }} (£{{ number_format($c->amount,2) }})
                             </option>
                             @endforeach
                         </select>
+                        @error('dues_cycle_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         <div id="obligationHint" class="form-text text-info d-none"></div>
                         <div id="pledgeHint" class="form-text text-warning d-none"></div>
                     </div>
@@ -247,6 +255,12 @@
             suggestions.style.display = 'none';
         }
     });
+
+    // Pre-fill member from query param
+    @if($resolvedMember)
+    selectedMember = members.find(m => m.id == {{ $resolvedMember->id }});
+    if (selectedMember) updateObligation();
+    @endif
 })();
 </script>
 @endpush

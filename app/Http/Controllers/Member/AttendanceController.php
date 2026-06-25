@@ -17,6 +17,7 @@ class AttendanceController extends Controller
         $meetings = Meeting::whereYear('meeting_date', $year)
             ->whereIn('status', ['active', 'closed'])
             ->orderByDesc('meeting_date')
+            ->orderByDesc('meeting_time')
             ->withCount('attendanceRecords')
             ->get()
             ->map(function ($meeting) use ($user) {

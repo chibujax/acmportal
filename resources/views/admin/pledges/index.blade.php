@@ -177,10 +177,10 @@
                             </td>
                             @endif
                             <td>
-                                <a href="{{ route('admin.payments.create') }}"
-                                   class="btn btn-sm btn-outline-primary"
-                                   title="Record cash payment">
-                                    <i class="bi bi-cash"></i>
+                                <a href="{{ route('admin.payments.create', ['user_id' => $uid, 'dues_cycle_id' => $duesCycle->id]) }}"
+                                   class="btn btn-sm btn-primary"
+                                   title="Record payment for this member">
+                                    <i class="bi bi-cash me-1"></i>Record Payment
                                 </a>
                             </td>
                         </tr>
@@ -319,23 +319,34 @@
                             <td class="small fw-medium">{{ $item->formattedValue() }}</td>
                             <td>
                                 @if($item->is_fulfilled)
-                                    <span class="badge bg-success">Received</span>
-                                    <div class="text-muted" style="font-size:.68rem">
-                                        {{ $item->fulfilled_at?->format('d M Y') }}
-                                    </div>
+                                    <span class="badge bg-success">Fully Received</span>
+                                    <div class="text-muted" style="font-size:.68rem">{{ $item->fulfilled_at?->format('d M Y') }}</div>
+                                @elseif($item->fulfilled_quantity)
+                                    <span class="badge bg-info text-dark">Partial</span>
+                                    <div class="text-muted" style="font-size:.68rem">{{ $item->fulfilled_quantity }}</div>
                                 @else
                                     <span class="badge bg-warning text-dark">Pending</span>
                                 @endif
                             </td>
                             <td>
                                 <div class="d-flex gap-1">
+                                    @if($item->is_fulfilled)
+                                    {{-- Un-fulfill toggle --}}
                                     <form method="POST" action="{{ route('admin.donation-items.fulfill', $item) }}">
                                         @csrf
-                                        <button class="btn btn-sm {{ $item->is_fulfilled ? 'btn-success' : 'btn-outline-secondary' }}"
-                                                title="{{ $item->is_fulfilled ? 'Mark as pending' : 'Mark as received' }}">
-                                            <i class="bi bi-{{ $item->is_fulfilled ? 'check-circle-fill' : 'circle' }}"></i>
+                                        <button class="btn btn-sm btn-success" title="Mark as pending">
+                                            <i class="bi bi-check-circle-fill"></i>
                                         </button>
                                     </form>
+                                    @else
+                                    {{-- Open partial redemption modal --}}
+                                    <button class="btn btn-sm btn-outline-success"
+                                            title="Record receipt"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#fulfillModal{{ $item->id }}">
+                                        <i class="bi bi-box-arrow-in-down me-1"></i>Redeem
+                                    </button>
+                                    @endif
                                     <form method="POST" action="{{ route('admin.donation-items.destroy', $item) }}"
                                           onsubmit="return confirm('Remove this item?')">
                                         @csrf @method('DELETE')
@@ -344,6 +355,53 @@
                                         </button>
                                     </form>
                                 </div>
+
+                                {{-- Partial redemption modal --}}
+                                @if(!$item->is_fulfilled)
+                                <div class="modal fade" id="fulfillModal{{ $item->id }}" tabindex="-1">
+                                    <div class="modal-dialog modal-sm">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h6 class="modal-title">Record Receipt</h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form method="POST" action="{{ route('admin.donation-items.fulfill', $item) }}">
+                                                @csrf
+                                                <div class="modal-body">
+                                                    <p class="small text-muted mb-2">
+                                                        Pledged: <strong>{{ $item->quantity ? $item->quantity . ' — ' : '' }}{{ $item->description }}</strong>
+                                                    </p>
+                                                    @if($item->fulfilled_quantity)
+                                                    <p class="small text-info mb-2">
+                                                        Previously recorded: <strong>{{ $item->fulfilled_quantity }}</strong>
+                                                    </p>
+                                                    @endif
+                                                    <div class="mb-3">
+                                                        <label class="form-label small fw-medium">Quantity Received</label>
+                                                        <input type="text" name="fulfilled_quantity"
+                                                               class="form-control form-control-sm"
+                                                               value="{{ $item->fulfilled_quantity }}"
+                                                               placeholder="e.g. 1 carton">
+                                                        <div class="form-text">Leave blank if recording full receipt below.</div>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input type="hidden" name="is_fully_fulfilled" value="0">
+                                                        <input type="checkbox" name="is_fully_fulfilled" value="1"
+                                                               id="fullyFulfilled{{ $item->id }}" class="form-check-input">
+                                                        <label class="form-check-label small" for="fullyFulfilled{{ $item->id }}">
+                                                            Mark as <strong>fully received</strong>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer py-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="submit" class="btn btn-sm btn-success">Save</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                             </td>
                         </tr>
                         @endforeach

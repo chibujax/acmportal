@@ -62,17 +62,35 @@ class DonationItemController extends Controller
             ->with('success', 'Donation item removed.');
     }
 
-    public function fulfill(DonationItem $donationItem)
+    public function fulfill(Request $request, DonationItem $donationItem)
     {
-        $nowFulfilled = ! $donationItem->is_fulfilled;
+        // Toggle (no quantity provided) — used to un-fulfill
+        if (! $request->has('fulfilled_quantity') && ! $request->has('is_fully_fulfilled')) {
+            $nowFulfilled = ! $donationItem->is_fulfilled;
+            $donationItem->update([
+                'is_fulfilled'       => $nowFulfilled,
+                'fulfilled_at'       => $nowFulfilled ? now() : null,
+                'fulfilled_by'       => $nowFulfilled ? auth()->id() : null,
+                'fulfilled_quantity' => $nowFulfilled ? $donationItem->fulfilled_quantity : null,
+            ]);
+            return back()->with('success', $nowFulfilled ? 'Item marked as received.' : 'Item marked as pending.');
+        }
 
-        $donationItem->update([
-            'is_fulfilled' => $nowFulfilled,
-            'fulfilled_at' => $nowFulfilled ? now() : null,
-            'fulfilled_by' => $nowFulfilled ? auth()->id() : null,
+        $request->validate([
+            'fulfilled_quantity' => 'nullable|string|max:100',
+            'is_fully_fulfilled' => 'required|boolean',
         ]);
 
-        $msg = $nowFulfilled ? 'Item marked as received.' : 'Item marked as pending.';
+        $fully = $request->boolean('is_fully_fulfilled');
+
+        $donationItem->update([
+            'fulfilled_quantity' => $request->fulfilled_quantity,
+            'is_fulfilled'       => $fully,
+            'fulfilled_at'       => ($fully || filled($request->fulfilled_quantity)) ? now() : $donationItem->fulfilled_at,
+            'fulfilled_by'       => ($fully || filled($request->fulfilled_quantity)) ? auth()->id() : $donationItem->fulfilled_by,
+        ]);
+
+        $msg = $fully ? 'Item marked as fully received.' : 'Partial receipt recorded.';
 
         return back()->with('success', $msg);
     }

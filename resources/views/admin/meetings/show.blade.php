@@ -16,6 +16,9 @@
     <span class="text-muted small">
         <i class="bi bi-calendar me-1"></i>{{ $meeting->meeting_date->format('l, d F Y') }}
         &middot; {{ \Carbon\Carbon::parse($meeting->meeting_time)->format('g:i A') }}
+        @if($meeting->late_after_time)
+            &middot; <i class="bi bi-clock-history me-1"></i>Late after {{ \Carbon\Carbon::parse($meeting->late_after_time)->format('g:i A') }}
+        @endif
         @if($meeting->venue) &middot; <i class="bi bi-geo-alt me-1"></i>{{ $meeting->venue }} @endif
     </span>
 

@@ -17,6 +17,9 @@
     <a href="{{ route('admin.pledges.index', $duesCycle) }}" class="btn btn-sm btn-outline-info">
         <i class="bi bi-hand-thumbs-up me-1"></i>Manage Pledges
     </a>
+    <a href="{{ route('admin.payments.create', ['dues_cycle_id' => $duesCycle->id]) }}" class="btn btn-sm btn-primary">
+        <i class="bi bi-cash me-1"></i>Record Payment
+    </a>
     @endif
     @if($duesCycle->accepts_items && !$duesCycle->is_pledge_based)
     <a href="{{ route('admin.donation-items.index', $duesCycle) }}" class="btn btn-sm btn-outline-warning">

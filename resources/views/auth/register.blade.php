@@ -85,6 +85,24 @@
                                        class="form-control" placeholder="Repeat password" required>
                             </div>
 
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input type="checkbox" name="data_consent" id="data_consent" value="1"
+                                           class="form-check-input @error('data_consent') is-invalid @enderror"
+                                           {{ old('data_consent') ? 'checked' : '' }} required>
+                                    <label class="form-check-label small" for="data_consent">
+                                        I consent to <strong>ACM</strong> collecting and using my personal information
+                                        (name, contact details, and membership records) for the purposes of membership
+                                        administration, welfare coordination, and official communications.
+                                        My data will be handled securely and not shared with third parties.
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    @error('data_consent')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+
                             <button type="submit" class="btn w-100 text-white fw-semibold"
                                     style="background:var(--acm-green,#1a6b3c); border-radius:8px; padding:.65rem">
                                 <i class="bi bi-check-circle me-2"></i>Create Account

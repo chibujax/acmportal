@@ -23,6 +23,7 @@ class MeetingController extends Controller
         $meetings = Meeting::withCount('attendanceRecords')
             ->whereYear('meeting_date', $year)
             ->orderByDesc('meeting_date')
+            ->orderByDesc('meeting_time')
             ->paginate($perPage)
             ->withQueryString();
 
@@ -59,7 +60,7 @@ class MeetingController extends Controller
             'venue'              => 'required|string|max:255',
             'description'        => 'nullable|string|max:1000',
             'venue_postcode'     => 'required|string|max:10',
-            'venue_radius'       => 'required|integer|min:50|max:1000',
+            'venue_radius'       => 'required|integer|min:5|max:1000',
             'gps_failure_action' => 'required|in:reject,flag',
             'venue_lat'          => 'nullable|numeric',
             'venue_lng'          => 'nullable|numeric',
@@ -312,7 +313,7 @@ class MeetingController extends Controller
             'venue'              => 'required|string|max:255',
             'description'        => 'nullable|string|max:1000',
             'venue_postcode'     => 'required|string|max:10',
-            'venue_radius'       => 'required|integer|min:50|max:1000',
+            'venue_radius'       => 'required|integer|min:5|max:1000',
             'gps_failure_action' => 'required|in:reject,flag',
             'venue_lat'          => 'nullable|numeric',
             'venue_lng'          => 'nullable|numeric',

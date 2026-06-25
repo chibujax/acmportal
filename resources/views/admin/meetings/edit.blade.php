@@ -122,8 +122,8 @@
                                     <label class="form-label fw-medium">GPS Radius (metres) <span class="text-danger">*</span></label>
                                     <input type="number" name="venue_radius"
                                            class="form-control @error('venue_radius') is-invalid @enderror"
-                                           value="{{ old('venue_radius', $meeting->venue_radius ?? 25) }}"
-                                           min="10" max="1000" required>
+                                           value="{{ old('venue_radius', $meeting->venue_radius ?? 50) }}"
+                                           min="5" max="1000" required>
                                     <div class="form-text">Members must be within this distance to check in.</div>
                                     @error('venue_radius')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>

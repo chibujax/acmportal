@@ -147,7 +147,11 @@ class SelfRegisterController extends Controller
                 });
                 return true;
             } catch (\Throwable $e) {
-                // fall through to SMS
+                \Log::error('OTP email failed, falling back to SMS', [
+                    'pending_member_id' => $pending->id,
+                    'email'             => $pending->email,
+                    'error'             => $e->getMessage(),
+                ]);
             }
         }
 

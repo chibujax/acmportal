@@ -30,7 +30,14 @@ class ReportController extends Controller
         $chartData = array_map(fn($m) => $monthlyTotals[$m] ?? 0, range(1, 12));
 
         $cycleStats = DuesCycle::withSum(['payments as collected' => fn($q) => $q->where('status','completed')], 'amount')
-            ->withCount(['payments as payers' => fn($q) => $q->where('status','completed')->select(\DB::raw('DISTINCT user_id'))])
+            ->selectSub(
+                \DB::table('payments')
+                    ->selectRaw('COUNT(DISTINCT user_id)')
+                    ->whereColumn('dues_cycle_id', 'dues_cycles.id')
+                    ->where('status', 'completed')
+                    ->whereNull('deleted_at'),
+                'payers'
+            )
             ->get();
 
         $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
