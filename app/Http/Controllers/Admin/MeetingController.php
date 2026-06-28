@@ -231,7 +231,10 @@ class MeetingController extends Controller
 
     public function report(Request $request)
     {
-        $year = $request->get('year', now()->year);
+        $year   = $request->get('year', now()->year);
+        $search = trim($request->get('search', ''));
+        $sort   = in_array($request->get('sort'), ['name', 'attended', 'rate']) ? $request->get('sort') : 'name';
+        $dir    = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
 
         $meetings = Meeting::whereYear('meeting_date', $year)
             ->whereIn('status', ['active', 'closed'])
@@ -242,11 +245,12 @@ class MeetingController extends Controller
         $totalMeetings = $meetings->count();
         $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
 
-        // Aggregate stats across all members for summary cards (single DB query via withCount)
+        // Aggregate stats for summary cards — always unfiltered so cards reflect the full year
         $allStats = User::where('role', 'member')
             ->where('status', 'active')
             ->withCount(['attendanceRecords as attended_count' => fn($q) =>
-                $q->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
+                $q->whereIn('status', ['present', 'late'])
+                  ->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
                     ->whereIn('status', ['active', 'closed']))
             ])
             ->get();
@@ -258,15 +262,28 @@ class MeetingController extends Controller
             fn($u) => $totalMeetings > 0 && ($u->attended_count / $totalMeetings * 100) >= 70
         )->count();
 
-        // Paginated per-member stats for the table
+        // Per-member table query with search + sort
         $perPage = in_array((int) $request->get('per_page'), [10, 20, 50, 100]) ? (int) $request->get('per_page') : 20;
-        $memberStats = User::where('role', 'member')
+
+        $memberQuery = User::where('role', 'member')
             ->where('status', 'active')
-            ->orderBy('name')
             ->withCount(['attendanceRecords as attended_count' => fn($q) =>
-                $q->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
+                $q->whereIn('status', ['present', 'late'])
+                  ->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
                     ->whereIn('status', ['active', 'closed']))
-            ])
+            ]);
+
+        if ($search !== '') {
+            $memberQuery->where('name', 'like', "%{$search}%");
+        }
+
+        $memberQuery->orderBy(
+            $sort === 'name' ? 'name' : 'attended_count',
+            // 'rate' sorts by attended_count since rate is proportional to it
+            $dir
+        );
+
+        $memberStats = $memberQuery
             ->paginate($perPage)
             ->withQueryString()
             ->through(function ($user) use ($totalMeetings) {
@@ -291,7 +308,7 @@ class MeetingController extends Controller
         return view('admin.meetings.report', compact(
             'meetings', 'memberStats', 'year', 'years',
             'totalMeetings', 'totalMembers', 'monthlyChart',
-            'avgRate', 'eligibleCount'
+            'avgRate', 'eligibleCount', 'search', 'sort', 'dir'
         ));
     }
 
@@ -406,20 +423,24 @@ class MeetingController extends Controller
 
     public function exportReport(Request $request)
     {
-        $year = $request->get('year', now()->year);
+        $year   = $request->get('year', now()->year);
+        $search = trim($request->get('search', ''));
+        $sort   = in_array($request->get('sort'), ['name', 'attended', 'rate']) ? $request->get('sort') : 'name';
+        $dir    = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
 
-        $meetings = Meeting::whereYear('meeting_date', $year)
+        $totalMeetings = Meeting::whereYear('meeting_date', $year)
             ->whereIn('status', ['active', 'closed'])
             ->count();
 
-        $filename = "acm-attendance-report-{$year}.csv";
+        $suffix   = $search !== '' ? '-' . preg_replace('/[^a-z0-9]/i', '_', $search) : '';
+        $filename = "acm-attendance-{$year}{$suffix}.csv";
 
         $headers = [
             'Content-Type'        => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ];
 
-        $callback = function () use ($year, $meetings) {
+        $callback = function () use ($year, $totalMeetings, $search, $sort, $dir) {
             $handle = fopen('php://output', 'w');
 
             fputcsv($handle, [
@@ -427,28 +448,33 @@ class MeetingController extends Controller
                 'Attendance %', 'Eligible (≥70%)',
             ]);
 
-            User::where('role', 'member')
+            $query = User::where('role', 'member')
                 ->where('status', 'active')
-                ->orderBy('name')
-                ->get()
-                ->each(function ($user) use ($handle, $year, $meetings) {
-                    $attended = $user->attendanceRecords()
-                        ->whereHas('meeting', fn($q) => $q->whereYear('meeting_date', $year)
-                            ->whereIn('status', ['active', 'closed']))
-                        ->count();
+                ->withCount(['attendanceRecords as attended_count' => fn($q) =>
+                    $q->whereIn('status', ['present', 'late'])
+                      ->whereHas('meeting', fn($mq) => $mq->whereYear('meeting_date', $year)
+                        ->whereIn('status', ['active', 'closed']))
+                ]);
 
-                    $pct     = $meetings > 0 ? round(($attended / $meetings) * 100, 1) : 0;
-                    $eligible = $pct >= 70 ? 'Yes' : 'No';
+            if ($search !== '') {
+                $query->where('name', 'like', "%{$search}%");
+            }
 
-                    fputcsv($handle, [
-                        $user->name,
-                        $user->phone,
-                        $attended,
-                        $meetings,
-                        $pct . '%',
-                        $eligible,
-                    ]);
-                });
+            $query->orderBy($sort === 'name' ? 'name' : 'attended_count', $dir);
+
+            $query->get()->each(function ($user) use ($handle, $totalMeetings) {
+                $pct     = $totalMeetings > 0 ? round(($user->attended_count / $totalMeetings) * 100, 1) : 0;
+                $eligible = $pct >= 70 ? 'Yes' : 'No';
+
+                fputcsv($handle, [
+                    $user->name,
+                    $user->phone,
+                    $user->attended_count,
+                    $totalMeetings,
+                    $pct . '%',
+                    $eligible,
+                ]);
+            });
 
             fclose($handle);
         };
