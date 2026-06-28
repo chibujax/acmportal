@@ -48,7 +48,9 @@ class SmsService
         }
 
         try {
-            $response = Http::asForm()->post('https://rest.nexmo.com/sms/json', [
+            //$http = app()->isLocal() ? Http::withoutVerifying() : Http::new();
+            $http = Http::withoutVerifying();
+            $response = $http->asForm()->post('https://rest.nexmo.com/sms/json', [
                 'api_key'    => $key,
                 'api_secret' => $secret,
                 'to'         => $to,

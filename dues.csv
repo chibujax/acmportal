@@ -1,0 +1,816 @@
+name,type,year,amount,date_paid
+Akudo Onuoha,iriji,2023,100.0,2023-01-01
+Akudo Onuoha,annual,2023,10.0,2023-05-01
+Akudo Onuoha,annual,2023,5.0,2023-06-01
+Akudo Onuoha,annual,2023,15.0,2023-10-01
+Akudo Onuoha,iriji,2024,50.0,2024-01-01
+Akudo Onuoha,annual,2024,20.0,2024-02-01
+Akudo Onuoha,annual,2024,15.0,2024-08-01
+Akudo Onuoha,annual,2024,25.0,2024-11-01
+Akudo Onuoha,iriji,2025,50.0,2025-01-01
+Akudo Onuoha,annual,2025,15.0,2025-04-01
+Akudo Onuoha,annual,2025,25.0,2025-08-01
+Akudo Onuoha,annual,2025,15.0,2025-10-01
+Akudo Onuoha,annual,2026,15.0,2026-03-01
+Amaka Ani,annual,2019,5.0,2019-07-01
+Amaka Ani,annual,2019,5.0,2019-08-01
+Amaka Chukwudi,annual,2019,10.0,2019-08-01
+Amaka Chukwudi,annual,2021,40.0,2021-09-01
+Amaka Chukwudi,annual,2021,10.0,2021-11-01
+Amaka Chukwudi,annual,2022,50.0,2022-07-01
+Amaka Chukwudi,iriji,2023,50.0,2023-01-01
+Amaka Chukwudi,annual,2023,20.0,2023-04-01
+Amaka Williams,annual,2021,100.0,2021-09-01
+Amaka Williams,annual,2021,30.0,2021-10-01
+Amaka Williams,annual,2022,25.0,2022-06-01
+Amaka Williams,iriji,2023,100.0,2023-01-01
+Amaka Williams,annual,2023,50.0,2023-02-01
+Amaka Williams,annual,2023,10.0,2023-03-01
+Amaka Williams,annual,2024,65.0,2024-07-01
+Amaka Williams,annual,2025,50.0,2025-02-01
+Amuche Nnadi,iriji,2023,100.0,2023-01-01
+Amuche Nnadi,annual,2024,15.0,2024-03-01
+Amuche Nnadi,annual,2024,10.0,2024-08-01
+Amuche Nnadi,annual,2025,50.0,2025-02-01
+Andrew Iheanaetu,annual,2021,10.0,2021-11-01
+Andrew Iheanaetu,annual,2022,100.0,2022-06-01
+Andrew Iheanaetu,iriji,2023,300.0,2023-01-01
+Andrew Iheanaetu,annual,2023,100.0,2023-03-01
+Andrew Iheanaetu,iriji,2024,200.0,2024-01-01
+Andrew Iheanaetu,iriji,2025,300.0,2025-01-01
+Andrew Iheanaetu,annual,2025,105.0,2025-10-01
+Andrew Iheanaetu,annual,2026,20.0,2026-02-01
+Andrew Iheanaetu,annual,2026,7.99,2026-03-01
+Andrew Iheanaetu,annual,2026,7.99,2026-05-01
+Andrew Iheanaetu,annual,2026,7.99,2026-06-01
+Angela Ogwougwa,iriji,2024,50.0,2024-01-01
+Ann Tucker,annual,2022,25.0,2022-09-01
+Ann Tucker,iriji,2023,50.0,2023-01-01
+Ann Tucker,annual,2023,15.0,2023-02-01
+Ann Tucker,annual,2023,15.0,2023-03-01
+Ann Tucker,annual,2023,10.0,2023-11-01
+Ann Tucker,annual,2024,25.0,2024-05-01
+Ann Tucker,annual,2024,20.0,2024-06-01
+Ann Tucker,annual,2024,25.0,2024-08-01
+Ann Tucker,annual,2025,60.0,2025-07-01
+Ann Tucker,annual,2026,35.0,2026-03-01
+Anne Ajere,annual,2022,50.0,2022-03-01
+Anne Ajere,annual,2023,50.0,2023-02-01
+Anne Ajere,iriji,2024,100.0,2024-01-01
+Anne Ajere,annual,2024,50.0,2024-04-01
+Anne Ajere,iriji,2025,50.0,2025-01-01
+Anne Ajere,annual,2025,55.0,2025-11-01
+Anne Ajere,annual,2026,60.0,2026-05-01
+Anne Ariwaodo,annual,2026,50.0,2026-04-01
+Anyacho Emeka Onuoha,annual,2019,10.0,2019-07-01
+Anyacho Emeka Onuoha,annual,2021,20.0,2021-09-01
+Anyacho Emeka Onuoha,annual,2021,20.0,2021-10-01
+Anyacho Emeka Onuoha,iriji,2023,100.0,2023-01-01
+Anyacho Emeka Onuoha,annual,2023,100.0,2023-03-01
+Anyacho Emeka Onuoha,annual,2023,20.0,2023-04-01
+Anyacho Emeka Onuoha,iriji,2024,100.0,2024-01-01
+Anyacho Emeka Onuoha,annual,2024,25.0,2024-02-01
+Anyacho Emeka Onuoha,iriji,2025,100.0,2025-01-01
+Armstrong Otasowie,annual,2026,5.0,2026-06-01
+Bede Nnadi,iriji,2024,50.0,2024-01-01
+Bede Nnadi,annual,2024,15.0,2024-03-01
+Bede Nnadi,annual,2024,10.0,2024-08-01
+Bede Nnadi,iriji,2025,100.0,2025-01-01
+Bede Nnadi,annual,2025,50.0,2025-02-01
+Blessing Emeka,annual,2021,20.0,2021-03-01
+Blessing Emeka,annual,2021,20.0,2021-08-01
+Blessing Emeka,annual,2021,20.0,2021-09-01
+Blessing Emeka,annual,2021,20.0,2021-10-01
+Blessing Emeka,annual,2021,20.0,2021-11-01
+Blessing Emeka,annual,2021,20.0,2021-12-01
+Blessing Emeka,annual,2022,20.0,2022-01-01
+Blessing Emeka,annual,2022,20.0,2022-02-01
+Blessing Emeka,annual,2022,20.0,2022-03-01
+Blessing Emeka,annual,2022,20.0,2022-04-01
+Blessing Emeka,annual,2022,20.0,2022-05-01
+Blessing Emeka,annual,2022,20.0,2022-06-01
+Blessing Emeka,annual,2022,20.0,2022-07-01
+Blessing Emeka,annual,2022,20.0,2022-08-01
+Blessing Emeka,annual,2022,20.0,2022-09-01
+Blessing Emeka,annual,2022,20.0,2022-10-01
+Blessing Emeka,annual,2022,20.0,2022-11-01
+Blessing Emeka,iriji,2023,100.0,2023-01-01
+Blessing Emeka,annual,2023,5.0,2023-02-01
+Blessing Emeka,annual,2023,5.0,2023-03-01
+Blessing Emeka,annual,2023,7.5,2023-04-01
+Blessing Emeka,annual,2023,7.5,2023-05-01
+Blessing Emeka,annual,2023,7.5,2023-06-01
+Blessing Emeka,annual,2023,7.5,2023-07-01
+Blessing Emeka,annual,2023,7.5,2023-08-01
+Blessing Emeka,annual,2023,7.5,2023-09-01
+Blessing Emeka,annual,2023,7.5,2023-10-01
+Blessing Emeka,annual,2023,7.5,2023-11-01
+Blessing Emeka,annual,2024,7.5,2024-02-01
+Blessing Emeka,annual,2024,7.5,2024-03-01
+Blessing Emeka,annual,2024,7.5,2024-04-01
+Blessing Emeka,annual,2024,7.5,2024-05-01
+Blessing Emeka,annual,2024,7.5,2024-06-01
+Blessing Emeka,annual,2024,7.5,2024-07-01
+Blessing Emeka,annual,2024,7.5,2024-08-01
+Blessing Emeka,annual,2024,7.5,2024-09-01
+Blessing Emeka,annual,2024,7.5,2024-10-01
+Blessing Emeka,annual,2024,7.5,2024-11-01
+Blessing Emeka,iriji,2025,55.0,2025-01-01
+Blessing Emeka,annual,2025,7.5,2025-02-01
+Blessing Emeka,annual,2025,7.5,2025-03-01
+Blessing Emeka,annual,2025,7.5,2025-04-01
+Blessing Emeka,annual,2025,7.5,2025-05-01
+Blessing Emeka,annual,2025,7.5,2025-06-01
+Blessing Emeka,annual,2025,7.5,2025-07-01
+Blessing Emeka,annual,2025,5.0,2025-08-01
+Blessing Emeka,annual,2025,5.0,2025-09-01
+Blessing Emeka,annual,2025,5.0,2025-10-01
+Blessing Emeka,annual,2025,5.0,2025-11-01
+Blessing Emeka,annual,2025,5.0,2025-12-01
+Blessing Emeka,annual,2026,5.0,2026-01-01
+Blessing Emeka,annual,2026,5.0,2026-02-01
+Blessing Emeka,annual,2026,5.0,2026-03-01
+Blessing Emeka,annual,2026,5.0,2026-04-01
+Blessing Emeka,annual,2026,5.0,2026-05-01
+Blessing Emeka,annual,2026,5.0,2026-06-01
+Blessing Ozegbe,annual,2025,10.0,2025-10-01
+Blessing Ozegbe,annual,2026,60.0,2026-03-01
+Blossom Ama-Kalu,annual,2023,50.0,2023-03-01
+Blossom Ama-Kalu,annual,2024,50.0,2024-04-01
+Blossom Ama-Kalu,annual,2026,60.0,2026-06-01
+Charles Tucker,annual,2019,10.0,2019-08-01
+Charles Tucker,annual,2021,50.0,2021-09-01
+Charles Tucker,annual,2021,20.0,2021-10-01
+Charles Tucker,annual,2022,25.0,2022-09-01
+Charles Tucker,iriji,2023,50.0,2023-01-01
+Charles Tucker,annual,2023,15.0,2023-02-01
+Charles Tucker,annual,2023,15.0,2023-03-01
+Charles Tucker,annual,2023,10.0,2023-11-01
+Charles Tucker,iriji,2024,100.0,2024-01-01
+Charles Tucker,annual,2024,25.0,2024-05-01
+Charles Tucker,annual,2024,20.0,2024-06-01
+Charles Tucker,annual,2024,25.0,2024-08-01
+Charles Tucker,iriji,2025,50.0,2025-01-01
+Charles Tucker,annual,2025,60.0,2025-07-01
+Charles Tucker,annual,2026,35.0,2026-03-01
+Chibueze Uchendu,iriji,2024,70.0,2024-01-01
+Chibueze Uchendu,annual,2024,50.0,2024-05-01
+Chibueze Uchendu,iriji,2025,100.0,2025-01-01
+Chibuzo Kalu,annual,2026,10.0,2026-05-01
+Chidi Illo,iriji,2024,150.0,2024-01-01
+Chidi Illo,annual,2024,70.0,2024-08-01
+Chidi Illo,iriji,2025,100.0,2025-01-01
+Chidi Illo,annual,2026,105.0,2026-03-01
+Chidozie Onuoha,iriji,2023,50.0,2023-01-01
+Chidozie Onuoha,annual,2023,5.0,2023-04-01
+Chidozie Onuoha,iriji,2024,50.0,2024-01-01
+Chidozie Onuoha,annual,2024,50.0,2024-06-01
+Chijioke Ibezim,iriji,2024,30.0,2024-01-01
+Chijioke Ibezim,iriji,2025,60.0,2025-01-01
+Chijioke Ibezim,annual,2025,25.0,2025-08-01
+Chijioke Ibezim,annual,2025,80.0,2025-10-01
+Chijioke Ibezim,annual,2026,10.0,2026-05-01
+Chimaobi Nwankpa,annual,2022,30.0,2022-09-01
+Chimaobi Nwankpa,annual,2022,20.0,2022-11-01
+Chimaobi Nwankpa,iriji,2023,100.0,2023-01-01
+Chimaobi Nwankpa,annual,2023,100.0,2023-02-01
+Chimaobi Sam Achilihu,annual,2019,10.0,2019-08-01
+Chimaobi Sam Achilihu,iriji,2023,100.0,2023-01-01
+Chimaobi Sam Achilihu,annual,2023,25.0,2023-04-01
+Chimaobi Sam Achilihu,annual,2023,20.0,2023-06-01
+Chimaobi Sam Achilihu,annual,2024,25.0,2024-02-01
+Chimaobi Sam Achilihu,iriji,2025,110.0,2025-01-01
+Chimaobi Sam Achilihu,annual,2025,30.0,2025-03-01
+Chimaobi Sam Achilihu,annual,2025,40.0,2025-09-01
+Chimaobi Sam Achilihu,annual,2026,50.0,2026-03-01
+Chimka Ama-Kalu,iriji,2023,100.0,2023-01-01
+Chimka Ama-Kalu,annual,2023,100.0,2023-05-01
+Chimka Ama-Kalu,annual,2024,50.0,2024-04-01
+Chimka Ama-Kalu,annual,2024,50.0,2024-05-01
+Chimka Ama-Kalu,iriji,2025,50.0,2025-01-01
+Chimka Ama-Kalu,annual,2025,110.0,2025-04-01
+Chinedu Chigbundu,annual,2024,50.0,2024-09-01
+Chinyere Chigbundu,annual,2024,50.0,2024-09-01
+Chinyere Ebuka,annual,2025,10.0,2025-09-01
+Chinyere Ebuka,annual,2026,60.0,2026-02-01
+Chinyere Ebuka,annual,2026,30.0,2026-03-01
+Chinyere Ibezim,annual,2025,25.0,2025-08-01
+Chinyere Ibezim,annual,2025,80.0,2025-10-01
+Chinyere Ibezim,annual,2026,10.0,2026-05-01
+Chinyere Kalu,annual,2025,25.0,2025-11-01
+Chinyere Uko,iriji,2025,50.0,2025-01-01
+Chinyere Uko,annual,2025,15.0,2025-08-01
+Chioma Ndubuka,annual,2022,50.0,2022-02-01
+Chioma Ndubuka,annual,2022,10.0,2022-06-01
+Chioma Ndubuka,iriji,2023,100.0,2023-01-01
+Chioma Ndubuka,iriji,2024,30.0,2024-01-01
+Chioma Ndubuka,annual,2024,25.0,2024-07-01
+Chioma Ndubuka,annual,2024,75.0,2024-08-01
+Chioma Ndubuka,iriji,2025,50.0,2025-01-01
+Chioma Ndubuka,annual,2025,50.0,2025-05-01
+Chioma Ndubuka,annual,2026,75.0,2026-03-01
+Chisolo Kalu,annual,2026,20.0,2026-03-01
+Chisom Williams,annual,2019,20.0,2019-07-01
+Chisom Williams,annual,2021,50.0,2021-11-01
+Chisom Williams,annual,2022,25.0,2022-06-01
+Chisom Williams,annual,2023,50.0,2023-02-01
+Chisom Williams,annual,2023,10.0,2023-03-01
+Chisom Williams,iriji,2024,100.0,2024-01-01
+Chisom Williams,annual,2024,65.0,2024-07-01
+Chisom Williams,iriji,2025,100.0,2025-01-01
+Chisom Williams,annual,2025,50.0,2025-02-01
+Chris Imoh,iriji,2024,100.0,2024-01-01
+Chris Imoh,iriji,2025,100.0,2025-01-01
+Chris Mba,iriji,2025,50.0,2025-01-01
+Chris Ogwuru,annual,2019,10.0,2019-07-01
+Chris Ogwuru,annual,2019,10.0,2019-08-01
+Chris Ogwuru,annual,2021,40.0,2021-01-01
+Chris Ogwuru,annual,2021,20.0,2021-03-01
+Chris Ogwuru,annual,2021,110.0,2021-09-01
+Chris Ogwuru,annual,2022,10.0,2022-05-01
+Chris Ogwuru,iriji,2023,200.0,2023-01-01
+Chris Ogwuru,annual,2023,40.0,2023-03-01
+Chris Ogwuru,annual,2023,25.0,2023-08-01
+Chris Ogwuru,iriji,2024,100.0,2024-01-01
+Chris Ogwuru,annual,2024,25.0,2024-02-01
+Chris Ogwuru,annual,2024,45.0,2024-03-01
+Chris Ogwuru,annual,2024,15.0,2024-09-01
+Chris Ogwuru,iriji,2025,200.0,2025-01-01
+Chris Ogwuru,annual,2025,10.0,2025-06-01
+Chris Ogwuru,annual,2025,35.0,2025-10-01
+Christopher Chile,annual,2024,20.0,2024-04-01
+Chucks Kalu,annual,2026,10.0,2026-05-01
+Chukwu Oko Chukwu,annual,2021,50.0,2021-05-01
+Chukwu Oko Chukwu,annual,2021,10.0,2021-08-01
+Chukwu Oko Chukwu,annual,2021,10.0,2021-09-01
+Chukwu Oko Chukwu,annual,2022,25.0,2022-05-01
+Chukwu Oko Chukwu,annual,2022,20.0,2022-07-01
+Chukwu Oko Chukwu,annual,2022,25.0,2022-09-01
+Chukwu Oko Chukwu,iriji,2023,100.0,2023-01-01
+Chukwu Oko Chukwu,annual,2023,5.0,2023-02-01
+Chukwu Oko Chukwu,annual,2023,30.0,2023-03-01
+Chukwu Oko Chukwu,annual,2023,5.0,2023-04-01
+Chukwu Oko Chukwu,iriji,2024,100.0,2024-01-01
+Chukwu Oko Chukwu,annual,2024,25.0,2024-04-01
+Chukwu Oko Chukwu,annual,2024,25.0,2024-07-01
+Chukwu Oko Chukwu,annual,2024,25.0,2024-11-01
+Chukwu Oko Chukwu,iriji,2025,100.0,2025-01-01
+Chukwu Oko Chukwu,annual,2025,25.0,2025-07-01
+Chukwu Oko Chukwu,annual,2026,25.0,2026-03-01
+Chukwuemeka Kalu,annual,2019,10.0,2019-07-01
+Chukwuemeka Kalu,annual,2019,10.0,2019-08-01
+Chukwuemeka Kalu,annual,2021,10.0,2021-08-01
+Chukwuemeka Kalu,annual,2021,90.0,2021-09-01
+Dan Kalu,annual,2019,10.0,2019-07-01
+Dan Kalu,annual,2019,10.0,2019-08-01
+Dan Kalu,annual,2021,100.0,2021-11-01
+Dan Kalu,annual,2022,50.0,2022-10-01
+Dan Kalu,iriji,2023,50.0,2023-01-01
+Dan Kalu,annual,2024,20.0,2024-02-01
+Dan Kalu,annual,2024,20.0,2024-04-01
+Dan Kalu,iriji,2025,105.0,2025-01-01
+Ego Edith Ogbonna,iriji,2024,50.0,2024-01-01
+Ego Edith Ogbonna,iriji,2025,50.0,2025-01-01
+Ego Edith Ogbonna,annual,2025,100.0,2025-03-01
+Ego Edith Ogbonna,annual,2025,50.0,2025-07-01
+Elizabeth Agu,annual,2022,25.0,2022-05-01
+Elizabeth Agu,iriji,2023,100.0,2023-01-01
+Elizabeth Agu,annual,2023,25.0,2023-05-01
+Elizabeth Agu,annual,2024,50.0,2024-06-01
+Elyson I Anyaele,annual,2019,10.0,2019-08-01
+Elyson I Anyaele,annual,2023,25.0,2023-04-01
+Elyson I Anyaele,annual,2024,25.0,2024-05-01
+Elyson I Anyaele,annual,2024,25.0,2024-07-01
+Elyson I Anyaele,annual,2024,25.0,2024-08-01
+Emeka Ama-Kalu,iriji,2023,300.0,2023-01-01
+Emeka Ama-Kalu,annual,2023,50.0,2023-03-01
+Emeka Ama-Kalu,annual,2024,50.0,2024-04-01
+Emeka Ama-Kalu,iriji,2025,300.0,2025-01-01
+Emeka Ama-Kalu,annual,2026,60.0,2026-06-01
+Enyiuche Okoroafor,iriji,2023,100.0,2023-01-01
+Esther Anya,iriji,2023,50.0,2023-01-01
+Esther Anya,annual,2023,30.0,2023-05-01
+Esther Onuoha,annual,2024,25.0,2024-02-01
+Ezinne Ibe,annual,2022,50.0,2022-04-01
+Ezinne Ibe,iriji,2023,100.0,2023-01-01
+Ezinne Ibe,annual,2023,50.0,2023-02-01
+Ezinne Ibe,iriji,2024,50.0,2024-01-01
+Ezinne Ibe,annual,2024,50.0,2024-08-01
+Ezinne Ibe,annual,2025,60.0,2025-03-01
+Ezinne Ibe,annual,2026,50.0,2026-02-01
+Ezinwanne Igba,annual,2022,50.0,2022-08-01
+Ezinwanne Igba,iriji,2023,100.0,2023-01-01
+Ezinwanne Igba,annual,2023,50.0,2023-02-01
+Ezinwanne Igba,iriji,2024,200.0,2024-01-01
+Ezinwanne Igba,annual,2024,25.0,2024-02-01
+Ezinwanne Igba,annual,2024,50.0,2024-06-01
+Felicia Ogbonaya,iriji,2023,50.0,2023-01-01
+Felicia Ogbonaya,annual,2023,5.0,2023-03-01
+Felicia Ogbonaya,annual,2023,5.0,2023-04-01
+Felicia Ogbonaya,annual,2023,5.0,2023-05-01
+Felicia Ogbonaya,annual,2023,5.0,2023-06-01
+Felicia Ogbonaya,annual,2023,5.0,2023-07-01
+Felicia Ogbonaya,annual,2023,5.0,2023-08-01
+Felicia Ogbonaya,annual,2023,5.0,2023-09-01
+Felicia Ogbonaya,annual,2023,5.0,2023-10-01
+Felicia Ogbonaya,annual,2023,5.0,2023-11-01
+Felicia Ogbonaya,iriji,2024,50.0,2024-01-01
+Felicia Ogbonaya,annual,2024,5.0,2024-02-01
+Felicia Ogbonaya,annual,2024,5.0,2024-03-01
+Felicia Ogbonaya,annual,2024,5.0,2024-04-01
+Felicia Ogbonaya,annual,2024,5.0,2024-05-01
+Felicia Ogbonaya,annual,2024,5.0,2024-06-01
+Felicia Ogbonaya,annual,2024,5.0,2024-07-01
+Felicia Ogbonaya,annual,2024,5.0,2024-08-01
+Felicia Ogbonaya,annual,2024,5.0,2024-09-01
+Felicia Ogbonaya,annual,2024,5.0,2024-10-01
+Felicia Ogbonaya,annual,2024,5.0,2024-11-01
+Felicia Ogbonaya,annual,2025,5.0,2025-02-01
+Felicia Ogbonaya,annual,2025,5.0,2025-03-01
+Felicia Ogbonaya,annual,2025,5.0,2025-04-01
+Felicia Ogbonaya,annual,2025,5.0,2025-05-01
+Felicia Ogbonaya,annual,2025,5.0,2025-06-01
+Felicia Ogbonaya,annual,2025,5.0,2025-07-01
+Felicia Ogbonaya,annual,2025,5.0,2025-08-01
+Felicia Ogbonaya,annual,2025,5.0,2025-09-01
+Felicia Ogbonaya,annual,2025,5.0,2025-10-01
+Felicia Ogbonaya,annual,2025,5.0,2025-11-01
+Felicia Ogbonaya,annual,2025,5.0,2025-12-01
+Felicia Ogbonaya,annual,2026,5.0,2026-01-01
+Felicia Ogbonaya,annual,2026,5.0,2026-02-01
+Felicia Ogbonaya,annual,2026,5.0,2026-03-01
+Felicia Ogbonaya,annual,2026,5.0,2026-04-01
+Felicia Ogbonaya,annual,2026,5.0,2026-05-01
+Felicia Ogbonaya,annual,2026,5.0,2026-06-01
+Gabriel Uba,annual,2019,10.0,2019-07-01
+Gabriel Uba,annual,2021,200.0,2021-10-01
+Gabriel Uba,annual,2022,55.0,2022-11-01
+Gabriel Uba,iriji,2023,100.0,2023-01-01
+Gabriel Uba,annual,2023,5.0,2023-02-01
+Gabriel Uba,annual,2024,50.0,2024-07-01
+Gabriel Uba,iriji,2025,100.0,2025-01-01
+George Ibe,annual,2019,10.0,2019-07-01
+George Ibe,annual,2019,10.0,2019-08-01
+George Ibe,annual,2021,200.0,2021-10-01
+George Ibe,annual,2022,50.0,2022-04-01
+George Ibe,annual,2023,50.0,2023-02-01
+George Ibe,iriji,2024,100.0,2024-01-01
+George Ibe,annual,2024,50.0,2024-08-01
+George Ibe,iriji,2025,100.0,2025-01-01
+George Ibe,annual,2025,60.0,2025-03-01
+George Ibe,annual,2026,50.0,2026-02-01
+Gift Ekeh,annual,2026,5.0,2026-06-01
+Godwin Emezue,annual,2024,25.0,2024-08-01
+Goodness Igba,annual,2024,25.0,2024-02-01
+Goodness Igba,annual,2024,50.0,2024-06-01
+Goodness Kalu,annual,2025,10.0,2025-10-01
+Goodwin Ndubeze,annual,2021,50.0,2021-09-01
+Goodwin Ndubeze,annual,2021,140.0,2021-11-01
+Goodwin Ndubeze,annual,2022,60.0,2022-05-01
+Goodwin Ndubeze,annual,2022,40.0,2022-11-01
+Goodwin Ndubeze,iriji,2023,200.0,2023-01-01
+Goodwin Ndubeze,annual,2023,30.0,2023-05-01
+Goodwin Ndubeze,iriji,2024,100.0,2024-01-01
+Goodwin Ndubeze,annual,2024,15.0,2024-06-01
+Goodwin Ndubeze,annual,2024,5.0,2024-08-01
+Goodwin Ndubeze,iriji,2025,100.0,2025-01-01
+Goodwin Ndubeze,annual,2025,15.0,2025-03-01
+Goodwin Ndubeze,annual,2025,15.0,2025-04-01
+Goodwin Ndubeze,annual,2025,15.0,2025-05-01
+Goodwin Ndubeze,annual,2025,15.0,2025-06-01
+Goodwin Ndubeze,annual,2025,15.0,2025-07-01
+Goodwin Ndubeze,annual,2026,6.5,2026-04-01
+Grace Obison Stevens,annual,2019,5.0,2019-07-01
+Grace Obison Stevens,annual,2019,5.0,2019-08-01
+Grace Obison Stevens,annual,2021,50.0,2021-10-01
+Grace Obison Stevens,annual,2022,20.0,2022-04-01
+Grace Obison Stevens,iriji,2023,50.0,2023-01-01
+Grace Obison Stevens,annual,2023,10.0,2023-02-01
+Grace Obison Stevens,annual,2023,25.0,2023-03-01
+Grace Obison Stevens,annual,2023,20.0,2023-04-01
+Grace Obison Stevens,iriji,2024,40.0,2024-01-01
+Grace Obison Stevens,annual,2024,20.0,2024-03-01
+Grace Obison Stevens,annual,2024,30.0,2024-05-01
+Grace Obison Stevens,annual,2024,15.0,2024-06-01
+Grace Obison Stevens,annual,2024,40.0,2024-07-01
+Ikechukwu Amankulor,iriji,2024,50.0,2024-01-01
+Ikechukwu Amankulor,annual,2024,10.0,2024-02-01
+Ikechukwu Amankulor,annual,2024,5.0,2024-04-01
+Ikechukwu Amankulor,annual,2024,10.0,2024-09-01
+Ikechukwu Amankulor,annual,2025,25.0,2025-06-01
+Ikechukwu Amankulor,annual,2025,25.0,2025-11-01
+Ikechukwu Amankulor,annual,2026,40.0,2026-02-01
+Ikechukwu Amankulor,annual,2026,5.0,2026-04-01
+Ikenna James,annual,2019,10.0,2019-07-01
+Ikenna James,annual,2019,5.0,2019-08-01
+Ikenna James,annual,2022,80.0,2022-11-01
+Ikenna James,iriji,2024,100.0,2024-01-01
+Ikenna James,iriji,2025,100.0,2025-01-01
+Ikenna James,annual,2025,55.0,2025-02-01
+Ikenna James,annual,2025,20.0,2025-06-01
+Ikenna James,annual,2026,40.0,2026-03-01
+Ikenna James,annual,2026,30.0,2026-05-01
+Isaiah Kalu,annual,2019,5.0,2019-07-01
+Isaiah Kalu,annual,2019,5.0,2019-08-01
+Isaiah Kalu,annual,2021,70.0,2021-10-01
+Isaiah Kalu,annual,2022,20.0,2022-03-01
+Isaiah Kalu,iriji,2023,50.0,2023-01-01
+Isaiah Kalu,iriji,2024,50.0,2024-01-01
+Isaiah Kalu,annual,2024,40.0,2024-05-01
+Isaiah Kalu,annual,2024,15.0,2024-06-01
+Isaiah Kalu,iriji,2025,60.0,2025-01-01
+Isaiah Kalu,annual,2025,50.0,2025-06-01
+Isaiah Kalu,annual,2025,20.0,2025-09-01
+Jeff Kalu,annual,2019,5.0,2019-07-01
+Jeff Kalu,annual,2021,10.0,2021-09-01
+Jeff Kalu,annual,2021,40.0,2021-10-01
+John Chukwu,annual,2019,20.0,2019-07-01
+John Chukwu,annual,2019,10.0,2019-08-01
+John Chukwu,annual,2021,240.0,2021-09-01
+John Emeka,annual,2023,5.0,2023-02-01
+John Emeka,annual,2023,5.0,2023-03-01
+John Emeka,annual,2023,7.5,2023-04-01
+John Emeka,annual,2023,7.5,2023-05-01
+John Emeka,annual,2023,7.5,2023-06-01
+John Emeka,annual,2023,7.5,2023-07-01
+John Emeka,annual,2023,7.5,2023-08-01
+John Emeka,annual,2023,7.5,2023-09-01
+John Emeka,annual,2023,7.5,2023-10-01
+John Emeka,annual,2023,7.5,2023-11-01
+John Emeka,annual,2024,7.5,2024-02-01
+John Emeka,annual,2024,7.5,2024-03-01
+John Emeka,annual,2024,7.5,2024-04-01
+John Emeka,annual,2024,7.5,2024-05-01
+John Emeka,annual,2024,7.5,2024-06-01
+John Emeka,annual,2024,7.5,2024-07-01
+John Emeka,annual,2024,7.5,2024-08-01
+John Emeka,annual,2024,7.5,2024-09-01
+John Emeka,annual,2024,7.5,2024-10-01
+John Emeka,annual,2024,7.5,2024-11-01
+John Emeka,annual,2025,7.5,2025-02-01
+John Emeka,annual,2025,7.5,2025-03-01
+John Emeka,annual,2025,7.5,2025-04-01
+John Emeka,annual,2025,7.5,2025-05-01
+John Emeka,annual,2025,7.5,2025-06-01
+John Emeka,annual,2025,7.5,2025-07-01
+John Emeka,annual,2025,5.0,2025-08-01
+John Emeka,annual,2025,5.0,2025-09-01
+John Emeka,annual,2025,5.0,2025-10-01
+John Emeka,annual,2025,5.0,2025-11-01
+John Emeka,annual,2025,5.0,2025-12-01
+John Emeka,annual,2026,5.0,2026-01-01
+John Emeka,annual,2026,5.0,2026-02-01
+John Emeka,annual,2026,5.0,2026-03-01
+John Emeka,annual,2026,5.0,2026-04-01
+John Emeka,annual,2026,5.0,2026-05-01
+John Emeka,annual,2026,5.0,2026-06-01
+Jonathan Ajere,annual,2019,10.0,2019-07-01
+Jonathan Ajere,annual,2021,100.0,2021-09-01
+Jonathan Ajere,annual,2022,50.0,2022-03-01
+Jonathan Ajere,iriji,2023,250.0,2023-01-01
+Jonathan Ajere,annual,2023,50.0,2023-02-01
+Jonathan Ajere,annual,2024,50.0,2024-04-01
+Jonathan Ajere,iriji,2025,100.0,2025-01-01
+Jonathan Ajere,annual,2025,55.0,2025-11-01
+Jonathan Ajere,annual,2026,60.0,2026-05-01
+Josephine Anyaele,iriji,2023,50.0,2023-01-01
+Josephine Anyaele,annual,2023,25.0,2023-04-01
+Josephine Anyaele,iriji,2024,50.0,2024-01-01
+Josephine Anyaele,annual,2024,25.0,2024-05-01
+Josephine Anyaele,annual,2024,25.0,2024-07-01
+Josephine Anyaele,annual,2024,25.0,2024-08-01
+Joy Francis,annual,2019,5.0,2019-07-01
+Joy Francis,annual,2021,50.0,2021-09-01
+Joy Francis,annual,2022,50.0,2022-04-01
+Joy Francis,iriji,2023,50.0,2023-01-01
+Joy Francis,annual,2023,20.0,2023-03-01
+Joy Francis,annual,2023,30.0,2023-05-01
+Joy Francis,iriji,2024,40.0,2024-01-01
+Joy Francis,annual,2024,50.0,2024-11-01
+Joy Francis,iriji,2025,50.0,2025-01-01
+Joy Francis,annual,2025,60.0,2025-09-01
+Joy Oko Chukwu,annual,2022,25.0,2022-05-01
+Joy Oko Chukwu,annual,2022,20.0,2022-07-01
+Joy Oko Chukwu,annual,2022,25.0,2022-09-01
+Joy Oko Chukwu,annual,2023,5.0,2023-02-01
+Joy Oko Chukwu,annual,2023,30.0,2023-03-01
+Joy Oko Chukwu,annual,2023,5.0,2023-04-01
+Joy Oko Chukwu,iriji,2024,50.0,2024-01-01
+Joy Oko Chukwu,annual,2024,25.0,2024-04-01
+Joy Oko Chukwu,annual,2024,25.0,2024-07-01
+Joy Oko Chukwu,annual,2024,25.0,2024-11-01
+Joy Oko Chukwu,iriji,2025,50.0,2025-01-01
+Joy Oko Chukwu,annual,2025,25.0,2025-07-01
+Joy Oko Chukwu,annual,2026,25.0,2026-03-01
+Justina Ogwuru,annual,2022,10.0,2022-05-01
+Justina Ogwuru,iriji,2023,150.0,2023-01-01
+Justina Ogwuru,annual,2023,40.0,2023-03-01
+Justina Ogwuru,annual,2023,25.0,2023-08-01
+Justina Ogwuru,iriji,2024,60.0,2024-01-01
+Justina Ogwuru,annual,2024,25.0,2024-02-01
+Justina Ogwuru,annual,2024,45.0,2024-03-01
+Justina Ogwuru,annual,2024,15.0,2024-09-01
+Justina Ogwuru,annual,2025,10.0,2025-06-01
+Justina Ogwuru,annual,2025,35.0,2025-10-01
+Kalu Hardy Ogwougwa,annual,2019,5.0,2019-07-01
+Kalu Hardy Ogwougwa,annual,2022,100.0,2022-11-01
+Kalu Hardy Ogwougwa,iriji,2024,100.0,2024-01-01
+Kate James,annual,2021,100.0,2021-10-01
+Kate James,annual,2022,80.0,2022-11-01
+Kate James,iriji,2023,150.0,2023-01-01
+Kate James,iriji,2024,30.0,2024-01-01
+Kate James,annual,2025,55.0,2025-02-01
+Kate James,annual,2025,20.0,2025-06-01
+Kate James,annual,2026,40.0,2026-03-01
+Kate James,annual,2026,30.0,2026-05-01
+Kelechi Chukwu,annual,2019,10.0,2019-07-01
+Kelechi Chukwu,annual,2019,10.0,2019-08-01
+Kelechi Njoku,annual,2022,25.0,2022-11-01
+Kelechi Njoku,iriji,2023,100.0,2023-01-01
+Kelechi Njoku,iriji,2025,200.0,2025-01-01
+Kelechi Njoku,annual,2025,100.0,2025-02-01
+Kelechi Omekara,iriji,2023,100.0,2023-01-01
+Kelechi Omekara,annual,2023,12.5,2023-03-01
+Kelechi Omekara,iriji,2024,30.0,2024-01-01
+Kelechi Omekara,annual,2024,10.0,2024-06-01
+Kennedy Nmecha,annual,2019,40.0,2019-07-01
+Kennedy Nmecha,annual,2021,100.0,2021-09-01
+Kennedy Nmecha,annual,2022,100.0,2022-02-01
+Linda Oby Kanu,annual,2022,50.0,2022-11-01
+Linda Oby Kanu,iriji,2023,107.0,2023-01-01
+Linda Oby Kanu,annual,2023,50.0,2023-03-01
+Linda Oby Kanu,iriji,2024,50.0,2024-01-01
+Linda Oby Kanu,annual,2024,5.0,2024-08-01
+Linda Oby Kanu,iriji,2025,50.0,2025-01-01
+Linda Oby Kanu,annual,2025,25.0,2025-02-01
+Linda Oby Kanu,annual,2025,40.0,2025-06-01
+Linda Oby Kanu,annual,2026,35.0,2026-04-01
+Livingstone Iroanya,annual,2024,25.0,2024-08-01
+Livingstone Iroanya,iriji,2025,100.0,2025-01-01
+Livingstone Iroanya,annual,2025,55.0,2025-06-01
+Lucy Iroanya,annual,2024,25.0,2024-08-01
+Lucy Iroanya,annual,2025,55.0,2025-06-01
+Maclighting Munnonye,annual,2023,60.0,2023-03-01
+Maclighting Munnonye,annual,2023,25.0,2023-04-01
+Maclighting Munnonye,annual,2023,5.0,2023-05-01
+Maclighting Munnonye,annual,2023,5.0,2023-06-01
+Maclighting Munnonye,iriji,2024,50.0,2024-01-01
+Maclighting Munnonye,annual,2024,10.0,2024-03-01
+Maclighting Munnonye,annual,2024,5.0,2024-04-01
+Maclighting Munnonye,iriji,2025,100.0,2025-01-01
+Maclighting Munnonye,annual,2025,60.0,2025-04-01
+Maclighting Munnonye,annual,2026,20.0,2026-04-01
+Mercy Arua,iriji,2023,50.0,2023-01-01
+Mercy Arua,annual,2023,5.0,2023-02-01
+Mercy Arua,annual,2023,5.0,2023-03-01
+Mercy Arua,annual,2023,5.0,2023-04-01
+Mercy Arua,annual,2023,5.0,2023-05-01
+Mercy Arua,iriji,2025,50.0,2025-01-01
+Mrs Hardy Ogwougwa,iriji,2023,100.0,2023-01-01
+Mrs Igbokwe,iriji,2023,200.0,2023-01-01
+Ngozi Amankulor Onwubiko,annual,2019,10.0,2019-07-01
+Ngozi Amankulor Onwubiko,annual,2019,10.0,2019-08-01
+Ngozi Amankulor Onwubiko,annual,2021,60.0,2021-09-01
+Ngozi Amankulor Onwubiko,annual,2022,40.0,2022-05-01
+Ngozi Amankulor Onwubiko,iriji,2023,50.0,2023-01-01
+Ngozi Amankulor Onwubiko,annual,2023,10.0,2023-02-01
+Ngozi Amankulor Onwubiko,annual,2023,50.0,2023-04-01
+Ngozi Amankulor Onwubiko,annual,2023,60.0,2023-11-01
+Ngozi Amankulor Onwubiko,iriji,2024,20.0,2024-01-01
+Ngozi Amankulor Onwubiko,annual,2024,10.0,2024-02-01
+Ngozi Amankulor Onwubiko,annual,2024,5.0,2024-04-01
+Ngozi Amankulor Onwubiko,annual,2024,10.0,2024-09-01
+Ngozi Amankulor Onwubiko,annual,2025,25.0,2025-06-01
+Ngozi Amankulor Onwubiko,annual,2025,25.0,2025-11-01
+Ngozi Amankulor Onwubiko,annual,2026,40.0,2026-02-01
+Ngozi Amankulor Onwubiko,annual,2026,5.0,2026-04-01
+Ngozi Ibeh,iriji,2024,20.0,2024-01-01
+Ngozi Iheanaetu,annual,2025,105.0,2025-10-01
+Ngozi Iheanaetu,annual,2026,20.0,2026-02-01
+Ngozi Iheanaetu,annual,2026,8.0,2026-03-01
+Ngozi Iheanaetu,annual,2026,8.0,2026-05-01
+Ngozi Iheanaetu,annual,2026,8.0,2026-06-01
+Ngozi Jessica Kalu,annual,2019,5.0,2019-07-01
+Ngozi Moneke,iriji,2025,50.0,2025-01-01
+Ngozi Ogbonna,annual,2024,30.0,2024-05-01
+Ngozi Ogbonna,annual,2024,30.0,2024-09-01
+Ngozi Ogbonna,annual,2025,30.0,2025-02-01
+Ngozi Oged,annual,2021,50.0,2021-10-01
+Ngozi Oged,annual,2021,50.0,2021-11-01
+Ngozi Oged,annual,2022,30.0,2022-11-01
+Ngozi Oged,iriji,2023,50.0,2023-01-01
+Ngozi Oged,annual,2023,30.0,2023-03-01
+Ngozi Oged,annual,2023,10.0,2023-05-01
+Ngozi Oged,iriji,2024,50.0,2024-01-01
+Ngozi Oged,annual,2024,30.0,2024-09-01
+Ngozi Oged,annual,2024,20.0,2024-11-01
+Ngozi Oged,iriji,2025,50.0,2025-01-01
+Ngozi Oged,annual,2025,20.0,2025-08-01
+Ngozi Oged,annual,2025,20.0,2025-10-01
+Nkebuife Ebere Agu,annual,2019,10.0,2019-08-01
+Nkebuife Ebere Agu,annual,2021,50.0,2021-09-01
+Nkebuife Ebere Agu,annual,2021,110.0,2021-10-01
+Nkebuife Ebere Agu,annual,2022,30.0,2022-04-01
+Nkebuife Ebere Agu,annual,2022,50.0,2022-06-01
+Nkebuife Ebere Agu,annual,2024,35.0,2024-09-01
+Nkebuife Ebere Agu,annual,2024,35.0,2024-10-01
+Nkebuife Ebere Agu,iriji,2025,50.0,2025-01-01
+Nkebuife Ebere Agu,annual,2025,50.0,2025-08-01
+Nkebuife Ebere Agu,annual,2026,60.0,2026-04-01
+Nkechi Emenike,annual,2025,5.0,2025-08-01
+Nkechi Emenike,annual,2025,5.0,2025-09-01
+Nkechi Emenike,annual,2025,5.0,2025-10-01
+Nkechi Emenike,annual,2025,5.0,2025-11-01
+Nkechi Emenike,annual,2025,5.0,2025-12-01
+Nkechi Emenike,annual,2026,5.0,2026-01-01
+Nkechi Emenike,annual,2026,5.0,2026-02-01
+Nkechi Emenike,annual,2026,5.0,2026-03-01
+Nkechi Emenike,annual,2026,5.0,2026-04-01
+Nkechi Emenike,annual,2026,5.0,2026-05-01
+Nkechi Emenike,annual,2026,5.0,2026-06-01
+Nkem Kanis Igbokwe,annual,2021,10.0,2021-09-01
+Nkem Kanis Igbokwe,annual,2021,20.0,2021-10-01
+Nkem Kanis Igbokwe,annual,2022,70.0,2022-05-01
+Nkem Kanis Igbokwe,annual,2023,100.0,2023-02-01
+Nkem Kanis Igbokwe,annual,2023,20.0,2023-03-01
+Nkem Kanis Igbokwe,annual,2023,20.0,2023-04-01
+Nkem Kanis Igbokwe,annual,2023,10.0,2023-05-01
+Nkem Kanis Igbokwe,annual,2023,30.0,2023-06-01
+Nkem Kanis Igbokwe,iriji,2024,100.0,2024-01-01
+Nkem Kanis Igbokwe,iriji,2025,150.0,2025-01-01
+Nkem Kanis Igbokwe,annual,2025,87.0,2025-09-01
+Nkem Kanis Igbokwe,annual,2026,110.0,2026-05-01
+Nwanneka Uwaezuoke,annual,2026,5.0,2026-03-01
+Nwanneka Uwaezuoke,annual,2026,10.0,2026-05-01
+Obinna Uwaezuoke,annual,2026,5.0,2026-03-01
+Obinna Uwaezuoke,annual,2026,10.0,2026-05-01
+Odinaka Steven Olumba,iriji,2023,50.0,2023-01-01
+Odinaka Steven Olumba,annual,2023,10.0,2023-04-01
+Odinaka Steven Olumba,annual,2023,20.0,2023-06-01
+Odinaka Steven Olumba,annual,2023,20.0,2023-10-01
+Odinaka Steven Olumba,annual,2023,10.0,2023-11-01
+Odinaka Steven Olumba,annual,2024,30.0,2024-05-01
+Ogbonna Ajiwe,annual,2022,100.0,2022-07-01
+Ogbonna Ajiwe,iriji,2023,75.0,2023-01-01
+Ogbonna Ajiwe,annual,2023,100.0,2023-05-01
+Ogbonna Ajiwe,annual,2024,50.0,2024-05-01
+Ogbonna Ajiwe,annual,2024,50.0,2024-09-01
+Ogbonna Ajiwe,iriji,2025,100.0,2025-01-01
+Ogbonna Ajiwe,annual,2026,115.0,2026-03-01
+Ogbonna Emeka,annual,2024,10.0,2024-08-01
+Okechukwu Emeribe,annual,2019,10.0,2019-07-01
+Okechukwu Emeribe,annual,2019,10.0,2019-08-01
+Oluchi Okoye,annual,2022,50.0,2022-07-01
+Oluchi Okoye,iriji,2023,50.0,2023-01-01
+Oluchi Okoye,annual,2023,30.0,2023-06-01
+Oluchi Okoye,iriji,2024,50.0,2024-01-01
+Oluchi Okoye,annual,2024,120.0,2024-07-01
+Oluchi Okoye,iriji,2025,50.0,2025-01-01
+Oluchi Okoye,annual,2025,35.0,2025-08-01
+Onuoha Agu,annual,2020,70.0,2020-12-01
+Onuoha Agu,annual,2021,80.0,2021-10-01
+Onuoha Agu,annual,2022,25.0,2022-05-01
+Onuoha Agu,annual,2023,25.0,2023-05-01
+Onuoha Agu,iriji,2024,50.0,2024-01-01
+Onuoha Agu,annual,2024,50.0,2024-06-01
+Onyema Ndubuka,annual,2022,50.0,2022-02-01
+Onyema Ndubuka,annual,2022,10.0,2022-06-01
+Onyema Ndubuka,annual,2024,25.0,2024-07-01
+Onyema Ndubuka,annual,2024,75.0,2024-08-01
+Onyema Ndubuka,annual,2025,50.0,2025-05-01
+Onyema Ndubuka,annual,2026,75.0,2026-03-01
+Onyemachi Ndubuka,annual,2019,5.0,2019-07-01
+Onyemachi Ndubuka,annual,2019,5.0,2019-08-01
+Onyemachi Ndubuka,iriji,2024,50.0,2024-01-01
+Onyemachi Ndubuka,iriji,2025,80.0,2025-01-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2021,45.0,2021-09-01
+Onyinyechi Nwaogwugwu Ohajuru,iriji,2023,50.0,2023-01-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2023,10.0,2023-03-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2023,50.0,2023-06-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2023,10.0,2023-10-01
+Onyinyechi Nwaogwugwu Ohajuru,iriji,2024,30.0,2024-01-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2024,20.0,2024-02-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2024,25.0,2024-06-01
+Onyinyechi Nwaogwugwu Ohajuru,iriji,2025,50.0,2025-01-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2025,25.0,2025-02-01
+Onyinyechi Nwaogwugwu Ohajuru,annual,2025,25.0,2025-06-01
+Oyediya Blessing Uke,annual,2019,5.0,2019-07-01
+Oyediya Blessing Uke,annual,2019,5.0,2019-08-01
+Oyediya Blessing Uke,annual,2021,50.0,2021-09-01
+Oyediya Blessing Uke,annual,2021,55.0,2021-11-01
+Oyediya Blessing Uke,annual,2022,50.0,2022-06-01
+Oyediya Blessing Uke,iriji,2023,50.0,2023-01-01
+Oyediya Blessing Uke,annual,2023,50.0,2023-09-01
+Oyediya Blessing Uke,iriji,2024,40.0,2024-01-01
+Oyediya Blessing Uke,annual,2024,25.0,2024-06-01
+Oyediya Blessing Uke,iriji,2025,50.0,2025-01-01
+Paul Ogwuegbu,annual,2024,20.0,2024-09-01
+Paul Ogwuegbu,annual,2024,20.0,2024-10-01
+Paul Ogwuegbu,annual,2025,60.0,2025-09-01
+Paul Ogwuegbu,annual,2026,60.0,2026-03-01
+Paul Ogwuegbu,annual,2026,100.0,2026-04-01
+Paul Okoroafor,annual,2019,10.0,2019-08-01
+Paul Okoroafor,annual,2022,40.0,2022-09-01
+Prince Eme Kalu,annual,2021,50.0,2021-10-01
+Prince Eme Kalu,annual,2022,50.0,2022-05-01
+Prince Eme Kalu,iriji,2023,300.0,2023-01-01
+Prince Eme Kalu,annual,2023,10.0,2023-02-01
+Prince Eme Kalu,annual,2023,50.0,2023-04-01
+Prince Eme Kalu,annual,2026,165.0,2026-03-01
+Reggy Kanu,annual,2019,10.0,2019-07-01
+Reggy Kanu,annual,2019,10.0,2019-08-01
+Reggy Kanu,annual,2021,80.0,2021-01-01
+Reggy Kanu,annual,2021,40.0,2021-04-01
+Reggy Kanu,annual,2021,50.0,2021-09-01
+Reggy Kanu,annual,2022,50.0,2022-11-01
+Reggy Kanu,annual,2023,50.0,2023-03-01
+Reggy Kanu,annual,2024,5.0,2024-08-01
+Reggy Kanu,iriji,2025,70.0,2025-01-01
+Reggy Kanu,annual,2025,25.0,2025-02-01
+Reggy Kanu,annual,2025,40.0,2025-06-01
+Reggy Kanu,annual,2026,35.0,2026-04-01
+Rose Inyama,iriji,2023,100.0,2023-01-01
+Rose Inyama,annual,2023,35.0,2023-02-01
+Rose Inyama,annual,2023,15.0,2023-11-01
+Rose Inyama,iriji,2024,100.0,2024-01-01
+Rose Inyama,annual,2024,25.0,2024-03-01
+Rose Inyama,annual,2024,40.0,2024-09-01
+Rose Inyama,iriji,2025,50.0,2025-01-01
+Rose Inyama,annual,2026,100.0,2026-03-01
+Rose Ujachukwu,annual,2025,20.0,2025-08-01
+Sandra Ajiwe,annual,2024,50.0,2024-05-01
+Sandra Ajiwe,annual,2024,50.0,2024-09-01
+Sandra Ajiwe,annual,2026,115.0,2026-03-01
+Sandra Odilanma Gabriel,annual,2019,5.0,2019-07-01
+Sandra Odilanma Gabriel,annual,2019,10.0,2019-08-01
+Sandra Odilanma Gabriel,annual,2021,50.0,2021-11-01
+Sandra Odilanma Gabriel,iriji,2023,50.0,2023-01-01
+Sandra Odilanma Gabriel,annual,2023,40.0,2023-03-01
+Sandra Odilanma Gabriel,annual,2023,10.0,2023-06-01
+Sandra Odilanma Gabriel,annual,2024,60.0,2024-06-01
+Sandra Odilanma Gabriel,annual,2025,155.0,2025-04-01
+Solomon Kalu,annual,2026,20.0,2026-03-01
+Stella Achilihu,iriji,2023,50.0,2023-01-01
+Stella Achilihu,annual,2023,25.0,2023-04-01
+Stella Achilihu,annual,2023,20.0,2023-06-01
+Stella Achilihu,annual,2024,25.0,2024-02-01
+Stella Achilihu,annual,2025,30.0,2025-03-01
+Stella Achilihu,annual,2025,40.0,2025-09-01
+Stella Achilihu,annual,2026,50.0,2026-03-01
+Stella Ezekwe,annual,2026,5.0,2026-06-01
+Sunday Ekeh,annual,2026,5.0,2026-06-01
+Sunday Onuoha,iriji,2024,50.0,2024-01-01
+Sunday Onuoha,iriji,2025,100.0,2025-01-01
+Sunday Onuoha,annual,2025,15.0,2025-04-01
+Sunday Onuoha,annual,2025,25.0,2025-08-01
+Sunday Onuoha,annual,2025,15.0,2025-10-01
+Sunday Onuoha,annual,2026,15.0,2026-03-01
+Sunday Onuoha,annual,2023,10.0,2023-05-01
+Sunday Onuoha,annual,2023,5.0,2023-06-01
+Sunday Onuoha,annual,2023,15.0,2023-10-01
+Sunday Onuoha,annual,2024,20.0,2024-02-01
+Sunday Onuoha,annual,2024,15.0,2024-08-01
+Sunday Onuoha,annual,2024,25.0,2024-11-01
+Sylvia Ndubeze,iriji,2024,50.0,2024-01-01
+Sylvia Ndubeze,annual,2024,15.0,2024-06-01
+Sylvia Ndubeze,annual,2024,5.0,2024-08-01
+Sylvia Ndubeze,annual,2025,15.0,2025-03-01
+Sylvia Ndubeze,annual,2025,15.0,2025-04-01
+Sylvia Ndubeze,annual,2025,15.0,2025-05-01
+Sylvia Ndubeze,annual,2025,15.0,2025-06-01
+Sylvia Ndubeze,annual,2025,15.0,2025-07-01
+Sylvia Ndubeze,annual,2026,6.5,2026-04-01
+Uchechukwu Ama Kalu,annual,2019,10.0,2019-07-01
+Ugo Inyama,annual,2019,10.0,2019-07-01
+Ugo Inyama,annual,2019,10.0,2019-08-01
+Ugo Inyama,annual,2021,100.0,2021-07-01
+Ugo Inyama,iriji,2023,500.0,2023-01-01
+Ugo Inyama,annual,2023,35.0,2023-02-01
+Ugo Inyama,annual,2023,15.0,2023-11-01
+Ugo Inyama,iriji,2024,400.0,2024-01-01
+Ugo Inyama,annual,2024,25.0,2024-03-01
+Ugo Inyama,annual,2024,40.0,2024-09-01
+Ugo Inyama,iriji,2025,500.0,2025-01-01
+Ugo Inyama,annual,2026,100.0,2026-03-01
+Uzo Omekara,annual,2023,12.5,2023-03-01
+Uzo Omekara,annual,2024,10.0,2024-06-01
+Uzoma Ajuzieogu,annual,2019,10.0,2019-07-01
+Uzoma Violet Oluwanbe,annual,2021,100.0,2021-10-01
+Uzoma Violet Oluwanbe,annual,2022,50.0,2022-05-01
+Uzoma Violet Oluwanbe,annual,2022,50.0,2022-06-01
+Uzoma Violet Oluwanbe,iriji,2023,50.0,2023-01-01
+Uzoma Violet Oluwanbe,annual,2025,310.0,2025-10-01
+Uzunma Uba,annual,2022,55.0,2022-11-01
+Uzunma Uba,annual,2023,5.0,2023-02-01
+Uzunma Uba,iriji,2024,50.0,2024-01-01
+Uzunma Uba,annual,2024,50.0,2024-07-01
+Vine Munnonye,annual,2021,10.0,2021-11-01
+Vine Munnonye,iriji,2023,100.0,2023-01-01
+Vine Munnonye,annual,2023,60.0,2023-03-01
+Vine Munnonye,annual,2023,25.0,2023-04-01
+Vine Munnonye,annual,2023,5.0,2023-05-01
+Vine Munnonye,annual,2023,5.0,2023-06-01
+Vine Munnonye,annual,2024,10.0,2024-03-01
+Vine Munnonye,annual,2024,5.0,2024-04-01
+Vine Munnonye,annual,2025,60.0,2025-04-01
+Vine Munnonye,annual,2026,20.0,2026-04-01

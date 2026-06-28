@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\DonationItem;
 use App\Models\DuesCycle;
+use App\Models\MemberLegacyBalance;
 use App\Models\MemberPledge;
 use App\Models\Payment;
 use App\Models\User;
@@ -81,7 +82,46 @@ class MemberController extends Controller
                 return $cycle;
             });
 
-        return view('admin.members.show', compact('member', 'spouse', 'children', 'activeCycles'));
+        // Legacy outstanding (pre-2026 carryover)
+        $legacyBalances = MemberLegacyBalance::where('user_id', $member->id)
+            ->orderBy('year')->orderBy('label')->get();
+        $legacyTotal = $legacyBalances->sum('amount');
+
+        // 2026+ outstanding from cycle data
+        $spouseName = $spouse ? $spouse->name : null;
+        $currentCycles = DuesCycle::whereIn('status', ['active', 'closed'])
+            ->where('start_date', '>=', '2026-01-01')
+            ->orderBy('start_date')
+            ->get()
+            ->map(function ($cycle) use ($member, $myPledges, $myItemsByCycle, $spouseName) {
+                if ($cycle->is_pledge_based) {
+                    $pledge               = $myPledges->get($cycle->id);
+                    $obligation           = $pledge ? $pledge->pledged_amount : 0;
+                    $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
+                    $cycle->my_items      = $myItemsByCycle->get($cycle->id, collect());
+                } else {
+                    $obligation           = $member->obligationFor($cycle);
+                    $cycle->pledge_amount = null;
+                    $cycle->my_items      = collect();
+                }
+                $paid                     = $member->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
+                $cycle->user_obligation   = $obligation;
+                $cycle->user_paid         = $paid;
+                $cycle->user_remaining    = max(0, $obligation - $paid);
+                $cycle->user_percent      = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
+                $cycle->is_family_billing = $member->hasSpouse() && $cycle->couple_shared;
+                $cycle->spouse_name       = $spouseName;
+                return $cycle;
+            })
+            ->where('user_remaining', '>', 0);
+
+        $currentTotal    = $currentCycles->sum('user_remaining');
+        $totalOutstanding = $legacyTotal + $currentTotal;
+
+        return view('admin.members.show', compact(
+            'member', 'spouse', 'children', 'activeCycles',
+            'legacyBalances', 'legacyTotal', 'currentCycles', 'currentTotal', 'totalOutstanding'
+        ));
     }
 
     public function updateStatus(Request $request, User $member)

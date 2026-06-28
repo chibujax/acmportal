@@ -2,6 +2,18 @@
 @section('title','Manual Payments')
 @section('page-title','Manual Payments')
 
+@php
+    $currentSort = request('sort', 'payment_date');
+    $currentDir  = request('direction', 'desc');
+    $sortLink = function (string $col) use ($currentSort, $currentDir): string {
+        $dir = ($currentSort === $col && $currentDir === 'desc') ? 'asc' : 'desc';
+        $icon = $currentSort === $col
+            ? ($currentDir === 'asc' ? ' <i class="bi bi-caret-up-fill"></i>' : ' <i class="bi bi-caret-down-fill"></i>')
+            : ' <i class="bi bi-caret-down text-muted opacity-50"></i>';
+        $url = request()->fullUrlWithQuery(['sort' => $col, 'direction' => $dir, 'page' => 1]);
+        return "<a href=\"{$url}\" class=\"text-dark text-decoration-none\">{$icon}</a>";
+    };
+@endphp
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h6 class="mb-0 text-muted">All cash / bank-transfer payments</h6>
@@ -46,12 +58,12 @@
                 <thead class="table-light">
                     <tr>
                         <th>Receipt #</th>
-                        <th>Member</th>
+                        <th>Member {!! $sortLink('member') !!}</th>
                         <th>Cycle</th>
-                        <th>Amount</th>
-                        <th>Date</th>
+                        <th>Amount {!! $sortLink('amount') !!}</th>
+                        <th>Date {!! $sortLink('payment_date') !!}</th>
                         <th>Recorded By</th>
-                        <th>Status</th>
+                        <th>Status {!! $sortLink('status') !!}</th>
                         <th></th>
                     </tr>
                 </thead>

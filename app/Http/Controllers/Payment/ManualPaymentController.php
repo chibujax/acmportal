@@ -27,8 +27,20 @@ class ManualPaymentController extends Controller
             $query->where('status', $request->status);
         }
 
-        $perPage = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
-        $payments = $query->latest()->paginate($perPage)->withQueryString();
+        $sortable  = ['payment_date', 'amount', 'status'];
+        $sort      = in_array($request->sort, $sortable) ? $request->sort : 'payment_date';
+        $direction = $request->direction === 'asc' ? 'asc' : 'desc';
+
+        if ($request->sort === 'member') {
+            $query->join('users', 'payments.user_id', '=', 'users.id')
+                  ->orderBy('users.name', $direction)
+                  ->select('payments.*');
+        } else {
+            $query->orderBy($sort, $direction);
+        }
+
+        $perPage  = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
+        $payments = $query->paginate($perPage)->withQueryString();
 
         return view('payment.manual.index', compact('payments'));
     }

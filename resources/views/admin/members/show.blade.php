@@ -49,7 +49,7 @@
                 <div class="mb-1"><i class="bi bi-calendar me-2"></i>{{ $member->date_of_birth->format('d M Y') }}</div>
                 @endif
             </div>
-            <div class="mt-3 small text-muted">Member since {{ $member->created_at->format('F Y') }}</div>
+            <div class="mt-3 small text-muted">Member since {{ $member->memberSince()->format('F Y') }}</div>
         </div>
 
         {{-- Send SMS --}}
@@ -132,6 +132,26 @@
 
     {{-- Right: tabs --}}
     <div class="col-md-8">
+
+        {{-- Outstanding summary --}}
+        @if($totalOutstanding != 0)
+        <div class="card border-0 shadow-sm mb-3"
+             style="cursor:pointer; border-left:4px solid #dc3545 !important"
+             data-bs-toggle="modal" data-bs-target="#outstandingBreakdown">
+            <div class="card-body py-2 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#fee2e2; color:#991b1b; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center">
+                        <i class="bi bi-exclamation-circle"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-danger fs-6">£{{ number_format(abs($totalOutstanding), 2) }}</div>
+                        <div class="small text-muted">{{ $totalOutstanding < 0 ? 'Credit balance' : 'Total Outstanding' }}</div>
+                    </div>
+                </div>
+                <div class="text-primary small"><i class="bi bi-list-ul me-1"></i>See breakdown</div>
+            </div>
+        </div>
+        @endif
 
         <ul class="nav nav-tabs mb-3">
             <li class="nav-item">
@@ -294,6 +314,134 @@
         </div>{{-- end tab-content --}}
     </div>
 
+</div>
+
+{{-- Outstanding Breakdown Modal --}}
+<div class="modal fade" id="outstandingBreakdown" tabindex="-1" aria-labelledby="outstandingBreakdownLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="outstandingBreakdownLabel">
+                    <i class="bi bi-exclamation-circle text-danger me-2"></i>Outstanding — {{ $member->name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+
+                {{-- Pre-2026 legacy --}}
+                @if($legacyBalances->isNotEmpty())
+                <div class="px-3 pt-3 pb-1">
+                    <div class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">
+                        <i class="bi bi-clock-history me-1"></i>Pre-2026 (from records)
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Description</th>
+                                <th class="text-center">Year</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($legacyBalances as $lb)
+                            <tr>
+                                <td>
+                                    {{ $lb->label }}
+                                    @if($lb->amount < 0)
+                                        <span class="badge bg-success ms-1" style="font-size:.62rem">Credit</span>
+                                    @endif
+                                </td>
+                                <td class="text-center text-muted small">{{ $lb->year }}</td>
+                                <td class="text-end fw-bold {{ $lb->amount < 0 ? 'text-success' : 'text-danger' }}">
+                                    £{{ number_format(abs($lb->amount), 2) }}
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr class="fw-semibold">
+                                <td colspan="2" class="text-end text-muted small">Subtotal</td>
+                                <td class="text-end {{ $legacyTotal < 0 ? 'text-success' : 'text-danger' }}">
+                                    £{{ number_format(abs($legacyTotal), 2) }}
+                                    @if($legacyTotal < 0) <small class="text-success">(credit)</small> @endif
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                @endif
+
+                {{-- 2026+ cycles --}}
+                @if($currentCycles->isNotEmpty())
+                <div class="px-3 pt-3 pb-1 {{ $legacyBalances->isNotEmpty() ? 'border-top' : '' }}">
+                    <div class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">
+                        <i class="bi bi-calendar me-1"></i>2026 Onwards
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cycle / Levy</th>
+                                <th>Period</th>
+                                <th class="text-end">Owed</th>
+                                <th class="text-end">Paid</th>
+                                <th class="text-end">Remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($currentCycles as $cycle)
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ $cycle->title }}</div>
+                                    @if($cycle->status === 'closed')
+                                        <span class="badge bg-secondary" style="font-size:.62rem">Closed</span>
+                                    @else
+                                        <span class="badge bg-success" style="font-size:.62rem">Active</span>
+                                    @endif
+                                    @if($cycle->is_family_billing)
+                                        <div class="text-muted" style="font-size:.72rem">
+                                            <i class="bi bi-people me-1"></i>Shared with {{ $cycle->spouse_name }}
+                                        </div>
+                                    @endif
+                                </td>
+                                <td class="small text-muted">
+                                    {{ $cycle->start_date->format('d M Y') }}<br>
+                                    – {{ $cycle->end_date->format('d M Y') }}
+                                </td>
+                                <td class="text-end">£{{ number_format($cycle->user_obligation, 2) }}</td>
+                                <td class="text-end text-success fw-medium">£{{ number_format($cycle->user_paid, 2) }}</td>
+                                <td class="text-end fw-bold text-danger">£{{ number_format($cycle->user_remaining, 2) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr class="fw-semibold">
+                                <td colspan="4" class="text-end text-muted small">Subtotal</td>
+                                <td class="text-end text-danger">£{{ number_format($currentTotal, 2) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                @endif
+
+                {{-- Grand total --}}
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top bg-light">
+                    <span class="fw-bold">Total Outstanding</span>
+                    <span class="fw-bold fs-6 {{ $totalOutstanding < 0 ? 'text-success' : 'text-danger' }}">
+                        £{{ number_format(abs($totalOutstanding), 2) }}
+                        @if($totalOutstanding < 0) <small>(credit)</small> @endif
+                    </span>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 @push('scripts')

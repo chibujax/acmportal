@@ -19,11 +19,13 @@ class DashboardController extends Controller
             'pending_invites' => PendingMember::whereIn('status', ['pending', 'invited'])->count(),
             'active_cycles'   => DuesCycle::where('status', 'active')->count(),
             'total_collected' => Payment::where('status', 'completed')
-                ->whereMonth('created_at', now()->month)->sum('amount'),
+                ->whereMonth('payment_date', now()->month)
+                ->whereYear('payment_date', now()->year)
+                ->sum('amount'),
             'arrears_count'   => 0, // calculated per cycle
             'recent_payments' => Payment::with(['user', 'duesCycle'])
                 ->where('status', 'completed')
-                ->latest()
+                ->latest('payment_date')
                 ->take(5)
                 ->get(),
             'active_dues_cycles' => DuesCycle::where('status', 'active')

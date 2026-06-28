@@ -40,15 +40,6 @@
                     {{ $percentage }}%
                 </div>
                 <div class="small text-muted">Attendance Rate</div>
-                @if($totalMeetings > 0)
-                    <div class="mt-1">
-                        @if($percentage >= 70)
-                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Election Eligible</span>
-                        @else
-                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Below 70% threshold</span>
-                        @endif
-                    </div>
-                @endif
             </div>
         </div>
     </div>
@@ -109,6 +100,10 @@
                                     <span class="badge bg-warning text-dark">
                                         <i class="bi bi-clock me-1"></i>Late
                                     </span>
+                                @elseif($m->user_record->status === 'excused')
+                                    <span class="badge bg-info text-dark">
+                                        <i class="bi bi-envelope me-1"></i>Excused
+                                    </span>
                                 @else
                                     <span class="badge bg-success">
                                         <i class="bi bi-check-circle me-1"></i>Present
@@ -149,18 +144,28 @@ new Chart(document.getElementById('attendanceChart'), {
     type: 'bar',
     data: {
         labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-        datasets: [{
-            label: 'Meetings Attended',
-            data: @json($chartData),
-            backgroundColor: 'rgba(26,107,60,0.7)',
-            borderColor: 'rgba(26,107,60,1)',
-            borderWidth: 2,
-            borderRadius: 4,
-        }],
+        datasets: [
+            {
+                label: 'Attended',
+                data: @json($chartData),
+                backgroundColor: 'rgba(26,107,60,0.7)',
+                borderColor: 'rgba(26,107,60,1)',
+                borderWidth: 2,
+                borderRadius: 4,
+            },
+            {
+                label: 'Excused',
+                data: @json($excusedData),
+                backgroundColor: 'rgba(59,130,246,0.7)',
+                borderColor: 'rgba(59,130,246,1)',
+                borderWidth: 2,
+                borderRadius: 4,
+            },
+        ],
     },
     options: {
         responsive: true,
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: true, position: 'top' } },
         scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
     },
 });

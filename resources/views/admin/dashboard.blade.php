@@ -81,7 +81,7 @@
                                 <div class="fw-medium small">{{ $p->user->name }}</div>
                                 <div class="text-muted" style="font-size:.75rem">
                                     {{ $p->duesCycle?->title ?? 'General' }}
-                                    &middot; {{ $p->created_at->diffForHumans() }}
+                                    &middot; {{ \Carbon\Carbon::parse($p->payment_date)->format('d M Y') }}
                                 </div>
                             </div>
                             <span class="badge bg-success">£{{ number_format($p->amount, 2) }}</span>

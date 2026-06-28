@@ -28,18 +28,25 @@ class AttendanceController extends Controller
             });
 
         $totalMeetings = $meetings->count();
-        $attended      = $meetings->filter(fn($m) => $m->user_record)->count();
+        $attended      = $meetings->filter(fn($m) => $m->user_record && $m->user_record->status !== 'excused')->count();
         $percentage    = $totalMeetings > 0 ? round(($attended / $totalMeetings) * 100, 1) : 0;
 
         // Load attendance records with meeting for the query above
         $meetings->load('attendanceRecords');
 
-        // Chart: monthly attendance (1 = attended, 0 = missed) for bar display
-        $monthlyData = $meetings->groupBy(fn($m) => $m->meeting_date->month)
-            ->map(fn($group) => $group->filter(fn($m) => $m->user_record)->count())
-            ->toArray();
+        // Chart: monthly attended (present/late) and excused breakdown
+        $grouped = $meetings->groupBy(fn($m) => $m->meeting_date->month);
 
-        $chartData = array_map(fn($m) => $monthlyData[$m] ?? 0, range(1, 12));
+        $monthlyAttended = $grouped->map(fn($g) => $g->filter(
+            fn($m) => $m->user_record && $m->user_record->status !== 'excused'
+        )->count())->toArray();
+
+        $monthlyExcused = $grouped->map(fn($g) => $g->filter(
+            fn($m) => $m->user_record && $m->user_record->status === 'excused'
+        )->count())->toArray();
+
+        $chartData    = array_map(fn($m) => $monthlyAttended[$m] ?? 0, range(1, 12));
+        $excusedData  = array_map(fn($m) => $monthlyExcused[$m] ?? 0, range(1, 12));
 
         $years = Meeting::selectRaw('YEAR(meeting_date) as y')
             ->whereIn('status', ['active', 'closed'])
@@ -48,7 +55,7 @@ class AttendanceController extends Controller
             ->pluck('y');
 
         return view('member.attendance', compact(
-            'meetings', 'year', 'years', 'totalMeetings', 'attended', 'percentage', 'chartData'
+            'meetings', 'year', 'years', 'totalMeetings', 'attended', 'percentage', 'chartData', 'excusedData'
         ));
     }
 }

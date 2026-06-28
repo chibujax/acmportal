@@ -27,7 +27,7 @@
                 <div class="mt-1"><i class="bi bi-person-fill me-1"></i>{{ ucfirst($user->gender) }}</div>
                 @endif
             </div>
-            <div class="mt-3 small text-muted">Member since {{ $user->created_at->format('F Y') }}</div>
+            <div class="mt-3 small text-muted">Member since {{ $user->memberSince()->format('F Y') }}</div>
         </div>
     </div>
 

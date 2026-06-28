@@ -17,14 +17,18 @@ class User extends Authenticatable
         'name', 'phone', 'email', 'password',
         'role', 'status', 'profile_photo', 'address',
         'date_of_birth', 'gender', 'occupation', 'email_verified_at',
+        'activation_token', 'activation_token_expires_at', 'activation_invited_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'date_of_birth'     => 'date',
-        'password'          => 'hashed',
+        'email_verified_at'           => 'datetime',
+        'date_of_birth'               => 'date',
+        'password'                    => 'hashed',
+        'activation_token_expires_at' => 'datetime',
+        'activation_invited_at'       => 'datetime',
+        'portal_activated_at'         => 'datetime',
     ];
 
     // ── Roles ─────────────────────────────────────────────────
@@ -192,9 +196,33 @@ class User extends Authenticatable
 
     // ── Existing helpers ──────────────────────────────────────
 
+    /**
+     * Earliest evidence of membership — payment or attendance — falling back to account creation date.
+     */
+    public function memberSince(): \Carbon\Carbon
+    {
+        $earliestPayment = $this->payments()->min('payment_date');
+
+        $earliestAttendance = $this->attendanceRecords()
+            ->join('meetings', 'attendance_records.meeting_id', '=', 'meetings.id')
+            ->min('meetings.meeting_date');
+
+        $candidates = array_filter([$earliestPayment, $earliestAttendance]);
+
+        return $candidates
+            ? \Carbon\Carbon::parse(min($candidates))
+            : $this->created_at;
+    }
+
     public function hasVerifiedEmail(): bool
     {
         return ! is_null($this->email_verified_at);
+    }
+
+    /** Whether this member has set their portal password and can log in. */
+    public function hasPortalAccess(): bool
+    {
+        return ! is_null($this->portal_activated_at);
     }
 
     public function totalPaid(int $cycleId = null): float

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\ActivationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -61,6 +62,12 @@ Route::post('/join/verify',       [SelfRegisterController::class, 'verifyOtp'])-
 
 // Email verification
 Route::get('/email/verify/{token}', [EmailVerificationController::class, 'verify'])->name('email.verify');
+
+// Account activation (pre-created inactive members setting their own password)
+Route::middleware('guest')->group(function () {
+    Route::get('/activate/{token}',  [ActivationController::class, 'showForm'])->name('activate.form');
+    Route::post('/activate/{token}', [ActivationController::class, 'activate'])->name('activate.post')->middleware('throttle:10,1');
+});
 
 // Password reset
 Route::get('/forgot-password',             [PasswordResetController::class, 'showForgotForm'])->name('password.forgot');
@@ -144,9 +151,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Reports (financial + member summary)
         Route::middleware('page:reports')->prefix('reports')->name('reports.')->group(function () {
-            Route::get('/',          [ReportController::class, 'index'])->name('index');
-            Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
-            Route::get('/members',   [ReportController::class, 'memberSummary'])->name('members');
+            Route::get('/',                   [ReportController::class, 'index'])->name('index');
+            Route::get('/financial',          [ReportController::class, 'financial'])->name('financial');
+            Route::get('/financial/export',   [ReportController::class, 'financialExportCsv'])->name('financial.export');
+            Route::get('/members',            [ReportController::class, 'memberSummary'])->name('members');
         });
 
         // Arrears report (separate slug so it can be granted independently)
