@@ -48,15 +48,26 @@ class SmsService
         }
 
         try {
-            //$http = app()->isLocal() ? Http::withoutVerifying() : Http::new();
-            $http = Http::withoutVerifying();
-            $response = $http->asForm()->post('https://rest.nexmo.com/sms/json', [
-                'api_key'    => $key,
-                'api_secret' => $secret,
-                'to'         => $to,
-                'from'       => $from,
-                'text'       => $message,
-            ]);
+            $isLocal = app()->isLocal();
+            if($isLocal) {
+                $http = Http::withoutVerifying();
+                $response = $http->asForm()->post('https://rest.nexmo.com/sms/json', [
+                                'api_key'    => $key,
+                                'api_secret' => $secret,
+                                'to'         => $to,
+                                'from'       => $from,
+                                'text'       => $message,
+                            ]);                
+
+            } else {
+                $response = Http::asForm()->post('https://rest.nexmo.com/sms/json', [
+                    'api_key'    => $key,
+                    'api_secret' => $secret,
+                    'to'         => $to,
+                    'from'       => $from,
+                    'text'       => $message,
+                ]);              
+            }
 
             $body    = $response->json();
             $msgData = $body['messages'][0] ?? [];

@@ -19,8 +19,9 @@
                 <label class="form-label small fw-medium mb-1">Action</label>
                 <select name="action" class="form-select form-select-sm">
                     <option value="">All Actions</option>
-                    <option value="login"    {{ request('action') === 'login'    ? 'selected' : '' }}>Login</option>
-                    <option value="created"  {{ request('action') === 'created'  ? 'selected' : '' }}>Created</option>
+                    <option value="login"     {{ request('action') === 'login'     ? 'selected' : '' }}>Login</option>
+                    <option value="activated" {{ request('action') === 'activated' ? 'selected' : '' }}>Activated</option>
+                    <option value="created"   {{ request('action') === 'created'   ? 'selected' : '' }}>Created</option>
                     <option value="updated"  {{ request('action') === 'updated'  ? 'selected' : '' }}>Updated</option>
                     <option value="deleted"  {{ request('action') === 'deleted'  ? 'selected' : '' }}>Deleted</option>
                 </select>
@@ -78,11 +79,12 @@
                 @foreach($logs as $log)
                 @php
                     $badgeClass = match($log->action) {
-                        'login'   => 'bg-info text-dark',
-                        'created' => 'bg-success',
-                        'updated' => 'bg-primary',
-                        'deleted' => 'bg-danger',
-                        default   => 'bg-secondary',
+                        'login'     => 'bg-info text-dark',
+                        'activated' => 'bg-success',
+                        'created'   => 'bg-success',
+                        'updated'   => 'bg-primary',
+                        'deleted'   => 'bg-danger',
+                        default     => 'bg-secondary',
                     };
                     $hasChanges = $log->old_values || $log->new_values;
                 @endphp

@@ -91,6 +91,35 @@
         </div>
         @endif
 
+        {{-- Contact details – super admin only --}}
+        @if(auth()->user()->isSuperAdmin())
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white border-bottom pt-3 pb-2">
+                <h6 class="fw-semibold mb-0"><i class="bi bi-person-vcard me-2 text-secondary"></i>Contact Details</h6>
+            </div>
+            <div class="card-body">
+                @error('phone')
+                <div class="alert alert-danger py-2 small mb-2">{{ $message }}</div>
+                @enderror
+                @error('email')
+                <div class="alert alert-danger py-2 small mb-2">{{ $message }}</div>
+                @enderror
+                <form method="POST" action="{{ route('admin.members.contact', $member) }}">
+                    @csrf @method('PATCH')
+                    <div class="mb-2">
+                        <label class="form-label small fw-medium">Phone</label>
+                        <input type="text" name="phone" class="form-control form-control-sm" value="{{ old('phone', $member->phone) }}" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-medium">Email</label>
+                        <input type="email" name="email" class="form-control form-control-sm" value="{{ old('email', $member->email) }}">
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary w-100">Save Contact Details</button>
+                </form>
+            </div>
+        </div>
+        @endif
+
         {{-- Status & Role management – super_admin or roles with 'manage' access only --}}
         @if(auth()->user()->hasAccess('manage'))
         <div class="card border-0 shadow-sm mt-3">

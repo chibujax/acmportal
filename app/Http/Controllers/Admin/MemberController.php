@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class MemberController extends Controller
 {
@@ -33,6 +34,13 @@ class MemberController extends Controller
 
         if ($request->role) {
             $query->where('role', $request->role);
+        }
+
+        if ($request->portal === 'registered') {
+            $query->where(fn($q) => $q->whereNotNull('portal_activated_at')
+                ->orWhereNotNull('activation_invited_at'));
+        } elseif ($request->portal === 'not_registered') {
+            $query->whereNull('portal_activated_at')->whereNull('activation_invited_at');
         }
 
         $perPage = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
@@ -138,6 +146,26 @@ class MemberController extends Controller
         $request->validate(['role' => 'required|in:super_admin,admin,member']);
         $member->update(['role' => $request->role]);
         return back()->with('success', "Member role updated.");
+    }
+
+    /**
+     * Update a member's contact details (phone/email). Super admin only.
+     */
+    public function updateContact(Request $request, User $member)
+    {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
+
+        $request->validate([
+            'phone' => ['required', 'string', 'max:30', Rule::unique('users', 'phone')->ignore($member->id)],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($member->id)],
+        ]);
+
+        $member->update([
+            'phone' => $request->phone,
+            'email' => $request->email,
+        ]);
+
+        return back()->with('success', 'Contact details updated.');
     }
 
     public function sendSms(Request $request, User $member)

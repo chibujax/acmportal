@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +42,16 @@ class ActivationController extends Controller
             'portal_activated_at'         => now(),
             'activation_token'            => null,
             'activation_token_expires_at' => null,
+        ]);
+
+        ActivityLog::create([
+            'user_id'       => $user->id,
+            'action'        => 'activated',
+            'resource_type' => 'User',
+            'resource_id'   => $user->id,
+            'description'   => "{$user->name} activated portal access via /join",
+            'ip_address'    => $request->ip(),
+            'created_at'    => now(),
         ]);
 
         Auth::login($user);

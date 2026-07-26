@@ -270,6 +270,55 @@
 </div>
 @endif
 
+{{-- All dues payment transactions for this year --}}
+@if(isset($annualDuesPayments) && $annualDuesPayments->isNotEmpty())
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
+        <h6 class="fw-semibold mb-0">
+            <i class="bi bi-receipt text-success me-2"></i>Dues Payment Transactions {{ $year }}
+        </h6>
+        <span class="badge bg-secondary no-print">{{ $annualDuesPayments->count() }} payments</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Member</th>
+                    <th>Cycle</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($annualDuesPayments as $i => $p)
+                <tr>
+                    <td class="text-muted small">{{ $i + 1 }}</td>
+                    <td>
+                        <a href="{{ route('admin.members.show', $p->user) }}"
+                           class="fw-medium small text-decoration-none no-print">{{ $p->user->name }}</a>
+                        <span class="fw-medium small print-header">{{ $p->user->name }}</span>
+                    </td>
+                    <td class="small text-muted">{{ $p->duesCycle?->title ?? '—' }}</td>
+                    <td class="text-success fw-semibold">£{{ number_format($p->amount, 2) }}</td>
+                    <td class="small text-muted">{{ $p->payment_date?->format('d M Y') ?? '—' }}</td>
+                    <td class="small">{{ ucfirst(str_replace('_', ' ', $p->method ?? '—')) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+                <tr>
+                    <td colspan="3" class="text-end">Total</td>
+                    <td class="text-success">£{{ number_format($annualDuesPayments->sum('amount'), 2) }}</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+@endif
+
 {{-- ══════════════════════════════════════════════════════════════
      MODE: FIXED DUES CYCLE
 ═══════════════════════════════════════════════════════════════ --}}
@@ -383,6 +432,10 @@
 
 {{-- Member detail (optional) --}}
 @if($showDetail && $memberDetail)
+@php
+    $dSortUrl  = fn(string $f) => request()->fullUrlWithQuery(['sort' => $f, 'dir' => ($sort === $f && $dir === 'asc') ? 'desc' : 'asc']);
+    $dSortIcon = fn(string $f) => $sort !== $f ? 'bi-arrow-down-up text-muted' : ($dir === 'asc' ? 'bi-sort-down-alt text-primary' : 'bi-sort-up text-primary');
+@endphp
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
         <h6 class="fw-semibold mb-0"><i class="bi bi-people text-primary me-2"></i>Member Detail</h6>
@@ -392,11 +445,31 @@
         <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Member</th>
+                    <th>
+                        <a href="{{ $dSortUrl('name') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Member <i class="bi {{ $dSortIcon('name') }}"></i>
+                        </a>
+                        <span class="print-header">Member</span>
+                    </th>
                     <th>Obligation</th>
-                    <th>Paid</th>
-                    <th>Balance</th>
-                    <th>Status</th>
+                    <th>
+                        <a href="{{ $dSortUrl('paid') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Paid <i class="bi {{ $dSortIcon('paid') }}"></i>
+                        </a>
+                        <span class="print-header">Paid</span>
+                    </th>
+                    <th>
+                        <a href="{{ $dSortUrl('balance') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Balance <i class="bi {{ $dSortIcon('balance') }}"></i>
+                        </a>
+                        <span class="print-header">Balance</span>
+                    </th>
+                    <th>
+                        <a href="{{ $dSortUrl('status') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Status <i class="bi {{ $dSortIcon('status') }}"></i>
+                        </a>
+                        <span class="print-header">Status</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -534,6 +607,10 @@
 
 {{-- Member detail (optional) --}}
 @if($showDetail && $memberDetail)
+@php
+    $dSortUrl  = fn(string $f) => request()->fullUrlWithQuery(['sort' => $f, 'dir' => ($sort === $f && $dir === 'asc') ? 'desc' : 'asc']);
+    $dSortIcon = fn(string $f) => $sort !== $f ? 'bi-arrow-down-up text-muted' : ($dir === 'asc' ? 'bi-sort-down-alt text-primary' : 'bi-sort-up text-primary');
+@endphp
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
         <h6 class="fw-semibold mb-0"><i class="bi bi-people text-primary me-2"></i>Member Detail</h6>
@@ -543,10 +620,30 @@
         <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Member</th>
-                    <th>Pledged</th>
-                    <th>Paid</th>
-                    <th>Balance on Pledge</th>
+                    <th>
+                        <a href="{{ $dSortUrl('name') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Member <i class="bi {{ $dSortIcon('name') }}"></i>
+                        </a>
+                        <span class="print-header">Member</span>
+                    </th>
+                    <th>
+                        <a href="{{ $dSortUrl('pledged') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Pledged <i class="bi {{ $dSortIcon('pledged') }}"></i>
+                        </a>
+                        <span class="print-header">Pledged</span>
+                    </th>
+                    <th>
+                        <a href="{{ $dSortUrl('paid') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Paid <i class="bi {{ $dSortIcon('paid') }}"></i>
+                        </a>
+                        <span class="print-header">Paid</span>
+                    </th>
+                    <th>
+                        <a href="{{ $dSortUrl('balance') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Balance on Pledge <i class="bi {{ $dSortIcon('balance') }}"></i>
+                        </a>
+                        <span class="print-header">Balance on Pledge</span>
+                    </th>
                     <th>Status</th>
                 </tr>
             </thead>

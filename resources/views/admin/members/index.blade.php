@@ -29,6 +29,13 @@
                 </select>
             </div>
             <div class="col-6 col-md-2">
+                <select name="portal" class="form-select">
+                    <option value="">All Portal Access</option>
+                    <option value="registered"     {{ request('portal')==='registered'     ? 'selected' : '' }}>Registered</option>
+                    <option value="not_registered" {{ request('portal')==='not_registered' ? 'selected' : '' }}>Not Registered</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
                 <select name="per_page" class="form-select">
                     @foreach([10, 20, 50, 100] as $n)
                         <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
@@ -52,6 +59,7 @@
                         <th>Phone</th>
                         <th>Email</th>
                         <th>Email Verified</th>
+                        <th>Portal Access</th>
                         <th>Status</th>
                         <th>Role</th>
                         <th>Actions</th>
@@ -78,6 +86,13 @@
                             @endif
                         </td>
                         <td>
+                            @if($m->portal_activated_at || $m->activation_invited_at)
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Registered</span>
+                            @else
+                                <span class="badge bg-secondary">Not Registered</span>
+                            @endif
+                        </td>
+                        <td>
                             <span class="badge badge-{{ $m->status }}">{{ ucfirst($m->status) }}</span>
                         </td>
                         <td class="small">{{ ucfirst(str_replace('_',' ',$m->role)) }}</td>
@@ -89,7 +104,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-4">No members found.</td>
+                        <td colspan="9" class="text-center text-muted py-4">No members found.</td>
                     </tr>
                     @endforelse
                 </tbody>

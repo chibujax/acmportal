@@ -27,6 +27,10 @@ class ManualPaymentController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->cycle_id) {
+            $query->where('dues_cycle_id', $request->cycle_id);
+        }
+
         $sortable  = ['payment_date', 'amount', 'status'];
         $sort      = in_array($request->sort, $sortable) ? $request->sort : 'payment_date';
         $direction = $request->direction === 'asc' ? 'asc' : 'desc';
@@ -41,8 +45,9 @@ class ManualPaymentController extends Controller
 
         $perPage  = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
         $payments = $query->paginate($perPage)->withQueryString();
+        $cycles   = DuesCycle::orderByDesc('start_date')->get();
 
-        return view('payment.manual.index', compact('payments'));
+        return view('payment.manual.index', compact('payments', 'cycles'));
     }
 
     public function create(Request $request)

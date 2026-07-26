@@ -62,13 +62,14 @@ class RegisterController extends Controller
 
         DB::transaction(function () use ($request, $pending, $regToken) {
             $user = User::create([
-                'name'     => $pending->name,
-                'phone'    => $request->phone,
-                'email'    => $request->email,
-                'password' => Hash::make($request->password),
-                'role'     => 'member',
-                'status'   => 'active',
-                'gender'   => $request->gender,
+                'name'                 => $pending->name,
+                'phone'                => $request->phone,
+                'email'                => $request->email,
+                'password'             => Hash::make($request->password),
+                'role'                 => 'member',
+                'status'               => 'active',
+                'gender'               => $request->gender,
+                'portal_activated_at'  => now(),
             ]);
 
             // Mark registration token used

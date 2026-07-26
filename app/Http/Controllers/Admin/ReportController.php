@@ -19,9 +19,11 @@ class ReportController extends Controller
 
     public function financial(Request $request)
     {
-        $year    = max(2026, (int) $request->get('year', max(2026, now()->year)));
-        $cycleId = $request->get('cycle_id', 'all');
+        $year       = max(2026, (int) $request->get('year', max(2026, now()->year)));
+        $cycleId    = $request->get('cycle_id', 'all');
         $showDetail = $request->boolean('detail', false);
+        $sort       = $request->get('sort', 'name');
+        $dir        = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
 
         $cycles = DuesCycle::whereIn('status', ['active', 'closed'])
             ->where(function ($q) use ($year) {
@@ -39,17 +41,17 @@ class ReportController extends Controller
             $selectedCycle = DuesCycle::findOrFail($cycleId);
             if ($selectedCycle->is_pledge_based) {
                 $mode       = 'pledge';
-                $reportData = $this->buildPledgeReport($selectedCycle, $totalMembers, $showDetail);
+                $reportData = $this->buildPledgeReport($selectedCycle, $totalMembers, $showDetail, $sort, $dir);
             } else {
                 $mode       = 'fixed';
-                $reportData = $this->buildFixedReport($selectedCycle, $totalMembers, $showDetail);
+                $reportData = $this->buildFixedReport($selectedCycle, $totalMembers, $showDetail, $sort, $dir);
             }
         } else {
             $reportData = $this->buildYearReport($year, $cycles, $totalMembers);
         }
 
         return view('admin.reports.financial', array_merge($reportData, compact(
-            'year', 'cycleId', 'cycles', 'totalMembers', 'selectedCycle', 'showDetail', 'mode'
+            'year', 'cycleId', 'cycles', 'totalMembers', 'selectedCycle', 'showDetail', 'mode', 'sort', 'dir'
         )));
     }
 
@@ -206,7 +208,7 @@ class ReportController extends Controller
 
     // ── Private report builders ───────────────────────────────────────────────
 
-    private function buildFixedReport(DuesCycle $cycle, int $totalMembers, bool $showDetail): array
+    private function buildFixedReport(DuesCycle $cycle, int $totalMembers, bool $showDetail, string $sort = 'name', string $dir = 'asc'): array
     {
         $totalExpected  = $cycle->amount * $totalMembers;
         $totalCollected = (float) Payment::where('dues_cycle_id', $cycle->id)
@@ -226,7 +228,10 @@ class ReportController extends Controller
 
         $memberDetail = null;
         if ($showDetail) {
-            $memberDetail = User::where('role', 'member')->where('status', 'active')
+            $validSorts = ['name', 'obligation', 'paid', 'balance', 'status'];
+            $sortKey    = in_array($sort, $validSorts) ? $sort : 'name';
+
+            $rows = User::where('role', 'member')->where('status', 'active')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($m) use ($cycle) {
@@ -238,8 +243,9 @@ class ReportController extends Controller
                         'balance'    => max(0, $cycle->amount - $paid),
                         'status'     => $paid >= $cycle->amount ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
                     ];
-                })
-                ->values();
+                });
+
+            $memberDetail = ($dir === 'desc' ? $rows->sortByDesc($sortKey) : $rows->sortBy($sortKey))->values();
         }
 
         return compact(
@@ -248,7 +254,7 @@ class ReportController extends Controller
         );
     }
 
-    private function buildPledgeReport(DuesCycle $cycle, int $totalMembers, bool $showDetail): array
+    private function buildPledgeReport(DuesCycle $cycle, int $totalMembers, bool $showDetail, string $sort = 'name', string $dir = 'asc'): array
     {
         $totalPledged          = (float) MemberPledge::where('dues_cycle_id', $cycle->id)->sum('pledged_amount');
         $totalCollected        = (float) Payment::where('dues_cycle_id', $cycle->id)
@@ -264,10 +270,12 @@ class ReportController extends Controller
 
         $memberDetail = null;
         if ($showDetail) {
+            $validSorts    = ['name', 'pledged', 'paid', 'balance'];
+            $sortKey       = in_array($sort, $validSorts) ? $sort : 'name';
             $pledgesByUser = MemberPledge::where('dues_cycle_id', $cycle->id)
                 ->pluck('pledged_amount', 'user_id');
 
-            $memberDetail = User::where('role', 'member')->where('status', 'active')
+            $rows = User::where('role', 'member')->where('status', 'active')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($m) use ($cycle, $pledgesByUser) {
@@ -280,8 +288,9 @@ class ReportController extends Controller
                         'balance'     => $pledged > 0 ? max(0, $pledged - $paid) : 0,
                         'has_pledged' => isset($pledgesByUser[$m->id]),
                     ];
-                })
-                ->values();
+                });
+
+            $memberDetail = ($dir === 'desc' ? $rows->sortByDesc($sortKey) : $rows->sortBy($sortKey))->values();
         }
 
         return compact(
@@ -292,8 +301,7 @@ class ReportController extends Controller
 
     private function buildYearReport(int $year, $cycles, int $totalMembers): array
     {
-        $chartData      = $this->monthlyChart(null, $year);
-        $totalCollected = (float) array_sum($chartData);
+        $chartData       = $this->monthlyChart(null, $year);
         $methodBreakdown = $this->methodBreakdown(null, $year);
 
         $fixedCycles = $cycles->where('is_pledge_based', false)
@@ -329,7 +337,18 @@ class ReportController extends Controller
                 ];
             })->values();
 
-        return compact('chartData', 'totalCollected', 'fixedCycles', 'pledgeCycles', 'methodBreakdown');
+        // Derive total from cycle sums so the KPI matches the breakdown table
+        $totalCollected = $fixedCycles->sum('collected') + $pledgeCycles->sum('collected');
+
+        // Individual payment records for all cycles in this year
+        $cycleIds = $cycles->pluck('id');
+        $annualDuesPayments = $cycleIds->isEmpty() ? collect() : Payment::with(['user', 'duesCycle'])
+            ->where('status', 'completed')
+            ->whereIn('dues_cycle_id', $cycleIds)
+            ->orderBy('payment_date', 'desc')
+            ->get();
+
+        return compact('chartData', 'totalCollected', 'fixedCycles', 'pledgeCycles', 'methodBreakdown', 'annualDuesPayments');
     }
 
     private function monthlyChart(?int $cycleId, ?int $year = null): array
@@ -368,32 +387,148 @@ class ReportController extends Controller
     public function arrears(Request $request)
     {
         $cycleId = $request->get('cycle_id');
-        $cycles  = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
+        $search  = trim($request->get('search', ''));
+        $sort    = in_array($request->get('sort'), ['name', 'obligation', 'paid', 'outstanding'])
+                   ? $request->get('sort') : 'outstanding';
+        $dir     = $request->get('dir', 'desc') === 'asc' ? 'asc' : 'desc';
+        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100])
+                   ? (int) $request->get('per_page') : 25;
 
-        $arrearsMembers = collect();
+        $cycles = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
+
+        $arrearsMembers   = collect();
+        $totalOutstanding = 0;
+        $totalInArrears   = 0;
 
         if ($cycleId) {
             $cycle = DuesCycle::findOrFail($cycleId);
 
-            $arrearsMembers = User::where('role', 'member')
+            // Build full arrears list (unfiltered) for summary totals
+            $all = User::where('role', 'member')
                 ->where('status', 'active')
+                ->orderBy('name')
                 ->get()
                 ->map(function ($m) use ($cycle) {
-                    $obligation = $m->obligationFor($cycle);
-                    $paid       = $m->totalPaidWithSpouse($cycle->id);
+                    $obligation  = $m->obligationFor($cycle);
+                    $paid        = $m->totalPaidWithSpouse($cycle->id);
                     $outstanding = max(0, $obligation - $paid);
                     $m->obligation  = $obligation;
                     $m->paid        = $paid;
                     $m->outstanding = $outstanding;
                     $m->spouseName  = $m->spouse()?->name;
-                    $m->cycle       = $cycle;
                     return $m;
                 })
                 ->filter(fn($m) => $m->outstanding > 0)
                 ->values();
+
+            $totalOutstanding = $all->sum('outstanding');
+            $totalInArrears   = $all->count();
+
+            // Apply name search
+            $filtered = $search !== ''
+                ? $all->filter(fn($m) => str_contains(strtolower($m->name), strtolower($search)))->values()
+                : $all;
+
+            // Sort
+            $sorted = $dir === 'desc'
+                ? $filtered->sortByDesc($sort)->values()
+                : $filtered->sortBy($sort)->values();
+
+            // Paginate the sorted collection
+            $page   = max(1, (int) $request->get('page', 1));
+            $offset = ($page - 1) * $perPage;
+
+            $arrearsMembers = new \Illuminate\Pagination\LengthAwarePaginator(
+                $sorted->slice($offset, $perPage)->values(),
+                $sorted->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
         }
 
-        return view('admin.reports.arrears', compact('cycles', 'cycleId', 'arrearsMembers'));
+        return view('admin.reports.arrears', compact(
+            'cycles', 'cycleId', 'arrearsMembers',
+            'search', 'sort', 'dir', 'perPage',
+            'totalOutstanding', 'totalInArrears'
+        ));
+    }
+
+    public function arrearsExportCsv(Request $request)
+    {
+        $cycleId = $request->get('cycle_id');
+        $search  = trim($request->get('search', ''));
+        $sort    = in_array($request->get('sort'), ['name', 'obligation', 'paid', 'outstanding'])
+                   ? $request->get('sort') : 'outstanding';
+        $dir     = $request->get('dir', 'desc') === 'asc' ? 'asc' : 'desc';
+
+        abort_if(! $cycleId, 404);
+
+        $cycle = DuesCycle::findOrFail($cycleId);
+
+        $rows = User::where('role', 'member')
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($m) use ($cycle) {
+                $obligation  = $m->obligationFor($cycle);
+                $paid        = $m->totalPaidWithSpouse($cycle->id);
+                $outstanding = max(0, $obligation - $paid);
+                $m->obligation  = $obligation;
+                $m->paid        = $paid;
+                $m->outstanding = $outstanding;
+                $m->spouseName  = $m->spouse()?->name;
+                return $m;
+            })
+            ->filter(fn($m) => $m->outstanding > 0)
+            ->values();
+
+        if ($search !== '') {
+            $rows = $rows->filter(
+                fn($m) => str_contains(strtolower($m->name), strtolower($search))
+            )->values();
+        }
+
+        $rows = $dir === 'desc'
+            ? $rows->sortByDesc($sort)->values()
+            : $rows->sortBy($sort)->values();
+
+        $slug     = preg_replace('/[^a-z0-9]+/i', '-', strtolower($cycle->title));
+        $suffix   = $search !== '' ? '-' . preg_replace('/[^a-z0-9]/i', '_', $search) : '';
+        $filename = "arrears-{$slug}{$suffix}.csv";
+
+        $csv = Writer::createFromString();
+
+        // Report header
+        $csv->insertOne(['ACM Arrears Report']);
+        $csv->insertOne(['Cycle: ' . $cycle->title]);
+        $csv->insertOne(['Generated: ' . now()->format('d M Y H:i')]);
+        if ($search !== '') {
+            $csv->insertOne(['Filter: ' . $search]);
+        }
+        $csv->insertOne(['Total in Arrears: ' . $rows->count()]);
+        $csv->insertOne(['Total Outstanding: £' . number_format($rows->sum('outstanding'), 2)]);
+        $csv->insertOne([]);
+
+        // Column headers
+        $csv->insertOne(['Name', 'Phone', 'Email', 'Spouse', 'Obligation (£)', 'Paid (£)', 'Outstanding (£)']);
+
+        foreach ($rows as $m) {
+            $csv->insertOne([
+                $m->name,
+                $m->phone ?? '',
+                $m->email ?? '',
+                $m->spouseName ?? '',
+                number_format($m->obligation, 2),
+                number_format($m->paid, 2),
+                number_format($m->outstanding, 2),
+            ]);
+        }
+
+        return response((string) $csv, 200, [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     public function memberSummary()

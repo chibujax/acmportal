@@ -18,6 +18,7 @@ class User extends Authenticatable
         'role', 'status', 'profile_photo', 'address',
         'date_of_birth', 'gender', 'occupation', 'email_verified_at',
         'activation_token', 'activation_token_expires_at', 'activation_invited_at',
+        'portal_activated_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];

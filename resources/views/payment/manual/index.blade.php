@@ -25,16 +25,26 @@
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-0 pt-3">
         <form method="GET" class="row g-2">
-            <div class="col-12 col-md-7">
+            <div class="col-12 col-md-4">
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input type="text" name="search" class="form-control" placeholder="Search member name or phone…"
                            value="{{ request('search') }}">
                 </div>
             </div>
+            <div class="col-6 col-md-3">
+                <select name="cycle_id" class="form-select">
+                    <option value="">All Cycles</option>
+                    @foreach($cycles as $c)
+                        <option value="{{ $c->id }}" {{ request('cycle_id') == $c->id ? 'selected' : '' }}>
+                            {{ $c->title }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
             <div class="col-6 col-md-2">
                 <select name="status" class="form-select">
-                    <option value="">All</option>
+                    <option value="">All Statuses</option>
                     <option value="completed" {{ request('status')==='completed' ? 'selected' : '' }}>Completed</option>
                     <option value="failed"    {{ request('status')==='failed'    ? 'selected' : '' }}>Failed</option>
                     <option value="refunded"  {{ request('status')==='refunded'  ? 'selected' : '' }}>Refunded</option>

@@ -135,8 +135,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/',           [MemberController::class, 'index'])->name('index');
             Route::post('/',          [MemberController::class, 'store'])->name('store');
             Route::get('/{member}',   [MemberController::class, 'show'])->name('show');
-            Route::patch('/{member}/status', [MemberController::class, 'updateStatus'])->name('status');
-            Route::patch('/{member}/role',   [MemberController::class, 'updateRole'])->name('role');
+            Route::patch('/{member}/status',  [MemberController::class, 'updateStatus'])->name('status');
+            Route::patch('/{member}/role',    [MemberController::class, 'updateRole'])->name('role');
+            Route::patch('/{member}/contact', [MemberController::class, 'updateContact'])->name('contact');
             Route::post('/{member}/sms',     [MemberController::class, 'sendSms'])->name('sms');
         });
 
@@ -159,7 +160,8 @@ Route::middleware(['auth'])->group(function () {
 
         // Arrears report (separate slug so it can be granted independently)
         Route::middleware('page:arrears')->group(function () {
-            Route::get('/reports/arrears', [ReportController::class, 'arrears'])->name('reports.arrears');
+            Route::get('/reports/arrears',        [ReportController::class, 'arrears'])->name('reports.arrears');
+            Route::get('/reports/arrears/export', [ReportController::class, 'arrearsExportCsv'])->name('reports.arrears.export');
         });
 
         // Payments & Dues Cycles
