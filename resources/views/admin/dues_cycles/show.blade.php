@@ -2,17 +2,49 @@
 @section('title', $duesCycle->title)
 @section('page-title', $duesCycle->title)
 
+@push('styles')
+<style>
+@media print {
+    #sidebar, #sidebar-overlay, .topbar, .no-print { display: none !important; }
+    #main-content { margin-left: 0 !important; }
+    .page-content { padding: 0 !important; }
+    .print-header { display: block !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
+    .badge { border: 1px solid #ccc; }
+    body { background: #fff !important; }
+}
+.print-header { display: none; }
+</style>
+@endpush
+
 @section('content')
-<div class="d-flex gap-2 mb-3 flex-wrap">
+
+{{-- Print header (hidden on screen, shown when printing) --}}
+<div class="print-header mb-4">
+    <div class="d-flex align-items-center gap-3 mb-1">
+        <img src="{{ asset('logo.jpg') }}" alt="ACM" style="height:48px; object-fit:contain">
+        <div>
+            <div class="fw-bold fs-5">Abia Community Manchester</div>
+            <div class="text-muted small">{{ $duesCycle->title }}</div>
+        </div>
+    </div>
+    <div class="text-muted small">Generated: {{ now()->format('d M Y, H:i') }}</div>
+    <hr>
+</div>
+
+<div class="d-flex gap-2 mb-3 flex-wrap no-print">
     <a href="{{ route('admin.dues-cycles.index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
     <a href="{{ route('admin.dues-cycles.edit', $duesCycle) }}" class="btn btn-sm btn-outline-primary">
         <i class="bi bi-pencil me-1"></i>Edit
     </a>
-    <a href="{{ route('admin.dues-cycles.export', $duesCycle) }}" class="btn btn-sm btn-outline-success">
-        <i class="bi bi-download me-1"></i>Export CSV
+    <a href="{{ route('admin.dues-cycles.export', $duesCycle) }}?sort={{ $sort }}&dir={{ $dir }}" class="btn btn-sm btn-outline-success">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
     </a>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+        <i class="bi bi-printer me-1"></i>Print / PDF
+    </button>
     @if($duesCycle->is_pledge_based)
     <a href="{{ route('admin.pledges.index', $duesCycle) }}" class="btn btn-sm btn-outline-info">
         <i class="bi bi-hand-thumbs-up me-1"></i>Manage Pledges
@@ -26,9 +58,10 @@
         <i class="bi bi-box-seam me-1"></i>Donation Items
     </a>
     @endif
-    @if($duesCycle->send_reminders && auth()->user()->hasAccess('communications') && $members->where('remaining', '>', 0)->isNotEmpty())
+    @php $remindableMembers = $allMembers->filter(fn($m) => $m->remaining > 0 && !($m->is_anonymous ?? false)); @endphp
+    @if($duesCycle->send_reminders && auth()->user()->hasAccess('communications') && $remindableMembers->isNotEmpty())
     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#smsRemindersModal">
-        <i class="bi bi-phone me-1"></i>SMS Reminders ({{ $members->where('remaining', '>', 0)->count() }})
+        <i class="bi bi-phone me-1"></i>SMS Reminders ({{ $remindableMembers->count() }})
     </button>
     @endif
 </div>
@@ -37,28 +70,37 @@
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center p-3">
-            <div class="fs-4 fw-bold text-success">£{{ number_format($totalCollected, 2) }}</div>
-            <div class="small text-muted">Collected</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm text-center p-3">
             <div class="fs-4 fw-bold text-primary">£{{ number_format($totalObligation, 2) }}</div>
-            <div class="small text-muted">Total Obligation</div>
+            <div class="small text-muted">Total Expected</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center p-3">
-            <div class="fs-4 fw-bold text-success">{{ $members->where('settled', true)->count() }}</div>
-            <div class="small text-muted">Settled</div>
+            <div class="fs-4 fw-bold text-success">£{{ number_format($totalCollected, 2) }}</div>
+            <div class="small text-muted">Money at Hand</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center p-3">
-            <div class="fs-4 fw-bold text-danger">{{ $members->where('settled', false)->count() }}</div>
+            <div class="fs-4 fw-bold text-danger">£{{ number_format($totalOutstanding, 2) }}</div>
             <div class="small text-muted">Outstanding</div>
         </div>
     </div>
+    @if($duesCycle->is_pledge_based)
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-4 fw-bold text-warning">{{ $pledgerCount }}</div>
+            <div class="small text-muted">Members Pledged</div>
+        </div>
+    </div>
+    @else
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-4 fw-bold text-success">{{ $allMembers->where('settled', true)->count() }}</div>
+            <div class="small text-muted">Settled Members</div>
+        </div>
+    </div>
+    @endif
 </div>
 
 {{-- Cycle Details --}}
@@ -97,31 +139,61 @@
 </div>
 
 {{-- Per-member payment matrix --}}
+@php
+    $dSortUrl  = fn(string $f) => request()->fullUrlWithQuery(['sort' => $f, 'dir' => ($sort === $f && $dir === 'asc') ? 'desc' : 'asc', 'page' => null]);
+    $dSortIcon = fn(string $f) => $sort !== $f ? 'bi-arrow-down-up text-muted' : ($dir === 'asc' ? 'bi-sort-down-alt text-primary' : 'bi-sort-up text-primary');
+@endphp
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-0 pt-3 pb-0">
+    <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h6 class="fw-semibold mb-0"><i class="bi bi-people me-2 text-primary"></i>Member Payment Status</h6>
+        <span class="badge bg-secondary no-print">{{ $members->total() }} member(s)</span>
     </div>
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>Member</th>
+                    <th>
+                        <a href="{{ $dSortUrl('name') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Member <i class="bi {{ $dSortIcon('name') }}"></i>
+                        </a>
+                        <span class="print-header">Member</span>
+                    </th>
                     <th>Spouse</th>
                     <th>Obligation</th>
-                    <th>Paid</th>
-                    <th>Remaining</th>
-                    <th>Progress</th>
-                    <th>Status</th>
+                    <th>
+                        <a href="{{ $dSortUrl('paid') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Paid <i class="bi {{ $dSortIcon('paid') }}"></i>
+                        </a>
+                        <span class="print-header">Paid</span>
+                    </th>
+                    <th>
+                        <a href="{{ $dSortUrl('remaining') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Remaining <i class="bi {{ $dSortIcon('remaining') }}"></i>
+                        </a>
+                        <span class="print-header">Remaining</span>
+                    </th>
+                    <th class="no-print">Progress</th>
+                    <th>
+                        <a href="{{ $dSortUrl('status') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Status <i class="bi {{ $dSortIcon('status') }}"></i>
+                        </a>
+                        <span class="print-header">Status</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($members as $member)
+                @forelse($members as $member)
                     <tr>
                         <td>
-                            <a href="{{ route('admin.members.show', $member) }}" class="text-decoration-none fw-medium">
-                                {{ $member->name }}
-                            </a>
-                            <div class="small text-muted">{{ $member->phone }}</div>
+                            @if($member->is_anonymous ?? false)
+                                <span class="fw-medium">{{ $member->name }}</span>
+                                <span class="badge bg-light text-dark border ms-1" style="font-size:.62rem">Anonymous / non-member</span>
+                            @else
+                                <a href="{{ route('admin.members.show', $member) }}" class="text-decoration-none fw-medium">
+                                    {{ $member->name }}
+                                </a>
+                                <div class="small text-muted">{{ $member->phone }}</div>
+                            @endif
                         </td>
                         <td class="small text-muted">{{ $member->spouseName ?? '—' }}</td>
                         <td>£{{ number_format($member->obligation, 2) }}</td>
@@ -148,10 +220,17 @@
                             @endif
                         </td>
                     </tr>
-                @endforeach
+                @empty
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No members to show.</td>
+                    </tr>
+                @endforelse
             </tbody>
         </table>
     </div>
+    @if($members->hasPages())
+    <div class="card-footer bg-white no-print">{{ $members->links() }}</div>
+    @endif
 </div>
 
 @if($duesCycle->accepts_items && $donationItems->isNotEmpty())
@@ -205,7 +284,7 @@
 @endif
 
 @if($duesCycle->send_reminders && auth()->user()->hasAccess('communications'))
-@php $outstandingMembers = $members->filter(fn($m) => $m->remaining > 0); @endphp
+@php $outstandingMembers = $allMembers->filter(fn($m) => $m->remaining > 0 && !($m->is_anonymous ?? false)); @endphp
 @if($outstandingMembers->isNotEmpty())
 {{-- SMS Reminders Modal --}}
 <div class="modal fade" id="smsRemindersModal" tabindex="-1">

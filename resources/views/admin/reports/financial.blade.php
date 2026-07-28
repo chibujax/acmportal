@@ -26,7 +26,7 @@
         <img src="{{ asset('logo.jpg') }}" alt="ACM" style="height:48px; object-fit:contain">
         <div>
             <div class="fw-bold fs-5">Abia Community Manchester</div>
-            <div class="text-muted small">Financial Report — {{ $year }}
+            <div class="text-muted small">Financial Report — {{ $mode === 'legacy' ? 'Historical Debt (Pre-2026)' : $year }}
                 @if($selectedCycle) · {{ $selectedCycle->title }} @endif
             </div>
         </div>
@@ -43,14 +43,16 @@
 
                 <div class="col-auto">
                     <label class="form-label fw-medium small mb-1">Year</label>
-                    <select name="year" class="form-select form-select-sm" style="width:90px"
-                            onchange="document.getElementById('cycleSelect').value='all'; this.form.submit()">
+                    <select name="year" class="form-select form-select-sm" style="width:150px"
+                            onchange="var cs=document.getElementById('cycleSelect'); if(cs) cs.value='all'; this.form.submit()">
                         @foreach(range(date('Y'), 2026) as $y)
                         <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
                         @endforeach
+                        <option value="legacy" {{ $year === 'legacy' ? 'selected' : '' }}>Historical Debt (Pre-2026)</option>
                     </select>
                 </div>
 
+                @if($mode !== 'legacy')
                 <div class="col-auto">
                     <label class="form-label fw-medium small mb-1">Dues Cycle</label>
                     <select name="cycle_id" id="cycleSelect" class="form-select form-select-sm" style="min-width:220px">
@@ -71,6 +73,7 @@
                         <label class="form-check-label small" for="detailCheck">Member detail</label>
                     </div>
                 </div>
+                @endif
 
                 <div class="col-auto d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary">
@@ -271,13 +274,34 @@
 @endif
 
 {{-- All dues payment transactions for this year --}}
-@if(isset($annualDuesPayments) && $annualDuesPayments->isNotEmpty())
+@if(isset($annualDuesPayments) && $annualDuesPayments->total() > 0 || $txnSearch !== '')
+@php
+    $tSortUrl  = fn(string $f) => request()->fullUrlWithQuery(['txn_sort' => $f, 'txn_dir' => ($txnSort === $f && $txnDir === 'asc') ? 'desc' : 'asc', 'page' => null]);
+    $tSortIcon = fn(string $f) => $txnSort !== $f ? 'bi-arrow-down-up text-muted' : ($txnDir === 'asc' ? 'bi-sort-down-alt text-primary' : 'bi-sort-up text-primary');
+@endphp
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
-        <h6 class="fw-semibold mb-0">
-            <i class="bi bi-receipt text-success me-2"></i>Dues Payment Transactions {{ $year }}
-        </h6>
-        <span class="badge bg-secondary no-print">{{ $annualDuesPayments->count() }} payments</span>
+    <div class="card-header bg-white border-0 pt-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h6 class="fw-semibold mb-0">
+                <i class="bi bi-receipt text-success me-2"></i>Dues Payment Transactions {{ $year }}
+            </h6>
+            <span class="badge bg-secondary no-print">{{ $annualDuesPayments->total() }} payments</span>
+        </div>
+        <form method="GET" class="no-print">
+            <input type="hidden" name="year" value="{{ $year }}">
+            <input type="hidden" name="cycle_id" value="{{ $cycleId }}">
+            @if($showDetail)<input type="hidden" name="detail" value="1">@endif
+            <input type="hidden" name="txn_sort" value="{{ $txnSort }}">
+            <input type="hidden" name="txn_dir" value="{{ $txnDir }}">
+            <div class="input-group input-group-sm" style="max-width:320px">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="txn_search" class="form-control" placeholder="Search member name…" value="{{ $txnSearch }}">
+                <button class="btn btn-outline-secondary" type="submit">Filter</button>
+                @if($txnSearch !== '')
+                    <a href="{{ request()->fullUrlWithQuery(['txn_search' => null, 'page' => null]) }}" class="btn btn-outline-danger">Clear</a>
+                @endif
+            </div>
+        </form>
     </div>
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
@@ -286,15 +310,25 @@
                     <th>#</th>
                     <th>Member</th>
                     <th>Cycle</th>
-                    <th>Amount</th>
-                    <th>Date</th>
+                    <th>
+                        <a href="{{ $tSortUrl('amount') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Amount <i class="bi {{ $tSortIcon('amount') }}"></i>
+                        </a>
+                        <span class="print-header">Amount</span>
+                    </th>
+                    <th>
+                        <a href="{{ $tSortUrl('date') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Date <i class="bi {{ $tSortIcon('date') }}"></i>
+                        </a>
+                        <span class="print-header">Date</span>
+                    </th>
                     <th>Method</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($annualDuesPayments as $i => $p)
+                @forelse($annualDuesPayments as $i => $p)
                 <tr>
-                    <td class="text-muted small">{{ $i + 1 }}</td>
+                    <td class="text-muted small">{{ $annualDuesPayments->firstItem() + $i }}</td>
                     <td>
                         <a href="{{ route('admin.members.show', $p->user) }}"
                            class="fw-medium small text-decoration-none no-print">{{ $p->user->name }}</a>
@@ -305,19 +339,135 @@
                     <td class="small text-muted">{{ $p->payment_date?->format('d M Y') ?? '—' }}</td>
                     <td class="small">{{ ucfirst(str_replace('_', ' ', $p->method ?? '—')) }}</td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No transactions match this filter.</td>
+                </tr>
+                @endforelse
             </tbody>
             <tfoot class="table-light fw-semibold">
                 <tr>
                     <td colspan="3" class="text-end">Total</td>
-                    <td class="text-success">£{{ number_format($annualDuesPayments->sum('amount'), 2) }}</td>
+                    <td class="text-success">£{{ number_format($txnTotal, 2) }}</td>
                     <td colspan="2"></td>
                 </tr>
             </tfoot>
         </table>
     </div>
+    @if($annualDuesPayments->hasPages())
+    <div class="card-footer bg-white no-print">{{ $annualDuesPayments->links() }}</div>
+    @endif
 </div>
 @endif
+
+{{-- ══════════════════════════════════════════════════════════════
+     MODE: HISTORICAL DEBT (pre-2026 legacy carryover, no calculation)
+═══════════════════════════════════════════════════════════════ --}}
+@elseif($mode === 'legacy')
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="fs-4 fw-bold text-danger">£{{ number_format($legacyGrandTotal, 2) }}</div>
+                <div class="text-muted small">Total Historical Debt</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="fs-4 fw-bold text-primary">{{ $legacyMemberCount }}</div>
+                <div class="text-muted small">Members Affected</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@php
+    $lSortUrl  = fn(string $f) => request()->fullUrlWithQuery(['legacy_sort' => $f, 'legacy_dir' => ($legacySort === $f && $legacyDir === 'asc') ? 'desc' : 'asc', 'legacy_page' => null]);
+    $lSortIcon = fn(string $f) => $legacySort !== $f ? 'bi-arrow-down-up text-muted' : ($legacyDir === 'asc' ? 'bi-sort-down-alt text-primary' : 'bi-sort-up text-primary');
+@endphp
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h6 class="fw-semibold mb-0">
+                <i class="bi bi-clock-history text-danger me-2"></i>Historical Debt — Pre-2026 Carryover
+            </h6>
+        </div>
+        <form method="GET" class="no-print">
+            <input type="hidden" name="year" value="legacy">
+            <input type="hidden" name="legacy_sort" value="{{ $legacySort }}">
+            <input type="hidden" name="legacy_dir" value="{{ $legacyDir }}">
+            <div class="input-group input-group-sm" style="max-width:320px">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="legacy_search" class="form-control" placeholder="Search member name…" value="{{ $legacySearch }}">
+                <button class="btn btn-outline-secondary" type="submit">Filter</button>
+                @if($legacySearch !== '')
+                    <a href="{{ request()->fullUrlWithQuery(['legacy_search' => null, 'legacy_page' => null]) }}" class="btn btn-outline-danger">Clear</a>
+                @endif
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>
+                        <a href="{{ $lSortUrl('name') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Member <i class="bi {{ $lSortIcon('name') }}"></i>
+                        </a>
+                        <span class="print-header">Member</span>
+                    </th>
+                    <th>Description</th>
+                    <th>
+                        <a href="{{ $lSortUrl('year') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Year <i class="bi {{ $lSortIcon('year') }}"></i>
+                        </a>
+                        <span class="print-header">Year</span>
+                    </th>
+                    <th>
+                        <a href="{{ $lSortUrl('amount') }}" class="text-decoration-none text-dark d-flex align-items-center gap-1 no-print">
+                            Amount <i class="bi {{ $lSortIcon('amount') }}"></i>
+                        </a>
+                        <span class="print-header">Amount</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($legacyBalances as $i => $lb)
+                <tr>
+                    <td class="text-muted small">{{ $legacyBalances->firstItem() + $i }}</td>
+                    <td>
+                        <a href="{{ route('admin.members.show', $lb->user_id) }}"
+                           class="fw-medium small text-decoration-none no-print">{{ $lb->member_name }}</a>
+                        <span class="fw-medium small print-header">{{ $lb->member_name }}</span>
+                    </td>
+                    <td class="small text-muted">{{ $lb->label }}</td>
+                    <td class="small text-muted">{{ $lb->year }}</td>
+                    <td class="{{ $lb->amount < 0 ? 'text-success' : 'text-danger' }} fw-semibold">
+                        £{{ number_format(abs($lb->amount), 2) }}{{ $lb->amount < 0 ? ' (credit)' : '' }}
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">No historical debt records match this filter.</td>
+                </tr>
+                @endforelse
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+                <tr>
+                    <td colspan="4" class="text-end">Total</td>
+                    <td class="text-danger">£{{ number_format($legacyGrandTotal, 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    @if($legacyBalances->hasPages())
+    <div class="card-footer bg-white no-print">{{ $legacyBalances->links() }}</div>
+    @endif
+</div>
 
 {{-- ══════════════════════════════════════════════════════════════
      MODE: FIXED DUES CYCLE
@@ -698,7 +848,7 @@
     const canvas = document.getElementById('monthlyChart');
     if (!canvas) return;
 
-    const chartData  = @json($chartData);
+    const chartData  = @json($chartData ?? []);
     const isPledge   = @json($mode === 'pledge');
     const color      = isPledge ? 'rgba(200,168,75,' : 'rgba(26,107,60,';
 

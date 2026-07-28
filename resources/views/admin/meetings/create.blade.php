@@ -68,7 +68,7 @@
                                class="form-control @error('venue') is-invalid @enderror"
                                value="{{ old('venue') }}"
                                placeholder="Auto-filled when you select an address below"
-                               readonly required>
+                               {{ old('manual_location') ? '' : 'readonly' }} required>
                         <div class="form-text">Look up a postcode in the Location section below to select the venue address.</div>
                         @error('venue')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
@@ -95,7 +95,6 @@
                                            class="form-control @error('venue_postcode') is-invalid @enderror"
                                            value="{{ old('venue_postcode') }}"
                                            placeholder="e.g. M21 9WQ"
-                                           required
                                            style="text-transform:uppercase">
                                     <button type="button" class="btn btn-outline-success" id="lookupBtn">
                                         <i class="bi bi-search me-1"></i>Look Up
@@ -118,6 +117,33 @@
                                     <option value="">— select an address —</option>
                                 </select>
                                 <div class="form-text">Select the specific address for GPS check-in accuracy.</div>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="manualLocationToggle"
+                                       name="manual_location" value="1" {{ old('manual_location') ? 'checked' : '' }}>
+                                <label class="form-check-label small fw-medium" for="manualLocationToggle">
+                                    Postcode lookup not working? Enter address &amp; coordinates manually instead.
+                                </label>
+                            </div>
+
+                            {{-- Manual location entry (used when postcode lookup can't be used) --}}
+                            <div id="manualLocationFields" class="row g-3 mb-3 {{ old('manual_location') ? '' : 'd-none' }}">
+                                <div class="col-12">
+                                    <div class="form-text mb-2">
+                                        Enter the venue address above, then find its latitude/longitude by searching the address on Google Maps and copying the numbers from the URL.
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-medium">Latitude <span class="text-danger">*</span></label>
+                                    <input type="number" step="any" id="manualLatInput" class="form-control"
+                                           value="{{ old('venue_lat') }}" placeholder="e.g. 53.4808">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-medium">Longitude <span class="text-danger">*</span></label>
+                                    <input type="number" step="any" id="manualLngInput" class="form-control"
+                                           value="{{ old('venue_lng') }}" placeholder="e.g. -2.2426">
+                                </div>
                             </div>
 
                             <div class="row g-3 mb-3">
@@ -177,14 +203,58 @@
     const form          = document.getElementById('meetingForm');
     const submitBtn     = document.getElementById('submitBtn');
 
+    const manualToggle   = document.getElementById('manualLocationToggle');
+    const manualFields   = document.getElementById('manualLocationFields');
+    const manualLatInput = document.getElementById('manualLatInput');
+    const manualLngInput = document.getElementById('manualLngInput');
+
     // Address confirmed if lat/lng already set (e.g. validation error with old values)
     let addressConfirmed = !!(latField.value && lngField.value);
     submitBtn.disabled = !addressConfirmed;
+
+    manualToggle.addEventListener('change', function () {
+        if (this.checked) {
+            manualFields.classList.remove('d-none');
+            addressWrap.classList.add('d-none');
+            lookupBtn.disabled = true;
+            venueInput.readOnly = false;
+            venueInput.placeholder = 'Enter the venue address manually';
+            sourceField.value = 'manual';
+            statusDiv.innerHTML = '<span class="text-muted small">Manual location entry — fill in the address and coordinates.</span>';
+            updateManualConfirmed();
+        } else {
+            manualFields.classList.add('d-none');
+            lookupBtn.disabled = false;
+            venueInput.readOnly = true;
+            venueInput.placeholder = 'Auto-filled when you select an address below';
+            venueInput.value  = '';
+            latField.value    = '';
+            lngField.value    = '';
+            sourceField.value = '';
+            addressConfirmed  = false;
+            submitBtn.disabled = true;
+            statusDiv.innerHTML = '<span class="text-muted small">Enter the postcode and click Look Up to find addresses.</span>';
+        }
+    });
+
+    function updateManualConfirmed() {
+        latField.value = manualLatInput.value;
+        lngField.value = manualLngInput.value;
+        addressConfirmed = venueInput.value.trim() !== '' && manualLatInput.value !== '' && manualLngInput.value !== '';
+        submitBtn.disabled = !addressConfirmed;
+    }
+
+    manualLatInput.addEventListener('input', updateManualConfirmed);
+    manualLngInput.addEventListener('input', updateManualConfirmed);
+    venueInput.addEventListener('input', function () {
+        if (manualToggle.checked) updateManualConfirmed();
+    });
 
     // Postcode changes → reset everything
     postcodeInput.addEventListener('input', resetState);
 
     function resetState() {
+        if (manualToggle.checked) return;
         latField.value    = '';
         lngField.value    = '';
         sourceField.value = '';
@@ -269,8 +339,12 @@
     form.addEventListener('submit', function (e) {
         if (!addressConfirmed) {
             e.preventDefault();
-            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please look up the postcode and select an address before saving.</span>';
-            postcodeInput.focus();
+            if (manualToggle.checked) {
+                statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please enter the venue address, latitude, and longitude.</span>';
+            } else {
+                statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please look up the postcode and select an address before saving.</span>';
+                postcodeInput.focus();
+            }
         }
     });
 

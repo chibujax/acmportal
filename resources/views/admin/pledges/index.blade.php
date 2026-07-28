@@ -22,20 +22,38 @@
                 <form method="POST" action="{{ route('admin.pledges.store', $duesCycle) }}">
                     @csrf
 
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="anonymousToggle" {{ old('donor_name') ? 'checked' : '' }}>
+                        <label class="form-check-label small fw-medium" for="anonymousToggle">
+                            Anonymous / non-member donor
+                        </label>
+                    </div>
+
                     {{-- Member Search --}}
-                    <div class="mb-3 position-relative">
+                    <div class="mb-3 position-relative" id="memberSearchWrap">
                         <label class="form-label fw-medium">Member <span class="text-danger">*</span></label>
                         <input type="text" id="memberSearch"
                                class="form-control @error('user_id') is-invalid @enderror"
                                placeholder="Type name or phone to search…"
                                autocomplete="off">
-                        <input type="hidden" name="user_id" id="userId" value="{{ old('user_id') }}" required>
+                        <input type="hidden" name="user_id" id="userId" value="{{ old('user_id') }}">
                         <div id="memberDropdown"
                              class="position-absolute w-100 bg-white border rounded shadow-sm"
                              style="display:none; z-index:1050; max-height:220px; overflow-y:auto; top:100%; left:0">
                         </div>
                         <div id="memberPhone" class="mt-1 small text-muted d-none"></div>
                         @error('user_id')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                    </div>
+
+                    {{-- Anonymous / non-member donor name --}}
+                    <div class="mb-3 d-none" id="donorNameWrap">
+                        <label class="form-label fw-medium">Donor Name <span class="text-danger">*</span></label>
+                        <input type="text" name="donor_name" id="donorName"
+                               class="form-control @error('donor_name') is-invalid @enderror"
+                               value="{{ old('donor_name') }}"
+                               placeholder="e.g. Anonymous, or a visitor's name">
+                        @error('donor_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="form-text">Not linked to any member account — recorded as a standalone entry.</div>
                     </div>
 
                     {{-- Money Pledge --}}
@@ -49,7 +67,30 @@
                                    placeholder="Leave blank if no money pledge">
                             @error('pledged_amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-                        <div class="form-text">Updates existing pledge if already recorded for this member.</div>
+                        <div class="form-text" id="pledgeAmountHint">Updates existing pledge if already recorded for this member.</div>
+                    </div>
+
+                    {{-- Received amount — anonymous donors only, since there's no member account to log a payment against --}}
+                    <div class="mb-3 d-none" id="receivedAmountWrap">
+                        <label class="form-label fw-medium">Amount Already Received <span class="text-muted small">(optional)</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">{{ $duesCycle->currency }}</span>
+                            <input type="number" name="received_amount" step="0.01" min="0"
+                                   class="form-control @error('received_amount') is-invalid @enderror"
+                                   value="{{ old('received_amount') }}"
+                                   placeholder="0.00">
+                            @error('received_amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="form-text">Anonymous donors have no member account to record a payment against — enter what's already been received here directly.</div>
+                    </div>
+
+                    <div class="form-check mb-3" id="sharedWithSpouseWrap">
+                        <input class="form-check-input" type="checkbox" name="shared_with_spouse" value="1"
+                               id="sharedWithSpouse" {{ old('shared_with_spouse') ? 'checked' : '' }}>
+                        <label class="form-check-label small fw-medium" for="sharedWithSpouse">
+                            Shared with spouse — counts as their pledge too if they haven't pledged separately
+                        </label>
+                        <div class="form-text">Leave unchecked if this member's spouse wants to give separately.</div>
                     </div>
 
                     <div class="mb-3">
@@ -59,16 +100,18 @@
                     </div>
 
                     @if($duesCycle->accepts_items)
-                    <hr class="my-3">
+                    <div id="itemContributionsWrap">
+                        <hr class="my-3">
 
-                    {{-- Item Contributions --}}
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label class="fw-medium mb-0 small">Item Contributions <span class="text-muted small">(optional)</span></label>
-                        <button type="button" onclick="addItemRow()" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-plus me-1"></i>Add Item
-                        </button>
+                        {{-- Item Contributions --}}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-medium mb-0 small">Item Contributions <span class="text-muted small">(optional)</span></label>
+                            <button type="button" onclick="addItemRow()" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-plus me-1"></i>Add Item
+                            </button>
+                        </div>
+                        <div id="itemRows" class="mb-2"></div>
                     </div>
-                    <div id="itemRows" class="mb-2"></div>
                     @endif
 
                     <button type="submit" class="btn btn-info text-white w-100 mt-1">
@@ -218,13 +261,20 @@
                     <tbody>
                         @foreach($pledges as $pledge)
                         @php
-                            $redemption = $paymentsMap[$pledge->user_id] ?? 0;
+                            $redemption = $pledge->user_id ? ($paymentsMap[$pledge->user_id] ?? 0) : $pledge->received_amount;
                             $bal        = max(0, $pledge->pledged_amount - $redemption);
                         @endphp
                         <tr>
                             <td>
-                                <div class="fw-medium small">{{ $pledge->user->name }}</div>
-                                <div class="text-muted" style="font-size:.72rem">{{ $pledge->user->phone }}</div>
+                                <div class="fw-medium small">{{ $pledge->displayName() }}</div>
+                                @if($pledge->user)
+                                    <div class="text-muted" style="font-size:.72rem">{{ $pledge->user->phone }}</div>
+                                @else
+                                    <span class="badge bg-light text-dark border" style="font-size:.62rem">Anonymous / non-member</span>
+                                @endif
+                                @if($pledge->shared_with_spouse)
+                                    <span class="badge bg-secondary" style="font-size:.62rem"><i class="bi bi-people-fill me-1"></i>Shared with spouse</span>
+                                @endif
                             </td>
                             <td class="fw-semibold text-success">
                                 {{ $duesCycle->currency }} {{ number_format($pledge->pledged_amount, 2) }}
@@ -259,7 +309,7 @@
                     <tfoot class="table-light">
                         @php
                             $totalPledged   = $pledges->sum('pledged_amount');
-                            $totalRedeemed  = $pledges->sum(fn($p) => $paymentsMap[$p->user_id] ?? 0);
+                            $totalRedeemed  = $pledges->sum(fn($p) => $p->user_id ? ($paymentsMap[$p->user_id] ?? 0) : $p->received_amount);
                             $totalBalance   = max(0, $totalPledged - $totalRedeemed);
                         @endphp
                         <tr>
@@ -422,6 +472,39 @@ const searchInput = document.getElementById('memberSearch');
 const userIdInput = document.getElementById('userId');
 const dropdown    = document.getElementById('memberDropdown');
 const phoneEl     = document.getElementById('memberPhone');
+
+// Anonymous / non-member donor toggle
+const anonToggle       = document.getElementById('anonymousToggle');
+const memberSearchWrap = document.getElementById('memberSearchWrap');
+const donorNameWrap    = document.getElementById('donorNameWrap');
+const donorNameInput   = document.getElementById('donorName');
+const receivedWrap     = document.getElementById('receivedAmountWrap');
+const sharedWrap       = document.getElementById('sharedWithSpouseWrap');
+const itemsWrap        = document.getElementById('itemContributionsWrap');
+const pledgeHint       = document.getElementById('pledgeAmountHint');
+
+function applyAnonymousMode(isAnon) {
+    memberSearchWrap.classList.toggle('d-none', isAnon);
+    donorNameWrap.classList.toggle('d-none', !isAnon);
+    receivedWrap.classList.toggle('d-none', !isAnon);
+    sharedWrap.classList.toggle('d-none', isAnon);
+    if (itemsWrap) itemsWrap.classList.toggle('d-none', isAnon);
+    pledgeHint.textContent = isAnon
+        ? 'Recorded as a standalone entry, not linked to any account.'
+        : 'Updates existing pledge if already recorded for this member.';
+    if (isAnon) {
+        userIdInput.value = '';
+        searchInput.value = '';
+        phoneEl.classList.add('d-none');
+    } else {
+        donorNameInput.value = '';
+    }
+}
+
+anonToggle.addEventListener('change', function () {
+    applyAnonymousMode(this.checked);
+});
+applyAnonymousMode(anonToggle.checked);
 
 // Pre-fill on validation failure
 @if(old('user_id'))

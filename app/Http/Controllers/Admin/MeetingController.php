@@ -10,6 +10,7 @@ use App\Services\EmailService;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class MeetingController extends Controller
 {
@@ -44,6 +45,8 @@ class MeetingController extends Controller
 
     public function store(Request $request)
     {
+        $manualLocation = $request->boolean('manual_location');
+
         $request->validate([
             'title'              => 'required|string|max:255',
             'meeting_date'       => 'required|date|after_or_equal:today',
@@ -59,24 +62,29 @@ class MeetingController extends Controller
             'meeting_end_time'   => 'required|after:meeting_time',
             'venue'              => 'required|string|max:255',
             'description'        => 'nullable|string|max:1000',
-            'venue_postcode'     => 'required|string|max:10',
+            'venue_postcode'     => $manualLocation ? 'nullable|string|max:10' : 'required|string|max:10',
             'venue_radius'       => 'required|integer|min:5|max:1000',
             'gps_failure_action' => 'required|in:reject,flag',
-            'venue_lat'          => 'nullable|numeric',
-            'venue_lng'          => 'nullable|numeric',
+            'venue_lat'          => $manualLocation ? 'required|numeric|between:-90,90' : 'nullable|numeric',
+            'venue_lng'          => $manualLocation ? 'required|numeric|between:-180,180' : 'nullable|numeric',
             'geocode_source'     => 'nullable|string|max:50',
         ]);
 
-        $lat = $request->filled('venue_lat') ? $request->venue_lat : null;
-        $lng = $request->filled('venue_lng') ? $request->venue_lng : null;
-
-        if (is_null($lat)) {
-            // Fall back to postcode geocoding
-            [$lat, $lng] = $this->geocodePostcode($request->venue_postcode);
+        if ($manualLocation) {
+            $lat = $request->venue_lat;
+            $lng = $request->venue_lng;
+        } else {
+            $lat = $request->filled('venue_lat') ? $request->venue_lat : null;
+            $lng = $request->filled('venue_lng') ? $request->venue_lng : null;
 
             if (is_null($lat)) {
-                return back()->withInput()
-                    ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+                // Fall back to postcode geocoding
+                [$lat, $lng] = $this->geocodePostcode($request->venue_postcode);
+
+                if (is_null($lat)) {
+                    return back()->withInput()
+                        ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again, or tick "Enter location manually" below.']);
+                }
             }
         }
 
@@ -321,6 +329,8 @@ class MeetingController extends Controller
 
     public function update(Request $request, Meeting $meeting)
     {
+        $manualLocation = $request->boolean('manual_location');
+
         $request->validate([
             'title'              => 'required|string|max:255',
             'meeting_date'       => 'required|date',
@@ -329,32 +339,38 @@ class MeetingController extends Controller
             'meeting_end_time'   => 'required|after:meeting_time',
             'venue'              => 'required|string|max:255',
             'description'        => 'nullable|string|max:1000',
-            'venue_postcode'     => 'required|string|max:10',
+            'venue_postcode'     => $manualLocation ? 'nullable|string|max:10' : 'required|string|max:10',
             'venue_radius'       => 'required|integer|min:5|max:1000',
             'gps_failure_action' => 'required|in:reject,flag',
-            'venue_lat'          => 'nullable|numeric',
-            'venue_lng'          => 'nullable|numeric',
+            'venue_lat'          => $manualLocation ? 'required|numeric|between:-90,90' : 'nullable|numeric',
+            'venue_lng'          => $manualLocation ? 'required|numeric|between:-180,180' : 'nullable|numeric',
             'geocode_source'     => 'nullable|string|max:50',
         ]);
 
-        $postcode = strtoupper(trim($request->venue_postcode));
-        $lat      = $request->filled('venue_lat') ? $request->venue_lat : null;
-        $lng      = $request->filled('venue_lng') ? $request->venue_lng : null;
+        $postcode = strtoupper(trim($request->venue_postcode ?? ''));
 
-        if (is_null($lat)) {
-            // Use existing coords if venue/postcode unchanged, otherwise re-geocode
-            $venueChanged    = trim($request->venue) !== trim($meeting->venue ?? '');
-            $postcodeChanged = $postcode !== strtoupper(trim($meeting->venue_postcode ?? ''));
+        if ($manualLocation) {
+            $lat = $request->venue_lat;
+            $lng = $request->venue_lng;
+        } else {
+            $lat = $request->filled('venue_lat') ? $request->venue_lat : null;
+            $lng = $request->filled('venue_lng') ? $request->venue_lng : null;
 
-            if (!$venueChanged && !$postcodeChanged && $meeting->venue_lat) {
-                $lat = $meeting->venue_lat;
-                $lng = $meeting->venue_lng;
-            } else {
-                [$lat, $lng] = $this->geocodePostcode($postcode);
+            if (is_null($lat)) {
+                // Use existing coords if venue/postcode unchanged, otherwise re-geocode
+                $venueChanged    = trim($request->venue) !== trim($meeting->venue ?? '');
+                $postcodeChanged = $postcode !== strtoupper(trim($meeting->venue_postcode ?? ''));
 
-                if (is_null($lat)) {
-                    return back()->withInput()
-                        ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again.']);
+                if (!$venueChanged && !$postcodeChanged && $meeting->venue_lat) {
+                    $lat = $meeting->venue_lat;
+                    $lng = $meeting->venue_lng;
+                } else {
+                    [$lat, $lng] = $this->geocodePostcode($postcode);
+
+                    if (is_null($lat)) {
+                        return back()->withInput()
+                            ->withErrors(['venue_postcode' => 'Postcode could not be found. Please check and try again, or tick "Enter location manually" below.']);
+                    }
                 }
             }
         }
@@ -528,8 +544,16 @@ class MeetingController extends Controller
             if (($body['code'] ?? 0) === 4040) {
                 return response()->json(['success' => false, 'message' => 'Postcode not found. Please check and try again.']);
             }
-        } catch (\Exception) {
-            // Fall through
+
+            Log::warning('verifyAddress: unexpected response from Ideal Postcodes', [
+                'postcode' => $postcode,
+                'body'     => $body,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('verifyAddress: request to Ideal Postcodes failed', [
+                'postcode' => $postcode,
+                'error'    => $e->getMessage(),
+            ]);
         }
 
         return response()->json(['success' => false, 'message' => 'Could not look up this postcode. Please try again.']);
@@ -550,8 +574,17 @@ class MeetingController extends Controller
                     $response->json('result.longitude'),
                 ];
             }
-        } catch (\Exception) {
-            // Network error — treat as not found
+
+            Log::warning('geocodePostcode: unexpected response from postcodes.io', [
+                'postcode' => $postcode,
+                'status'   => $response->status(),
+                'body'     => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('geocodePostcode: request to postcodes.io failed', [
+                'postcode' => $postcode,
+                'error'    => $e->getMessage(),
+            ]);
         }
 
         return [null, null];

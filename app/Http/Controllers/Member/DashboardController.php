@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceRecord;
 use App\Models\DonationItem;
 use App\Models\DuesCycle;
 use App\Models\MemberLegacyBalance;
 use App\Models\MemberPledge;
+use App\Models\Meeting;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 
@@ -31,19 +33,43 @@ class DashboardController extends Controller
         $spouse = $user->spouse();
         $spouseName = $spouse ? $spouse->name : null;
 
-        $cycleMapper = function ($cycle) use ($user, $myPledges, $myItemsByCycle, $spouse, $spouseName) {
+        // Spouse's pledges that were explicitly marked "shared" — used as a fallback
+        // when this member hasn't pledged individually for a pledge-based cycle.
+        $spousePledges = $spouse
+            ? MemberPledge::where('user_id', $spouse->id)->where('shared_with_spouse', true)->get()->keyBy('dues_cycle_id')
+            : collect();
+
+        $cycleMapper = function ($cycle) use ($user, $myPledges, $myItemsByCycle, $spouse, $spouseName, $spousePledges) {
+            $pledgeFromSpouse = false;
+
             if ($cycle->is_pledge_based) {
-                $pledge     = $myPledges->get($cycle->id);
+                $pledge = $myPledges->get($cycle->id);
+
+                if (! $pledge && $spousePledges->has($cycle->id)) {
+                    $pledge = $spousePledges->get($cycle->id);
+                    $pledgeFromSpouse = true;
+                }
+
                 $obligation = $pledge ? $pledge->pledged_amount : 0;
-                $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
-                $cycle->my_items      = $myItemsByCycle->get($cycle->id, collect());
+                $cycle->pledge_amount           = $pledge ? $pledge->pledged_amount : null;
+                $cycle->pledge_from_spouse      = $pledgeFromSpouse;
+                $cycle->pledge_is_shared        = $pledge ? (bool) $pledge->shared_with_spouse : false;
+                $cycle->pledge_recorded_by_self = $pledge && ! $pledgeFromSpouse && $pledge->recorded_by === $user->id;
+                $cycle->my_items                = $myItemsByCycle->get($cycle->id, collect());
             } else {
                 $obligation = $user->obligationFor($cycle);
-                $cycle->pledge_amount = null;
-                $cycle->my_items      = collect();
+                $cycle->pledge_amount           = null;
+                $cycle->pledge_from_spouse      = false;
+                $cycle->pledge_is_shared        = false;
+                $cycle->pledge_recorded_by_self = false;
+                $cycle->my_items                = collect();
             }
 
-            $paid      = $user->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
+            // For pledge-based cycles, payments merge with the spouse only when the pledge itself is shared;
+            // for fixed dues, that's still governed by the cycle-wide couple_shared setting.
+            $mergeWithSpouse = $cycle->is_pledge_based ? $cycle->pledge_is_shared : $cycle->couple_shared;
+
+            $paid      = $user->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
             $remaining = max(0, $obligation - $paid);
             $percent   = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
 
@@ -51,15 +77,16 @@ class DashboardController extends Controller
             $cycle->user_paid         = $paid;
             $cycle->user_remaining    = $remaining;
             $cycle->user_percent      = $percent;
-            $cycle->is_family_billing = $user->hasSpouse() && $cycle->couple_shared;
+            $cycle->is_family_billing = $user->hasSpouse() && $mergeWithSpouse;
             $cycle->spouse_name       = $spouseName;
             return $cycle;
         };
 
-        // Currently open cycles — shown in the detailed Active Dues section
+        // Currently open cycles — shown in the detailed Active Dues section (newest first)
         $activeCycles = DuesCycle::where('status', 'active')
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
+            ->orderByDesc('created_at')
             ->get()
             ->map($cycleMapper);
 
@@ -93,10 +120,31 @@ class DashboardController extends Controller
             ->where('status', 'completed')
             ->sum('amount');
 
+        // Live meeting — lets the member check in from the dashboard instead of only via QR/link
+        $liveMeeting = Meeting::where('status', 'active')
+            ->whereNotNull('qr_expires_at')
+            ->where('qr_expires_at', '>', now())
+            ->first();
+
+        // Missed attendance summary (current year) — clicking takes them to My Attendance
+        $attendanceYear = now()->year;
+        $yearMeetings = Meeting::whereYear('meeting_date', $attendanceYear)
+            ->whereIn('status', ['active', 'closed'])
+            ->get();
+
+        $myAttendanceRecords = AttendanceRecord::where('user_id', $user->id)
+            ->whereIn('meeting_id', $yearMeetings->pluck('id'))
+            ->get();
+
+        $lateCount    = $myAttendanceRecords->where('status', 'late')->count();
+        $excusedCount = $myAttendanceRecords->where('status', 'excused')->count();
+        $absentCount  = $yearMeetings->count() - $myAttendanceRecords->count();
+
         return view('member.dashboard', compact(
             'activeCycles', 'legacyBalances', 'legacyTotal',
             'currentCycles', 'currentTotal', 'totalOutstanding',
-            'recentPayments', 'totalPaid'
+            'recentPayments', 'totalPaid', 'liveMeeting',
+            'absentCount', 'lateCount', 'excusedCount'
         ));
     }
 

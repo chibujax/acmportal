@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
+use App\Http\Controllers\Member\PledgeController as MemberPledgeController;
 use App\Http\Controllers\Member\RelationshipController;
 use App\Http\Controllers\Payment\ManualPaymentController;
 use App\Http\Controllers\Payment\StripeController;
@@ -270,6 +271,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/profile',     [MemberDashboard::class, 'updateProfile'])->name('profile.update');
         Route::get('/payments',     [MemberDashboard::class, 'paymentHistory'])->name('payments');
         Route::get('/attendance',   [MemberAttendanceController::class, 'index'])->name('attendance');
+        Route::post('/pledges/{duesCycle}', [MemberPledgeController::class, 'store'])->name('pledges.store');
 
         // ── Phase 2: Relationships ─────────────────────────────
         Route::get('/relationships',                              [RelationshipController::class, 'index'])->name('relationships');

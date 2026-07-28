@@ -95,53 +95,106 @@ class DuesCycleController extends Controller
             ->with('success', 'Dues cycle updated.');
     }
 
-    public function show(DuesCycle $duesCycle)
+    public function show(DuesCycle $duesCycle, Request $request)
     {
         $duesCycle->load(['payments.user', 'payments.recordedBy']);
 
-        // Pre-load pledges and items for this cycle
-        $pledgesMap    = $duesCycle->is_pledge_based
-            ? $duesCycle->pledges()->with('user')->get()->keyBy('user_id')
-            : collect();
+        // Pre-load pledges and items for this cycle. Anonymous pledges (user_id null) are kept
+        // separate from the map, since keying by user_id would collapse them all into one entry.
+        $allPledges    = $duesCycle->is_pledge_based ? $duesCycle->pledges()->with('user')->get() : collect();
+        $pledgesMap    = $allPledges->whereNotNull('user_id')->keyBy('user_id');
+        $anonymousPledges = $allPledges->whereNull('user_id')->values();
         $donationItems = $duesCycle->accepts_items
             ? $duesCycle->donationItems()->with(['user', 'recordedBy'])->latest()->get()
             : collect();
 
+        $sort    = in_array($request->get('sort'), ['name', 'paid', 'remaining', 'status']) ? $request->get('sort') : 'name';
+        $dir     = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100]) ? (int) $request->get('per_page') : 25;
+
         // Per-member obligation and payment status
-        // For pledge-based cycles, only show members who have actually pledged
-        $members = User::where('role', 'member')
-            ->where('status', 'active')
-            ->when($duesCycle->is_pledge_based, fn($q) => $q->whereIn('id', $pledgesMap->keys()->toArray()))
+        // For pledge-based cycles, only show members who have actually pledged — since that list is
+        // already restricted to actual pledgers, admins who pledged personally are included too (they're
+        // real community members; only fixed-dues cycles stay restricted to role=member to avoid pulling
+        // in generic admin/office accounts that were never assigned an obligation).
+        $allMembers = User::where('status', 'active')
+            ->when(
+                $duesCycle->is_pledge_based,
+                fn($q) => $q->where('role', '!=', 'super_admin')->whereIn('id', $pledgesMap->keys()->toArray()),
+                fn($q) => $q->where('role', 'member')
+            )
             ->orderBy('name')
             ->get()
             ->map(function ($user) use ($duesCycle, $pledgesMap) {
                 if ($duesCycle->is_pledge_based) {
                     $pledge     = $pledgesMap->get($user->id);
                     $obligation = $pledge ? $pledge->pledged_amount : 0;
+                    // Only show a spouse here if this pledge was explicitly marked shared —
+                    // otherwise every married member would show a spouse even when they gave individually.
+                    $spouseName = ($pledge && $pledge->shared_with_spouse) ? $user->spouse()?->name : null;
                 } else {
                     $obligation = $user->obligationFor($duesCycle);
+                    $spouseName = $user->spouse()?->name;
                 }
 
                 $paid        = $user->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
                 $remaining   = max(0, $obligation - $paid);
                 $percent     = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
-                $spouse      = $user->spouse();
 
-                $user->obligation  = $obligation;
-                $user->paid        = $paid;
-                $user->remaining   = $remaining;
-                $user->percent     = $percent;
-                $user->settled     = $remaining <= 0 && $obligation > 0;
-                $user->spouseName  = $spouse ? $spouse->name : null;
+                $user->obligation   = $obligation;
+                $user->paid         = $paid;
+                $user->remaining    = $remaining;
+                $user->percent      = $percent;
+                $user->settled      = $remaining <= 0 && $obligation > 0;
+                $user->spouseName   = $spouseName;
+                $user->is_anonymous = false;
                 return $user;
             });
 
-        $totalObligation = $members->sum('obligation');
-        $totalCollected  = $duesCycle->totalCollected();
+        // Anonymous / non-member pledges don't have a User row, so they're appended as plain objects
+        $anonymousRows = $anonymousPledges->map(function ($pledge) {
+            $obligation = $pledge->pledged_amount;
+            $paid       = $pledge->received_amount;
+            $remaining  = max(0, $obligation - $paid);
+
+            return (object) [
+                'id'           => null,
+                'name'         => $pledge->displayName(),
+                'phone'        => null,
+                'obligation'   => $obligation,
+                'paid'         => $paid,
+                'remaining'    => $remaining,
+                'percent'      => $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0,
+                'settled'      => $remaining <= 0 && $obligation > 0,
+                'spouseName'   => null,
+                'is_anonymous' => true,
+            ];
+        });
+
+        $allMembers = $allMembers->concat($anonymousRows);
+
+        $totalObligation  = $allMembers->sum('obligation');
+        $totalCollected   = $duesCycle->totalCollected() + $anonymousPledges->sum('received_amount');
+        $totalOutstanding = max(0, $totalObligation - $totalCollected);
+        $pledgerCount     = $duesCycle->is_pledge_based ? $allPledges->count() : null;
+
+        $sortKey = $sort === 'status' ? 'settled' : $sort;
+        $sorted  = ($dir === 'desc' ? $allMembers->sortByDesc($sortKey) : $allMembers->sortBy($sortKey))->values();
+
+        $page   = max(1, (int) $request->get('page', 1));
+        $offset = ($page - 1) * $perPage;
+
+        $members = new \Illuminate\Pagination\LengthAwarePaginator(
+            $sorted->slice($offset, $perPage)->values(),
+            $sorted->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('admin.dues_cycles.show', compact(
-            'duesCycle', 'members', 'totalObligation', 'totalCollected',
-            'pledgesMap', 'donationItems'
+            'duesCycle', 'members', 'allMembers', 'totalObligation', 'totalCollected', 'totalOutstanding', 'pledgerCount',
+            'pledgesMap', 'donationItems', 'sort', 'dir', 'perPage'
         ));
     }
 
@@ -162,10 +215,13 @@ class DuesCycleController extends Controller
 
         $selectedIds  = $request->user_ids;
         $donationsMap = $duesCycle->donationItems()->get()->groupBy('user_id');
+        $pledgesMap   = $duesCycle->is_pledge_based
+            ? $duesCycle->pledges()->get()->whereNotNull('user_id')->keyBy('user_id')
+            : collect();
 
         $contactFilter = $channel === 'email' ? 'whereNotNull:email' : 'whereNotNull:phone';
-        $members = User::where('role', 'member')
-            ->where('status', 'active')
+        $members = User::where('status', 'active')
+            ->when($duesCycle->is_pledge_based, fn($q) => $q->where('role', '!=', 'super_admin'), fn($q) => $q->where('role', 'member'))
             ->when($channel === 'email', fn ($q) => $q->whereNotNull('email'))
             ->when($channel === 'sms',   fn ($q) => $q->whereNotNull('phone'))
             ->whereIn('id', $selectedIds)
@@ -180,7 +236,13 @@ class DuesCycleController extends Controller
         $smsSvc   = $channel === 'sms'   ? app(SmsService::class)   : null;
 
         foreach ($members as $member) {
-            $obligation = $member->obligationFor($duesCycle);
+            if ($duesCycle->is_pledge_based) {
+                $pledge     = $pledgesMap->get($member->id);
+                $obligation = $pledge ? $pledge->pledged_amount : 0;
+            } else {
+                $obligation = $member->obligationFor($duesCycle);
+            }
+
             $paid       = $member->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
             $remaining  = $obligation - $paid;
 
@@ -213,35 +275,103 @@ class DuesCycleController extends Controller
         return back()->with($failed > 0 ? 'warning' : 'success', $msg);
     }
 
-    public function exportCsv(DuesCycle $duesCycle)
+    public function exportCsv(DuesCycle $duesCycle, Request $request)
     {
+        $sort = in_array($request->get('sort'), ['name', 'paid', 'remaining', 'status']) ? $request->get('sort') : 'name';
+        $dir  = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+
+        $allPledges       = $duesCycle->is_pledge_based ? $duesCycle->pledges()->with('user')->get() : collect();
+        $pledgesMap       = $allPledges->whereNotNull('user_id')->keyBy('user_id');
+        $anonymousPledges = $allPledges->whereNull('user_id')->values();
+
+        $rows = User::where('status', 'active')
+            ->when(
+                $duesCycle->is_pledge_based,
+                fn($q) => $q->where('role', '!=', 'super_admin')->whereIn('id', $pledgesMap->keys()->toArray()),
+                fn($q) => $q->where('role', 'member')
+            )
+            ->orderBy('name')
+            ->get()
+            ->map(function ($user) use ($duesCycle, $pledgesMap) {
+                if ($duesCycle->is_pledge_based) {
+                    $pledge     = $pledgesMap->get($user->id);
+                    $obligation = $pledge ? $pledge->pledged_amount : 0;
+                    $spouseName = ($pledge && $pledge->shared_with_spouse) ? $user->spouse()?->name : null;
+                } else {
+                    $obligation = $user->obligationFor($duesCycle);
+                    $spouseName = $user->spouse()?->name;
+                }
+
+                $paid       = $user->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
+                $remaining  = max(0, $obligation - $paid);
+
+                $user->obligation = $obligation;
+                $user->paid       = $paid;
+                $user->remaining  = $remaining;
+                $user->settled    = $remaining <= 0 && $obligation > 0;
+                $user->spouseName = $spouseName;
+                return $user;
+            });
+
+        $anonymousRows = $anonymousPledges->map(function ($pledge) {
+            $obligation = $pledge->pledged_amount;
+            $paid       = $pledge->received_amount;
+            $remaining  = max(0, $obligation - $paid);
+
+            return (object) [
+                'name'       => $pledge->displayName(),
+                'phone'      => null,
+                'obligation' => $obligation,
+                'paid'       => $paid,
+                'remaining'  => $remaining,
+                'settled'    => $remaining <= 0 && $obligation > 0,
+                'spouseName' => null,
+            ];
+        });
+
+        $rows = $rows->concat($anonymousRows);
+
+        $sortKey = $sort === 'status' ? 'settled' : $sort;
+        $rows    = ($dir === 'desc' ? $rows->sortByDesc($sortKey) : $rows->sortBy($sortKey))->values();
+
+        $totalObligation  = $rows->sum('obligation');
+        $totalCollected   = $duesCycle->totalCollected() + $anonymousPledges->sum('received_amount');
+        $totalOutstanding = max(0, $totalObligation - $totalCollected);
+        $pledgerCount     = $allPledges->count();
+
         $filename = 'dues-' . str_replace(' ', '-', strtolower($duesCycle->title)) . '.csv';
         $headers  = [
             'Content-Type'        => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ];
 
-        $callback = function () use ($duesCycle) {
+        $callback = function () use ($rows, $duesCycle, $totalObligation, $totalCollected, $totalOutstanding, $pledgerCount) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Name', 'Phone', 'Spouse', 'Obligation (£)', 'Paid (£)', 'Remaining (£)', 'Status']);
 
-            User::where('role', 'member')->where('status', 'active')->orderBy('name')->get()
-                ->each(function ($user) use ($handle, $duesCycle) {
-                    $obligation = $user->obligationFor($duesCycle);
-                    $paid       = $user->totalPaidWithSpouse($duesCycle->id);
-                    $remaining  = max(0, $obligation - $paid);
-                    $spouse     = $user->spouse();
+            fputcsv($handle, ['ACM Dues Cycle Report']);
+            fputcsv($handle, ['Cycle: ' . $duesCycle->title]);
+            fputcsv($handle, ['Generated: ' . now()->format('d M Y H:i')]);
+            fputcsv($handle, []);
+            fputcsv($handle, ['Total Expected (£)', number_format($totalObligation, 2)]);
+            fputcsv($handle, ['Money at Hand (£)', number_format($totalCollected, 2)]);
+            fputcsv($handle, ['Outstanding (£)', number_format($totalOutstanding, 2)]);
+            if ($duesCycle->is_pledge_based) {
+                fputcsv($handle, ['Members Pledged', $pledgerCount]);
+            }
+            fputcsv($handle, []);
 
-                    fputcsv($handle, [
-                        $user->name,
-                        $user->phone,
-                        $spouse ? $spouse->name : '',
-                        number_format($obligation, 2),
-                        number_format($paid, 2),
-                        number_format($remaining, 2),
-                        $remaining <= 0 ? 'Settled' : 'Outstanding',
-                    ]);
-                });
+            fputcsv($handle, ['Name', 'Spouse', 'Obligation (£)', 'Paid (£)', 'Remaining (£)', 'Status']);
+
+            foreach ($rows as $user) {
+                fputcsv($handle, [
+                    $user->name,
+                    $user->spouseName ?? '',
+                    number_format($user->obligation, 2),
+                    number_format($user->paid, 2),
+                    number_format($user->remaining, 2),
+                    $user->settled ? 'Settled' : 'Outstanding',
+                ]);
+            }
 
             fclose($handle);
         };

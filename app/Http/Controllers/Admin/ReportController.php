@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DuesCycle;
+use App\Models\MemberLegacyBalance;
 use App\Models\MemberPledge;
 use App\Models\Payment;
 use App\Models\User;
@@ -19,11 +20,41 @@ class ReportController extends Controller
 
     public function financial(Request $request)
     {
+        $legacySearch = trim($request->get('legacy_search', ''));
+        $legacySort   = in_array($request->get('legacy_sort'), ['name', 'year', 'amount']) ? $request->get('legacy_sort') : 'amount';
+        $legacyDir    = $request->get('legacy_dir', 'desc') === 'asc' ? 'asc' : 'desc';
+
+        // Historical debt is its own selectable "period" in the year dropdown, not tied to a calendar year
+        if ($request->get('year') === 'legacy') {
+            $year          = 'legacy';
+            $cycleId       = 'all';
+            $cycles        = collect();
+            $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
+            $selectedCycle = null;
+            $showDetail    = false;
+            $sort          = 'name';
+            $dir           = 'asc';
+            $mode          = 'legacy';
+            $txnSearch     = '';
+            $txnSort       = 'date';
+            $txnDir        = 'desc';
+
+            $reportData = $this->buildLegacyReport($legacySearch, $legacySort, $legacyDir);
+
+            return view('admin.reports.financial', array_merge($reportData, compact(
+                'year', 'cycleId', 'cycles', 'totalMembers', 'selectedCycle', 'showDetail', 'mode', 'sort', 'dir',
+                'txnSearch', 'txnSort', 'txnDir', 'legacySearch', 'legacySort', 'legacyDir'
+            )));
+        }
+
         $year       = max(2026, (int) $request->get('year', max(2026, now()->year)));
         $cycleId    = $request->get('cycle_id', 'all');
         $showDetail = $request->boolean('detail', false);
         $sort       = $request->get('sort', 'name');
         $dir        = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+        $txnSearch  = trim($request->get('txn_search', ''));
+        $txnSort    = in_array($request->get('txn_sort'), ['amount', 'date']) ? $request->get('txn_sort') : 'date';
+        $txnDir     = $request->get('txn_dir', 'desc') === 'asc' ? 'asc' : 'desc';
 
         $cycles = DuesCycle::whereIn('status', ['active', 'closed'])
             ->where(function ($q) use ($year) {
@@ -47,16 +78,21 @@ class ReportController extends Controller
                 $reportData = $this->buildFixedReport($selectedCycle, $totalMembers, $showDetail, $sort, $dir);
             }
         } else {
-            $reportData = $this->buildYearReport($year, $cycles, $totalMembers);
+            $reportData = $this->buildYearReport($year, $cycles, $totalMembers, $txnSearch, $txnSort, $txnDir);
         }
 
         return view('admin.reports.financial', array_merge($reportData, compact(
-            'year', 'cycleId', 'cycles', 'totalMembers', 'selectedCycle', 'showDetail', 'mode', 'sort', 'dir'
+            'year', 'cycleId', 'cycles', 'totalMembers', 'selectedCycle', 'showDetail', 'mode', 'sort', 'dir',
+            'txnSearch', 'txnSort', 'txnDir', 'legacySearch', 'legacySort', 'legacyDir'
         )));
     }
 
     public function financialExportCsv(Request $request)
     {
+        if ($request->get('year') === 'legacy') {
+            return $this->exportLegacyCsv();
+        }
+
         $year    = max(2026, (int) $request->get('year', max(2026, now()->year)));
         $cycleId = $request->get('cycle_id', 'all');
 
@@ -206,6 +242,32 @@ class ReportController extends Controller
         ]);
     }
 
+    private function exportLegacyCsv()
+    {
+        $legacyRows = MemberLegacyBalance::with('user')->orderByDesc('amount')->get();
+
+        $csv = Writer::createFromString();
+        $csv->insertOne(['ACM Historical Debt Report (Pre-2026 Carryover)']);
+        $csv->insertOne(['Generated: ' . now()->format('d M Y H:i')]);
+        $csv->insertOne(['Total Outstanding (£): ' . number_format($legacyRows->sum('amount'), 2)]);
+        $csv->insertOne(['Members Affected: ' . $legacyRows->pluck('user_id')->unique()->count()]);
+        $csv->insertOne([]);
+        $csv->insertOne(['Name', 'Description', 'Year', 'Amount (£)']);
+        foreach ($legacyRows as $lb) {
+            $csv->insertOne([
+                $lb->user?->name ?? '—',
+                $lb->label,
+                $lb->year,
+                number_format($lb->amount, 2),
+            ]);
+        }
+
+        return response((string) $csv, 200, [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="acm-historical-debt.csv"',
+        ]);
+    }
+
     // ── Private report builders ───────────────────────────────────────────────
 
     private function buildFixedReport(DuesCycle $cycle, int $totalMembers, bool $showDetail, string $sort = 'name', string $dir = 'asc'): array
@@ -299,7 +361,7 @@ class ReportController extends Controller
         );
     }
 
-    private function buildYearReport(int $year, $cycles, int $totalMembers): array
+    private function buildYearReport(int $year, $cycles, int $totalMembers, string $txnSearch = '', string $txnSort = 'date', string $txnDir = 'desc'): array
     {
         $chartData       = $this->monthlyChart(null, $year);
         $methodBreakdown = $this->methodBreakdown(null, $year);
@@ -342,13 +404,45 @@ class ReportController extends Controller
 
         // Individual payment records for all cycles in this year
         $cycleIds = $cycles->pluck('id');
-        $annualDuesPayments = $cycleIds->isEmpty() ? collect() : Payment::with(['user', 'duesCycle'])
-            ->where('status', 'completed')
-            ->whereIn('dues_cycle_id', $cycleIds)
-            ->orderBy('payment_date', 'desc')
-            ->get();
 
-        return compact('chartData', 'totalCollected', 'fixedCycles', 'pledgeCycles', 'methodBreakdown', 'annualDuesPayments');
+        $paymentsQuery = $cycleIds->isEmpty() ? null : Payment::where('status', 'completed')
+            ->whereIn('dues_cycle_id', $cycleIds)
+            ->when($txnSearch !== '', fn($q) => $q->whereHas('user', fn($uq) => $uq->where('name', 'like', "%{$txnSearch}%")));
+
+        $txnTotal = $paymentsQuery ? (clone $paymentsQuery)->sum('amount') : 0;
+
+        $annualDuesPayments = $paymentsQuery
+            ? $paymentsQuery->with(['user', 'duesCycle'])
+                ->orderBy($txnSort === 'amount' ? 'amount' : 'payment_date', $txnDir === 'asc' ? 'asc' : 'desc')
+                ->paginate(20)
+                ->withQueryString()
+            : new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 20);
+
+        return compact('chartData', 'totalCollected', 'fixedCycles', 'pledgeCycles', 'methodBreakdown', 'annualDuesPayments', 'txnTotal');
+    }
+
+    private function buildLegacyReport(string $legacySearch, string $legacySort, string $legacyDir): array
+    {
+        $legacyQuery = MemberLegacyBalance::query()
+            ->join('users', 'users.id', '=', 'member_legacy_balances.user_id')
+            ->when($legacySearch !== '', fn($q) => $q->where('users.name', 'like', "%{$legacySearch}%"))
+            ->select('member_legacy_balances.*', 'users.name as member_name');
+
+        $legacyGrandTotal  = (clone $legacyQuery)->sum('member_legacy_balances.amount');
+        $legacyMemberCount = (clone $legacyQuery)->distinct('member_legacy_balances.user_id')->count('member_legacy_balances.user_id');
+
+        $legacySortColumn = match ($legacySort) {
+            'name' => 'users.name',
+            'year' => 'member_legacy_balances.year',
+            default => 'member_legacy_balances.amount',
+        };
+
+        $legacyBalances = $legacyQuery
+            ->orderBy($legacySortColumn, $legacyDir === 'asc' ? 'asc' : 'desc')
+            ->paginate(20, ['*'], 'legacy_page')
+            ->withQueryString();
+
+        return compact('legacyBalances', 'legacyGrandTotal', 'legacyMemberCount');
     }
 
     private function monthlyChart(?int $cycleId, ?int $year = null): array

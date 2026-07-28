@@ -2,6 +2,26 @@
 @section('title','My Dashboard')
 @section('page-title','My Dashboard')
 
+@push('styles')
+<style>
+.donate-cta {
+    background: linear-gradient(135deg, #fff7ed, #fef3c7);
+    border: 1px solid #f59e0b;
+    color: #92400e;
+    animation: donate-glow 2s ease-in-out infinite;
+}
+@keyframes donate-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .35); }
+    50%      { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+}
+.pledge-reminder {
+    background: #e0f2fe;
+    border: 1px solid #0ea5e9;
+    color: #075985;
+}
+</style>
+@endpush
+
 @section('content')
 
 <!-- Email verification banner -->
@@ -30,6 +50,20 @@
 </div>
 @endif
 
+<!-- Live meeting banner -->
+@if($liveMeeting)
+<div class="alert alert-success d-flex align-items-center gap-3 mb-4">
+    <i class="bi bi-broadcast fs-4"></i>
+    <div class="flex-grow-1">
+        <strong>{{ $liveMeeting->title }}</strong> is live now.
+        <div class="small">{{ $liveMeeting->venue }}</div>
+    </div>
+    <a href="{{ route('attendance.checkin', $liveMeeting->qr_token) }}" class="btn btn-success btn-sm">
+        <i class="bi bi-box-arrow-in-right me-1"></i>Join Meeting
+    </a>
+</div>
+@endif
+
 <!-- Welcome -->
 <div class="mb-4">
     <h5 class="fw-bold">Welcome back, {{ auth()->user()->name }} 👋</h5>
@@ -38,7 +72,7 @@
 
 <!-- Stat Cards -->
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="card stat-card border-0 shadow-sm h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="stat-icon" style="background:#d1fae5; color:#065f46">
@@ -51,7 +85,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="card stat-card border-0 shadow-sm h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="stat-icon" style="background:#dbeafe; color:#1d4ed8">
@@ -64,7 +98,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="card stat-card border-0 shadow-sm h-100"
              style="cursor:{{ $totalOutstanding > 0 ? 'pointer' : 'default' }}"
              @if($totalOutstanding > 0)
@@ -88,6 +122,34 @@
             </div>
         </div>
     </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ route('member.attendance') }}" class="text-decoration-none text-reset">
+            <div class="card stat-card border-0 shadow-sm h-100" style="cursor:pointer">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="stat-icon" style="background:#fee2e2; color:#991b1b; width:36px; height:36px">
+                            <i class="bi bi-calendar-x"></i>
+                        </div>
+                        <div class="text-muted small">Missed Attendance</div>
+                    </div>
+                    <div class="d-flex justify-content-between text-center">
+                        <div>
+                            <div class="fw-bold text-danger">{{ $absentCount }}</div>
+                            <div class="text-muted" style="font-size:.68rem">Absent</div>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-warning">{{ $lateCount }}</div>
+                            <div class="text-muted" style="font-size:.68rem">Late</div>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-info">{{ $excusedCount }}</div>
+                            <div class="text-muted" style="font-size:.68rem">Excused</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>
 
 <div class="row g-4">
@@ -109,6 +171,33 @@
                         </div>
                         <span class="badge bg-success">Active</span>
                     </div>
+
+                    @if($cycle->is_pledge_based && is_null($cycle->pledge_amount) && $cycle->my_items->isEmpty())
+                    <div class="donate-cta mb-2 px-3 py-2 rounded">
+                        <div class="fw-semibold small mb-2"><i class="bi bi-gift-fill me-2"></i>You haven't made a free-will donation yet — every gift counts!</div>
+                        <form method="POST" action="{{ route('member.pledges.store', $cycle) }}" class="d-flex flex-wrap align-items-center gap-2">
+                            @csrf
+                            <div class="input-group input-group-sm" style="max-width:150px">
+                                <span class="input-group-text">£</span>
+                                <input type="number" name="pledged_amount" step="0.01" min="0.01"
+                                       class="form-control" placeholder="Amount" required>
+                            </div>
+                            @if(auth()->user()->hasSpouse())
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="shared_with_spouse" value="1" id="shared-{{ $cycle->id }}">
+                                <label class="form-check-label small" for="shared-{{ $cycle->id }}">On behalf of my family</label>
+                            </div>
+                            @endif
+                            <button type="submit" class="btn btn-sm btn-warning fw-semibold">Pledge Now</button>
+                        </form>
+                    </div>
+                    @elseif($cycle->is_pledge_based && !is_null($cycle->pledge_amount) && $cycle->user_remaining > 0)
+                    <div class="pledge-reminder d-flex align-items-center justify-content-between mb-2 px-3 py-2 rounded">
+                        <span class="fw-semibold small text-dark">
+                            <i class="bi bi-hourglass-split me-2"></i>You pledged £{{ number_format($cycle->pledge_amount, 2) }} — £{{ number_format($cycle->user_remaining, 2) }} still to fulfill.
+                        </span>
+                    </div>
+                    @endif
 
                     <div class="progress mb-2" style="height:8px; border-radius:4px">
                         <div class="progress-bar bg-success" style="width:{{ $cycle->user_percent }}%"></div>
@@ -141,6 +230,11 @@
                         <small class="text-muted">
                             @if($cycle->is_pledge_based && $cycle->pledge_amount !== null)
                                 Pledge: <strong>£{{ number_format($cycle->pledge_amount, 2) }}</strong>
+                                @if($cycle->pledge_from_spouse)
+                                    <span class="text-muted">(pledged by {{ $cycle->spouse_name }})</span>
+                                @elseif($cycle->pledge_recorded_by_self)
+                                    <span class="badge bg-light text-success border border-success" style="font-size:.62rem">You added this</span>
+                                @endif
                                 &middot; Paid: <strong>£{{ number_format($cycle->user_paid, 2) }}</strong>
                             @elseif($cycle->is_pledge_based && $cycle->my_items->isEmpty())
                                 <span class="text-warning">No pledge recorded yet</span>

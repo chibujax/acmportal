@@ -228,7 +228,12 @@
                         </div>
                         <div class="d-flex gap-4 small text-muted">
                             @if($cycle->is_pledge_based)
-                                <span>Pledge: <strong>£{{ number_format($cycle->pledge_amount ?? 0, 2) }}</strong></span>
+                                <span>
+                                    Pledge: <strong>£{{ number_format($cycle->pledge_amount ?? 0, 2) }}</strong>
+                                    @if($cycle->pledge_from_spouse)
+                                        <span class="text-muted">(pledged by {{ $cycle->spouse_name ?? $member->spouse()?->name }})</span>
+                                    @endif
+                                </span>
                             @else
                                 <span>Obligation: <strong>£{{ number_format($cycle->user_obligation, 2) }}</strong></span>
                             @endif

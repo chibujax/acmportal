@@ -62,33 +62,51 @@ class MemberController extends Controller
         $myItemsByCycle = DonationItem::where('user_id', $member->id)
             ->latest()->get()->groupBy('dues_cycle_id');
 
+        // Spouse's pledges explicitly marked "shared" — fallback when this member hasn't pledged individually
+        $spousePledges = $spouse
+            ? MemberPledge::where('user_id', $spouse->id)->where('shared_with_spouse', true)->get()->keyBy('dues_cycle_id')
+            : collect();
+
+        $pledgeCycleMapper = function ($cycle) use ($member, $myPledges, $myItemsByCycle, $spousePledges) {
+            $pledgeFromSpouse = false;
+
+            if ($cycle->is_pledge_based) {
+                $pledge = $myPledges->get($cycle->id);
+
+                if (! $pledge && $spousePledges->has($cycle->id)) {
+                    $pledge = $spousePledges->get($cycle->id);
+                    $pledgeFromSpouse = true;
+                }
+
+                $obligation                = $pledge ? $pledge->pledged_amount : 0;
+                $cycle->pledge_amount      = $pledge ? $pledge->pledged_amount : null;
+                $cycle->pledge_from_spouse = $pledgeFromSpouse;
+                $cycle->pledge_is_shared   = $pledge ? (bool) $pledge->shared_with_spouse : false;
+                $cycle->my_items           = $myItemsByCycle->get($cycle->id, collect());
+            } else {
+                $obligation                = $member->obligationFor($cycle);
+                $cycle->pledge_amount      = null;
+                $cycle->pledge_from_spouse = false;
+                $cycle->pledge_is_shared   = false;
+                $cycle->my_items           = collect();
+            }
+
+            $mergeWithSpouse = $cycle->is_pledge_based ? $cycle->pledge_is_shared : $cycle->couple_shared;
+            $paid            = $member->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
+
+            $cycle->user_obligation   = $obligation;
+            $cycle->user_paid         = $paid;
+            $cycle->user_remaining    = max(0, $obligation - $paid);
+            $cycle->user_percent      = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
+            $cycle->is_family_billing = $member->hasSpouse() && $mergeWithSpouse;
+            return $cycle;
+        };
+
         $activeCycles = DuesCycle::where('status', 'active')
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->get()
-            ->map(function ($cycle) use ($member, $myPledges, $myItemsByCycle) {
-                if ($cycle->is_pledge_based) {
-                    $pledge               = $myPledges->get($cycle->id);
-                    $obligation           = $pledge ? $pledge->pledged_amount : 0;
-                    $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
-                    $cycle->my_items      = $myItemsByCycle->get($cycle->id, collect());
-                } else {
-                    $obligation           = $member->obligationFor($cycle);
-                    $cycle->pledge_amount = null;
-                    $cycle->my_items      = collect();
-                }
-
-                $paid              = $member->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
-                $remaining         = max(0, $obligation - $paid);
-                $percent           = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
-
-                $cycle->user_obligation   = $obligation;
-                $cycle->user_paid         = $paid;
-                $cycle->user_remaining    = $remaining;
-                $cycle->user_percent      = $percent;
-                $cycle->is_family_billing = $member->hasSpouse() && $cycle->couple_shared;
-                return $cycle;
-            });
+            ->map($pledgeCycleMapper);
 
         // Legacy outstanding (pre-2026 carryover)
         $legacyBalances = MemberLegacyBalance::where('user_id', $member->id)
@@ -101,25 +119,9 @@ class MemberController extends Controller
             ->where('start_date', '>=', '2026-01-01')
             ->orderBy('start_date')
             ->get()
-            ->map(function ($cycle) use ($member, $myPledges, $myItemsByCycle, $spouseName) {
-                if ($cycle->is_pledge_based) {
-                    $pledge               = $myPledges->get($cycle->id);
-                    $obligation           = $pledge ? $pledge->pledged_amount : 0;
-                    $cycle->pledge_amount = $pledge ? $pledge->pledged_amount : null;
-                    $cycle->my_items      = $myItemsByCycle->get($cycle->id, collect());
-                } else {
-                    $obligation           = $member->obligationFor($cycle);
-                    $cycle->pledge_amount = null;
-                    $cycle->my_items      = collect();
-                }
-                $paid                     = $member->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
-                $cycle->user_obligation   = $obligation;
-                $cycle->user_paid         = $paid;
-                $cycle->user_remaining    = max(0, $obligation - $paid);
-                $cycle->user_percent      = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
-                $cycle->is_family_billing = $member->hasSpouse() && $cycle->couple_shared;
-                $cycle->spouse_name       = $spouseName;
-                return $cycle;
+            ->map($pledgeCycleMapper)
+            ->each(function ($cycle) use ($spouseName) {
+                $cycle->spouse_name = $spouseName;
             })
             ->where('user_remaining', '>', 0);
 
