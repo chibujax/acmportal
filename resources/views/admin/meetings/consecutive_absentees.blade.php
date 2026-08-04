@@ -1,14 +1,60 @@
 @extends('layouts.app')
 @section('title', 'Consecutive Absentees')
-@section('page-title', 'Members Absent from Last 3 Meetings')
+@section('page-title', 'Members Absent from Last ' . $count . ' Meeting' . ($count === 1 ? '' : 's'))
+
+@push('styles')
+<style>
+/* ── Print styles ── */
+@media print {
+    #sidebar, #sidebar-overlay, .topbar, .no-print { display: none !important; }
+    #main-content { margin-left: 0 !important; }
+    .page-content { padding: 0 !important; }
+    .print-header { display: block !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
+    body { background: #fff !important; }
+}
+.print-header { display: none; }
+</style>
+@endpush
 
 @section('content')
-<div class="d-flex gap-2 mb-3">
+
+{{-- Print header (hidden on screen, shown when printing) --}}
+<div class="print-header mb-4">
+    <div class="d-flex align-items-center gap-3 mb-1">
+        <img src="{{ asset('logo.jpg') }}" alt="ACM" style="height:48px; object-fit:contain">
+        <div>
+            <div class="fw-bold fs-5">Abia Community Manchester</div>
+            <div class="text-muted small">Members Absent from Last {{ $count }} Meeting{{ $count === 1 ? '' : 's' }}</div>
+        </div>
+    </div>
+    <div class="text-muted small">Generated: {{ now()->format('d M Y, H:i') }}</div>
+    <hr>
+</div>
+
+<div class="d-flex align-items-center gap-2 mb-3 no-print">
     <a href="{{ route('admin.meetings.index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Back to Meetings
     </a>
+    @if($maxCount >= 2)
+    <form method="GET" action="{{ route('admin.meetings.consecutive-absentees') }}" class="d-flex align-items-center gap-2">
+        <label for="count-select" class="small text-muted mb-0">Consecutive meetings:</label>
+        <select id="count-select" name="count" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            @for($i = 2; $i <= $maxCount; $i++)
+                <option value="{{ $i }}" @selected($i == $count)>{{ $i }}</option>
+            @endfor
+        </select>
+    </form>
+    @endif
     @if($enough && $members->isNotEmpty())
-    <button type="button" class="btn btn-sm btn-outline-danger ms-auto"
+    <a href="{{ route('admin.meetings.consecutive-absentees.export') }}?count={{ $count }}"
+       class="btn btn-sm btn-outline-success ms-auto">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+    </a>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+        <i class="bi bi-printer me-1"></i>Print / PDF
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-danger"
             data-bs-toggle="modal" data-bs-target="#smsAbsentModal">
         <i class="bi bi-send me-1"></i>Contact ({{ $members->count() }})
     </button>
@@ -26,16 +72,16 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body text-center text-muted py-5">
         <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
-        Not enough meetings yet — at least 3 closed/active meetings are needed.<br>
-        <small>{{ $lastMeetings->count() }} meeting(s) recorded so far.</small>
+        Not enough meetings yet this year — at least 2 closed/active meetings are needed.<br>
+        <small>{{ $maxCount }} meeting(s) recorded so far this year.</small>
     </div>
 </div>
 @else
 
-{{-- Last 3 meetings referenced --}}
+{{-- Last N meetings referenced --}}
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white border-0 pt-3 pb-1">
-        <h6 class="fw-semibold mb-0"><i class="bi bi-calendar3 text-primary me-2"></i>Based on last 3 meetings</h6>
+        <h6 class="fw-semibold mb-0"><i class="bi bi-calendar3 text-primary me-2"></i>Based on last {{ $count }} meeting{{ $count === 1 ? '' : 's' }}</h6>
     </div>
     <div class="card-body py-2">
         <div class="d-flex flex-wrap gap-2">
@@ -52,7 +98,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body text-center text-success py-5">
         <i class="bi bi-check-circle fs-2 d-block mb-2"></i>
-        No members were absent from all 3 consecutive meetings.
+        No members were absent from every applicable meeting since joining.
     </div>
 </div>
 @else
@@ -60,7 +106,7 @@
     <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
         <h6 class="fw-semibold mb-2">
             <i class="bi bi-person-x text-danger me-2"></i>
-            {{ $members->count() }} member(s) missed all 3 meetings
+            {{ $members->count() }} member(s) missed every applicable meeting since joining
         </h6>
     </div>
     <div class="table-responsive">
@@ -69,6 +115,7 @@
                 <tr>
                     <th>#</th>
                     <th>Name</th>
+                    <th>Missed</th>
                     <th>Phone</th>
                     <th>Email</th>
                 </tr>
@@ -80,6 +127,7 @@
                     <td class="fw-medium">
                         <a href="{{ route('admin.members.show', $m) }}" class="text-decoration-none">{{ $m->name }}</a>
                     </td>
+                    <td class="text-muted">{{ $m->missed_count }} meeting{{ $m->missed_count === 1 ? '' : 's' }}</td>
                     <td class="text-muted">{{ $m->phone ?? '—' }}</td>
                     <td class="text-muted">{{ $m->email ?? '—' }}</td>
                 </tr>
@@ -93,7 +141,7 @@
 
 @if($enough && $members->isNotEmpty())
 {{-- Contact Modal --}}
-<div class="modal fade" id="smsAbsentModal" tabindex="-1">
+<div class="modal fade no-print" id="smsAbsentModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ route('admin.meetings.send-consecutive-sms') }}">
@@ -143,7 +191,7 @@
                         <textarea name="message" id="ca-message" rows="3"
                                   class="form-control @error('message') is-invalid @enderror"
                                   maxlength="160" required
-                                  placeholder="Hi {name}, we noticed you missed our last 3 meetings. Please get in touch.">{{ old('message') }}</textarea>
+                                  placeholder="Hi {name}, we noticed you missed our last {{ $count }} meeting{{ $count === 1 ? '' : 's' }}. Please get in touch.">{{ old('message') }}</textarea>
                         @error('message')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         <div class="d-flex justify-content-between mt-1">
                             <div class="form-text"><code>{name}</code></div>

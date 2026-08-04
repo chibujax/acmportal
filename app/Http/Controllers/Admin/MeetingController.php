@@ -640,41 +640,105 @@ class MeetingController extends Controller
         return back()->with($failed > 0 ? 'warning' : 'success', $msg);
     }
 
-    // ── Members absent from last 3 consecutive meetings ──────
+    // ── Members absent from last N consecutive meetings ──────
 
-    public function consecutiveAbsentees()
+    public function consecutiveAbsentees(Request $request)
     {
-        $lastMeetings = Meeting::whereIn('status', ['active', 'closed'])
+        return view('admin.meetings.consecutive_absentees', $this->buildConsecutiveAbsenteesData($request));
+    }
+
+    // ── Export consecutive absentees as CSV ────────────────────
+
+    public function exportConsecutiveAbsentees(Request $request)
+    {
+        $data = $this->buildConsecutiveAbsenteesData($request);
+
+        $filename = 'consecutive-absentees-' . $data['count'] . '-meetings-' . now()->format('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($data) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, ['Name', 'Missed', 'Phone', 'Email']);
+
+            foreach ($data['members'] as $m) {
+                fputcsv($handle, [
+                    $m->name,
+                    $m->missed_count . ' meeting' . ($m->missed_count === 1 ? '' : 's'),
+                    $m->phone ?? '',
+                    $m->email ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    // ── Shared query logic for consecutive-absentees view/export ──
+
+    private function buildConsecutiveAbsenteesData(Request $request): array
+    {
+        $allMeetingsThisYear = Meeting::whereIn('status', ['active', 'closed'])
+            ->whereYear('meeting_date', now()->year)
             ->orderByDesc('meeting_date')
-            ->take(3)
+            ->orderByDesc('meeting_time')
             ->get();
 
-        if ($lastMeetings->count() < 3) {
-            return view('admin.meetings.consecutive_absentees', [
+        $maxCount = $allMeetingsThisYear->count();
+
+        if ($maxCount < 2) {
+            return [
                 'members'      => collect(),
-                'lastMeetings' => $lastMeetings,
+                'lastMeetings' => $allMeetingsThisYear,
                 'enough'       => false,
-            ]);
+                'maxCount'     => $maxCount,
+                'count'        => $maxCount,
+            ];
         }
 
-        $meetingIds = $lastMeetings->pluck('id');
+        $count = max(2, min((int) $request->input('count', min(3, $maxCount)), $maxCount));
 
-        // Members who attended at least one of the 3 meetings
+        $lastMeetings = $allMeetingsThisYear->take($count);
+        $meetingIds   = $lastMeetings->pluck('id');
+
+        // Members who attended at least one of the selected meetings
         $attendedAny = AttendanceRecord::whereIn('meeting_id', $meetingIds)
             ->pluck('user_id')
             ->unique();
 
-        $members = User::where('role', 'member')
+        $candidates = User::where('role', 'member')
             ->where('status', 'active')
             ->whereNotIn('id', $attendedAny)
             ->orderBy('name')
             ->get();
 
-        return view('admin.meetings.consecutive_absentees', [
+        // Only judge members against meetings that occurred on/after they joined
+        $members = $candidates->map(function ($member) use ($lastMeetings) {
+            $joinDate   = $member->memberSince()->startOfDay();
+            $applicable = $lastMeetings->filter(fn ($m) => $m->meeting_date->gte($joinDate));
+
+            if ($applicable->isEmpty()) {
+                return null;
+            }
+
+            $member->missed_count = $applicable->count();
+
+            return $member;
+        })->filter()->values();
+
+        return [
             'members'      => $members,
             'lastMeetings' => $lastMeetings,
             'enough'       => true,
-        ]);
+            'maxCount'     => $maxCount,
+            'count'        => $count,
+        ];
     }
 
     // ── Send SMS / Email to consecutive absentees ─────────────

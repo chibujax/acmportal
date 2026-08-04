@@ -208,6 +208,7 @@ Route::middleware(['auth'])->group(function () {
         // Consecutive absentees – 'absentees' slug only (meetings slug does NOT grant this)
         Route::middleware('page:absentees')->prefix('meetings')->name('meetings.')->group(function () {
             Route::get('/consecutive-absentees', [MeetingController::class, 'consecutiveAbsentees'])->name('consecutive-absentees');
+            Route::get('/consecutive-absentees/export', [MeetingController::class, 'exportConsecutiveAbsentees'])->name('consecutive-absentees.export');
             Route::post('/send-consecutive-sms', [MeetingController::class, 'sendConsecutiveAbsenteeSms'])->name('send-consecutive-sms');
         });
 
