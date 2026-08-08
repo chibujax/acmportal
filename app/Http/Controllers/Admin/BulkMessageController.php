@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContactLog;
 use App\Models\SmsTemplate;
 use App\Models\User;
 use App\Services\EmailService;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class BulkMessageController extends Controller
 {
@@ -50,6 +52,7 @@ class BulkMessageController extends Controller
 
         $sent   = 0;
         $failed = 0;
+        $batchId = (string) Str::uuid();
 
         if ($channel === 'email') {
             $members = User::whereIn('id', $request->user_ids)->whereNotNull('email')->get();
@@ -57,7 +60,20 @@ class BulkMessageController extends Controller
             foreach ($members as $member) {
                 $subject = str_replace('{name}', $member->name, $request->subject);
                 $body    = str_replace('{name}', $member->name, $request->message);
-                $email->send($member->email, $subject, $body) ? $sent++ : $failed++;
+                $ok = $email->send($member->email, $subject, $body);
+                $ok ? $sent++ : $failed++;
+
+                ContactLog::create([
+                    'user_id'    => $member->id,
+                    'batch_id'   => $batchId,
+                    'channel'    => 'email',
+                    'subject'    => $subject,
+                    'message'    => $body,
+                    'context'    => 'bulk',
+                    'status'     => $ok ? 'sent' : 'failed',
+                    'sent_by'    => auth()->id(),
+                    'created_at' => now(),
+                ]);
             }
             $label = 'Email';
         } else {
@@ -65,7 +81,19 @@ class BulkMessageController extends Controller
             $sms     = app(SmsService::class);
             foreach ($members as $member) {
                 $message = str_replace('{name}', $member->name, $request->message);
-                $sms->send($member->phone, $message) ? $sent++ : $failed++;
+                $ok = $sms->send($member->phone, $message);
+                $ok ? $sent++ : $failed++;
+
+                ContactLog::create([
+                    'user_id'    => $member->id,
+                    'batch_id'   => $batchId,
+                    'channel'    => 'sms',
+                    'message'    => $message,
+                    'context'    => 'bulk',
+                    'status'     => $ok ? 'sent' : 'failed',
+                    'sent_by'    => auth()->id(),
+                    'created_at' => now(),
+                ]);
             }
             $label = 'SMS';
         }

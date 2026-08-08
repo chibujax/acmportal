@@ -248,10 +248,16 @@
                         </small>
                         @if($cycle->user_remaining > 0 && $cycle->user_obligation > 0)
                             <div class="text-end">
+                                @if(config('services.stripe.enabled'))
+                                <a href="{{ route('payment.stripe.checkout', $cycle) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-credit-card me-1"></i>Pay by Card
+                                </a>
+                                @else
                                 <button class="btn btn-sm btn-outline-primary" disabled>
                                     <i class="bi bi-credit-card me-1"></i>Pay by Card
                                 </button>
                                 <div class="text-muted mt-1" style="font-size:.7rem">Coming soon</div>
+                                @endif
                             </div>
                         @elseif($cycle->user_remaining <= 0 && $cycle->user_obligation > 0)
                             <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Fully Paid</span>

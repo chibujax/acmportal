@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
+use App\Models\ContactLog;
 use App\Models\Meeting;
 use App\Models\User;
 use App\Services\EmailService;
@@ -11,6 +12,7 @@ use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class MeetingController extends Controller
 {
@@ -610,6 +612,7 @@ class MeetingController extends Controller
         $placeholders = ['{name}', '{meeting}', '{date}'];
         $sent   = 0;
         $failed = 0;
+        $batchId = (string) Str::uuid();
 
         if ($channel === 'email') {
             $absentees = User::whereIn('id', $request->user_ids)->whereNotNull('email')->get();
@@ -618,7 +621,21 @@ class MeetingController extends Controller
                 $values  = [$member->name, $meeting->title, $meeting->meeting_date->format('d M Y')];
                 $subject = str_replace($placeholders, $values, $request->subject);
                 $body    = str_replace($placeholders, $values, $request->message);
-                $email->send($member->email, $subject, $body) ? $sent++ : $failed++;
+                $ok = $email->send($member->email, $subject, $body);
+                $ok ? $sent++ : $failed++;
+
+                ContactLog::create([
+                    'user_id'    => $member->id,
+                    'batch_id'   => $batchId,
+                    'channel'    => 'email',
+                    'subject'    => $subject,
+                    'message'    => $body,
+                    'context'    => 'meeting_absentee',
+                    'meeting_id' => $meeting->id,
+                    'status'     => $ok ? 'sent' : 'failed',
+                    'sent_by'    => auth()->id(),
+                    'created_at' => now(),
+                ]);
             }
             $label = 'email';
         } else {
@@ -627,7 +644,20 @@ class MeetingController extends Controller
             foreach ($absentees as $member) {
                 $values  = [$member->name, $meeting->title, $meeting->meeting_date->format('d M Y')];
                 $message = str_replace($placeholders, $values, $request->message);
-                $sms->send($member->phone, $message) ? $sent++ : $failed++;
+                $ok = $sms->send($member->phone, $message);
+                $ok ? $sent++ : $failed++;
+
+                ContactLog::create([
+                    'user_id'    => $member->id,
+                    'batch_id'   => $batchId,
+                    'channel'    => 'sms',
+                    'message'    => $message,
+                    'context'    => 'meeting_absentee',
+                    'meeting_id' => $meeting->id,
+                    'status'     => $ok ? 'sent' : 'failed',
+                    'sent_by'    => auth()->id(),
+                    'created_at' => now(),
+                ]);
             }
             $label = 'SMS';
         }
@@ -718,12 +748,15 @@ class MeetingController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Only judge members against meetings that occurred on/after they joined
-        $members = $candidates->map(function ($member) use ($lastMeetings) {
+        // Only include members who were already members for every meeting in
+        // the selected window — someone who joined partway through hasn't
+        // missed all $count meetings, they've only missed the ones that
+        // occurred after they joined, so they don't belong on this list.
+        $members = $candidates->map(function ($member) use ($lastMeetings, $count) {
             $joinDate   = $member->memberSince()->startOfDay();
             $applicable = $lastMeetings->filter(fn ($m) => $m->meeting_date->gte($joinDate));
 
-            if ($applicable->isEmpty()) {
+            if ($applicable->count() < $count) {
                 return null;
             }
 
@@ -760,6 +793,7 @@ class MeetingController extends Controller
 
         $sent   = 0;
         $failed = 0;
+        $batchId = (string) Str::uuid();
 
         if ($channel === 'email') {
             $members = User::whereIn('id', $request->user_ids)->whereNotNull('email')->get();
@@ -767,7 +801,20 @@ class MeetingController extends Controller
             foreach ($members as $member) {
                 $subject = str_replace('{name}', $member->name, $request->subject);
                 $body    = str_replace('{name}', $member->name, $request->message);
-                $email->send($member->email, $subject, $body) ? $sent++ : $failed++;
+                $ok = $email->send($member->email, $subject, $body);
+                $ok ? $sent++ : $failed++;
+
+                ContactLog::create([
+                    'user_id'    => $member->id,
+                    'batch_id'   => $batchId,
+                    'channel'    => 'email',
+                    'subject'    => $subject,
+                    'message'    => $body,
+                    'context'    => 'consecutive_absentee',
+                    'status'     => $ok ? 'sent' : 'failed',
+                    'sent_by'    => auth()->id(),
+                    'created_at' => now(),
+                ]);
             }
             $label = 'Email';
         } else {
@@ -775,7 +822,19 @@ class MeetingController extends Controller
             $sms     = app(SmsService::class);
             foreach ($members as $member) {
                 $message = str_replace('{name}', $member->name, $request->message);
-                $sms->send($member->phone, $message) ? $sent++ : $failed++;
+                $ok = $sms->send($member->phone, $message);
+                $ok ? $sent++ : $failed++;
+
+                ContactLog::create([
+                    'user_id'    => $member->id,
+                    'batch_id'   => $batchId,
+                    'channel'    => 'sms',
+                    'message'    => $message,
+                    'context'    => 'consecutive_absentee',
+                    'status'     => $ok ? 'sent' : 'failed',
+                    'sent_by'    => auth()->id(),
+                    'created_at' => now(),
+                ]);
             }
             $label = 'SMS';
         }

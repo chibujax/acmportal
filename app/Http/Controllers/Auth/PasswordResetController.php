@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 
 class PasswordResetController extends Controller
 {
@@ -180,7 +181,7 @@ class PasswordResetController extends Controller
     public function updatePassword(Request $request)
     {
         $request->validate([
-            'password'              => 'required|string|min:8|confirmed',
+            'password'              => ['required', 'string', Password::min(10)->letters()->numbers(), 'confirmed'],
             'password_confirmation' => 'required',
         ]);
 

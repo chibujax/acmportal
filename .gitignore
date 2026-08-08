@@ -3,6 +3,7 @@
 /node_modules/
 /.env
 /.env.*
+/env
 /.idea/
 /.vscode/
 /storage/*.key
@@ -39,6 +40,12 @@ Icon?
 # Ignore test coverage
 coverage/
 /.phpunit.cache/
+
+# Member data exports / imports — never belong in the repo
+*.csv
+*.xlsx
+*.xls
+2026_may_31_attendance.txt
 
 
 # Split-script output

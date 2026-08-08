@@ -25,6 +25,9 @@ class Payment extends Model
         'payment_date'     => 'date',
     ];
 
+    // Raw gateway payloads are large and not meaningful for a human audit trail.
+    protected array $activityLogExcept = ['gateway_payload'];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

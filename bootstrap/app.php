@@ -23,9 +23,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'superadmin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'page'       => \App\Http\Middleware\PageAccessMiddleware::class,
         ]);
+        $middleware->prepend(\App\Http\Middleware\ForceHttps::class);
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        // No trustProxies() — on a standard cPanel setup, Apache/LiteSpeed terminates
+        // SSL directly with no separate reverse-proxy hop, so $request->secure() already
+        // reflects the real connection. Trusting proxy headers with nothing real in front
+        // would just let a visitor spoof their IP via X-Forwarded-For. Revisit this if a
+        // load balancer or CDN (e.g. Cloudflare) ever gets put in front of the app.
         $middleware->validateCsrfTokens(except: [
             'webhooks/stripe',
-            'webhooks/paystack',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

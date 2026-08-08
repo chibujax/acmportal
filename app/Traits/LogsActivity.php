@@ -83,6 +83,7 @@ trait LogsActivity
     private static function sanitize(array $attributes, $model): array
     {
         $hidden = method_exists($model, 'getHidden') ? $model->getHidden() : [];
-        return collect($attributes)->except($hidden)->toArray();
+        $except = property_exists($model, 'activityLogExcept') ? $model->activityLogExcept : [];
+        return collect($attributes)->except([...$hidden, ...$except])->toArray();
     }
 }

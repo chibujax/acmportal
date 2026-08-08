@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rules\Password;
 
 class ActivationController extends Controller
 {
@@ -34,7 +35,7 @@ class ActivationController extends Controller
         }
 
         $request->validate([
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', Password::min(10)->letters()->numbers(), 'confirmed'],
         ]);
 
         $user->update([

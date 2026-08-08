@@ -14,8 +14,11 @@ class ManualPaymentController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Payment::with(['user', 'duesCycle', 'recordedBy'])
-            ->where('method', 'manual');
+        $query = Payment::with(['user', 'duesCycle', 'recordedBy']);
+
+        if ($request->method) {
+            $query->where('method', $request->method);
+        }
 
         if ($request->search) {
             $s = $request->search;
@@ -47,7 +50,17 @@ class ManualPaymentController extends Controller
         $payments = $query->paginate($perPage)->withQueryString();
         $cycles   = DuesCycle::orderByDesc('start_date')->get();
 
-        return view('payment.manual.index', compact('payments', 'cycles'));
+        // Failed online-payment attempts per user in the trailing hour — a repeated
+        // burst of these on one account is the classic card-testing fraud signal.
+        $recentFailedCounts = Payment::where('method', 'stripe')
+            ->where('status', 'failed')
+            ->where('created_at', '>=', now()->subHour())
+            ->whereIn('user_id', $payments->pluck('user_id')->unique())
+            ->selectRaw('user_id, count(*) as cnt')
+            ->groupBy('user_id')
+            ->pluck('cnt', 'user_id');
+
+        return view('payment.manual.index', compact('payments', 'cycles', 'recentFailedCounts'));
     }
 
     public function create(Request $request)

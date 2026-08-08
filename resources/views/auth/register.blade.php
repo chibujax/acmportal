@@ -73,7 +73,7 @@
                                 <label class="form-label fw-medium">Password <span class="text-danger">*</span></label>
                                 <input type="password" name="password"
                                        class="form-control @error('password') is-invalid @enderror"
-                                       placeholder="Minimum 8 characters" required>
+                                       placeholder="Min. 10 characters, with a letter and a number" required>
                                 @error('password')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror

@@ -25,6 +25,10 @@ return [
         'secret'          => env('STRIPE_SECRET'),
         'webhook_secret'  => env('STRIPE_WEBHOOK_SECRET'),
         'currency'        => env('STRIPE_CURRENCY', 'GBP'),
+        // Single source of truth for "is online card payment live" — both the
+        // dashboard button and the payment routes check this, so a missing
+        // key/secret always falls back to "coming soon" rather than a broken form.
+        'enabled'         => (bool) (env('STRIPE_KEY') && env('STRIPE_SECRET')),
     ],
 
     // ── SMS provider switching ──────────────────────────────────
@@ -54,14 +58,6 @@ return [
     // ── Ideal Postcodes ────────────────────────────────────────
     'ideal_postcodes' => [
         'key' => env('IDEAL_POSTCODES_KEY'),
-    ],
-
-    // ── Paystack ───────────────────────────────────────────────
-    'paystack' => [
-        'public_key'      => env('PAYSTACK_PUBLIC_KEY'),
-        'secret_key'      => env('PAYSTACK_SECRET_KEY'),
-        'payment_url'     => env('PAYSTACK_PAYMENT_URL', 'https://api.paystack.co'),
-        'merchant_email'  => env('PAYSTACK_MERCHANT_EMAIL'),
     ],
 
 ];

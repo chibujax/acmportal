@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class RegisterController extends Controller
 {
@@ -52,7 +53,7 @@ class RegisterController extends Controller
         $request->validate([
             'token'        => 'required|string',
             'phone'        => 'required|string|unique:users,phone',
-            'password'     => 'required|string|min:8|confirmed',
+            'password'     => ['required', 'string', Password::min(10)->letters()->numbers(), 'confirmed'],
             'email'        => 'nullable|email|unique:users,email',
             'gender'       => 'nullable|in:male,female,other',
             'data_consent' => 'accepted',

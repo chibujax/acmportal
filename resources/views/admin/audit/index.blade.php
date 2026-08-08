@@ -127,13 +127,13 @@
                             @if($log->old_values)
                             <div class="col-md-6">
                                 <div class="fw-medium small text-danger mb-1">Before</div>
-                                <pre class="bg-white border rounded p-2 small mb-0" style="max-height:200px;overflow:auto">{{ json_encode($log->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                                <pre class="bg-white border rounded p-2 small mb-0" style="max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere">{{ json_encode($log->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </div>
                             @endif
                             @if($log->new_values)
                             <div class="col-md-6">
                                 <div class="fw-medium small text-success mb-1">After</div>
-                                <pre class="bg-white border rounded p-2 small mb-0" style="max-height:200px;overflow:auto">{{ json_encode($log->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                                <pre class="bg-white border rounded p-2 small mb-0" style="max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere">{{ json_encode($log->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </div>
                             @endif
                         </div>

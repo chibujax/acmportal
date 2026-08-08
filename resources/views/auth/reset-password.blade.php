@@ -32,7 +32,7 @@
                                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
                                     <input type="password" name="password" id="passwordField"
                                            class="form-control @error('password') is-invalid @enderror"
-                                           placeholder="Minimum 8 characters" autofocus>
+                                           placeholder="Min. 10 characters, with a letter and a number" autofocus>
                                     <button type="button" class="btn btn-outline-secondary"
                                             onclick="togglePassword('passwordField','eye1')">
                                         <i class="bi bi-eye" id="eye1"></i>

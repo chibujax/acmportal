@@ -33,6 +33,7 @@ class Role extends Model
         'import'         => 'CSV Import & Pending Invites',
         'children'       => 'Children & Family Records',
         'audit'          => 'Audit Trail',
+        'reconciliation' => 'Stripe Reconciliation',
     ];
 
     public function users()

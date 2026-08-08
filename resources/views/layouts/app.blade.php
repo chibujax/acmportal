@@ -205,16 +205,28 @@
             @endif
             @endif
 
-            @if($user->hasAccess('payments') || $user->hasAccess('reports') || $user->hasAccess('arrears'))
+            @if($user->hasAccess('payments') || $user->hasAccess('reports') || $user->hasAccess('arrears') || $user->hasAccess('reconciliation'))
             <div class="nav-section">Finance</div>
             @if($user->hasAccess('payments'))
             <a href="{{ route('admin.payments.index') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.*') && !request()->routeIs('admin.payments.stripe-events.*') ? 'active' : '' }}">
                 <i class="bi bi-cash-stack"></i> Payments
             </a>
             <a href="{{ route('admin.dues-cycles.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dues-cycles.*') ? 'active' : '' }}">
                 <i class="bi bi-wallet2"></i> Dues Cycles
+            </a>
+            @endif
+            @if($user->hasAccess('reconciliation'))
+            <a href="{{ route('admin.stripe-reconciliation.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.stripe-reconciliation.*') ? 'active' : '' }}">
+                <i class="bi bi-bank"></i> Stripe Reconciliation
+            </a>
+            @endif
+            @if($user->isSuperAdmin())
+            <a href="{{ route('admin.payments.stripe-events.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.stripe-events.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Stripe Events
             </a>
             @endif
             @if($user->hasAccess('reports'))
@@ -241,8 +253,12 @@
             @endif
             @if($user->hasAccess('messaging'))
             <a href="{{ route('admin.messages.index') }}"
-               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.messages.*') && !request()->routeIs('admin.contact-log.*') ? 'active' : '' }}">
                 <i class="bi bi-send"></i> Bulk Message
+            </a>
+            <a href="{{ route('admin.contact-log.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.contact-log.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Contact Log
             </a>
             @endif
             @if($user->hasAccess('recipients'))

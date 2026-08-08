@@ -46,6 +46,11 @@
                         </span>
                     </dd>
 
+                    @if($payment->method === 'stripe' && $payment->gateway_response)
+                    <dt class="col-5 text-muted fw-normal">Gateway Response</dt>
+                    <dd class="col-7">{{ $payment->gateway_response }}</dd>
+                    @endif
+
                     <dt class="col-5 text-muted fw-normal">Recorded By</dt>
                     <dd class="col-7">{{ $payment->recordedBy?->name ?? '—' }}</dd>
 

@@ -17,9 +17,12 @@ use App\Http\Controllers\Admin\PledgeController;
 use App\Http\Controllers\Admin\DonationItemController;
 use App\Http\Controllers\Admin\SmsTemplateController;
 use App\Http\Controllers\Admin\BulkMessageController;
+use App\Http\Controllers\Admin\ContactLogController;
 use App\Http\Controllers\Admin\NotificationRecipientController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\StripeEventController;
+use App\Http\Controllers\Admin\StripeReconciliationController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
@@ -27,7 +30,6 @@ use App\Http\Controllers\Member\PledgeController as MemberPledgeController;
 use App\Http\Controllers\Member\RelationshipController;
 use App\Http\Controllers\Payment\ManualPaymentController;
 use App\Http\Controllers\Payment\StripeController;
-use App\Http\Controllers\Payment\PaystackController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -59,7 +61,7 @@ Route::post('/register',          [RegisterController::class, 'register'])->name
 Route::get('/join',               [SelfRegisterController::class, 'showLookup'])->name('join');
 Route::post('/join/lookup',       [SelfRegisterController::class, 'lookup'])->name('join.lookup')->middleware('throttle:10,1');
 Route::get('/join/verify',        [SelfRegisterController::class, 'showOtp'])->name('join.otp.form');
-Route::post('/join/verify',       [SelfRegisterController::class, 'verifyOtp'])->name('join.otp.verify');
+Route::post('/join/verify',       [SelfRegisterController::class, 'verifyOtp'])->name('join.otp.verify')->middleware('throttle:10,1');
 
 // Email verification
 Route::get('/email/verify/{token}', [EmailVerificationController::class, 'verify'])->name('email.verify');
@@ -74,7 +76,7 @@ Route::middleware('guest')->group(function () {
 Route::get('/forgot-password',             [PasswordResetController::class, 'showForgotForm'])->name('password.forgot');
 Route::post('/forgot-password',            [PasswordResetController::class, 'sendReset'])->name('password.send');
 Route::get('/verify-otp',                  [PasswordResetController::class, 'showOtpForm'])->name('password.otp.form');
-Route::post('/verify-otp',                 [PasswordResetController::class, 'verifyOtp'])->name('password.otp.verify');
+Route::post('/verify-otp',                 [PasswordResetController::class, 'verifyOtp'])->name('password.otp.verify')->middleware('throttle:10,1');
 Route::get('/reset-password',              [PasswordResetController::class, 'showResetForm'])->name('password.reset.form');
 Route::post('/reset-password',             [PasswordResetController::class, 'updatePassword'])->name('password.update');
 
@@ -84,7 +86,6 @@ Route::post('/reset-password',             [PasswordResetController::class, 'upd
 |--------------------------------------------------------------------------
 */
 Route::post('/webhooks/stripe',   [StripeController::class,   'webhook'])->name('webhook.stripe');
-Route::post('/webhooks/paystack', [PaystackController::class, 'webhook'])->name('webhook.paystack');
 
 /*
 |--------------------------------------------------------------------------
@@ -168,11 +169,13 @@ Route::middleware(['auth'])->group(function () {
         // Payments & Dues Cycles
         Route::middleware('page:payments')->group(function () {
             Route::prefix('payments')->name('payments.')->group(function () {
-                Route::get('/',            [ManualPaymentController::class, 'index'])->name('index');
-                Route::get('/create',      [ManualPaymentController::class, 'create'])->name('create');
-                Route::post('/',           [ManualPaymentController::class, 'store'])->name('store');
-                Route::get('/{payment}',   [ManualPaymentController::class, 'show'])->name('show');
-                Route::patch('/{payment}', [ManualPaymentController::class, 'update'])->name('update');
+                Route::get('/',                [ManualPaymentController::class, 'index'])->name('index');
+                Route::get('/create',          [ManualPaymentController::class, 'create'])->name('create');
+                Route::post('/',               [ManualPaymentController::class, 'store'])->name('store');
+                // stripe-events must come before /{payment} so the wildcard doesn't swallow it.
+                Route::get('/stripe-events',   [StripeEventController::class, 'index'])->name('stripe-events.index')->middleware('superadmin');
+                Route::get('/{payment}',       [ManualPaymentController::class, 'show'])->name('show');
+                Route::patch('/{payment}',     [ManualPaymentController::class, 'update'])->name('update');
             });
 
             Route::prefix('dues-cycles')->name('dues-cycles.')->group(function () {
@@ -195,6 +198,13 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/dues-cycles/{duesCycle}/items',       [DonationItemController::class, 'store'])->name('donation-items.store');
             Route::delete('/donation-items/{donationItem}',     [DonationItemController::class, 'destroy'])->name('donation-items.destroy');
             Route::post('/donation-items/{donationItem}/fulfill', [DonationItemController::class, 'fulfill'])->name('donation-items.fulfill');
+        });
+
+        // Stripe Reconciliation – independently grantable (e.g. to a Treasurer
+        // role) without giving full 'payments' access to record/edit payments.
+        Route::middleware('page:reconciliation')->prefix('stripe-reconciliation')->name('stripe-reconciliation.')->group(function () {
+            Route::get('/',        [StripeReconciliationController::class, 'index'])->name('index');
+            Route::get('/export',  [StripeReconciliationController::class, 'export'])->name('export');
         });
 
         // Attendance reports – must be defined BEFORE meeting management so that
@@ -240,6 +250,9 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('page:messaging')->group(function () {
             Route::get('/messages',       [BulkMessageController::class, 'index'])->name('messages.index');
             Route::post('/messages/send', [BulkMessageController::class, 'send'])->name('messages.send');
+            Route::get('/contact-log',        [ContactLogController::class, 'index'])->name('contact-log.index');
+            Route::get('/contact-log/export', [ContactLogController::class, 'export'])->name('contact-log.export');
+            Route::get('/contact-log/print',  [ContactLogController::class, 'print'])->name('contact-log.print');
         });
 
         // Cron Alert Recipients
@@ -290,13 +303,10 @@ Route::middleware(['auth'])->group(function () {
     */
     Route::prefix('pay')->name('payment.')->group(function () {
 
-        // Stripe
-        Route::get('/stripe/{cycle}',   [StripeController::class, 'checkout'])->name('stripe.checkout');
-        Route::post('/stripe/intent',   [StripeController::class, 'createIntent'])->name('stripe.intent');
+        // Stripe – /stripe/success must come before /stripe/{cycle} so the
+        // wildcard doesn't swallow it and try to bind a DuesCycle to "success".
         Route::get('/stripe/success',   [StripeController::class, 'success'])->name('stripe.success');
-
-        // Paystack
-        Route::post('/paystack/initiate', [PaystackController::class, 'initiate'])->name('paystack.initiate');
-        Route::get('/paystack/callback',  [PaystackController::class, 'callback'])->name('paystack.callback');
+        Route::get('/stripe/{cycle}',   [StripeController::class, 'checkout'])->name('stripe.checkout');
+        Route::post('/stripe/intent',   [StripeController::class, 'createIntent'])->name('stripe.intent')->middleware('throttle:10,1');
     });
 });
