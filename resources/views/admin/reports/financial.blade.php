@@ -495,7 +495,7 @@
     <div class="col-6 col-md-2">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
-                <div class="fs-5 fw-bold text-danger">£{{ number_format($totalExpected - $totalCollected, 2) }}</div>
+                <div class="fs-5 fw-bold text-danger">£{{ number_format($totalOutstanding, 2) }}</div>
                 <div class="text-muted small">Outstanding</div>
             </div>
         </div>

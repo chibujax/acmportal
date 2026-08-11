@@ -111,7 +111,7 @@ class Meeting extends Model
      */
     public function attendanceRate(): float
     {
-        $total = User::where('role', 'member')->where('status', 'active')->count();
+        $total = User::where('role', '!=', 'super_admin')->where('status', 'active')->count();
         if ($total === 0) return 0;
         return round(($this->attendanceRecords()->count() / $total) * 100, 1);
     }

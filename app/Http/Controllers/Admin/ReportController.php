@@ -29,7 +29,7 @@ class ReportController extends Controller
             $year          = 'legacy';
             $cycleId       = 'all';
             $cycles        = collect();
-            $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
+            $totalMembers  = User::where('role', '!=', 'super_admin')->where('status', 'active')->count();
             $selectedCycle = null;
             $showDetail    = false;
             $sort          = 'name';
@@ -63,7 +63,7 @@ class ReportController extends Controller
             ->orderBy('start_date')
             ->get();
 
-        $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
+        $totalMembers  = User::where('role', '!=', 'super_admin')->where('status', 'active')->count();
         $selectedCycle = null;
         $mode          = 'all';
         $reportData    = [];
@@ -103,7 +103,7 @@ class ReportController extends Controller
             ->orderBy('start_date')
             ->get();
 
-        $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
+        $totalMembers  = User::where('role', '!=', 'super_admin')->where('status', 'active')->count();
         $selectedCycle = null;
         $data          = [];
 
@@ -157,7 +157,7 @@ class ReportController extends Controller
                 $csv->insertOne(['Dues per Member (£)',  number_format($selectedCycle->amount, 2)]);
                 $csv->insertOne(['Total Expected (£)',   number_format($data['totalExpected'], 2)]);
                 $csv->insertOne(['Total Collected (£)',  number_format($data['totalCollected'], 2)]);
-                $csv->insertOne(['Outstanding (£)',      number_format($data['totalExpected'] - $data['totalCollected'], 2)]);
+                $csv->insertOne(['Outstanding (£)',      number_format($data['totalOutstanding'], 2)]);
                 $csv->insertOne(['Collection Rate',      $data['collectionRate'] . '%']);
                 $csv->insertOne(['Members Paid',         $data['paidCount']]);
                 $csv->insertOne(['Members Unpaid',       $data['unpaidCount']]);
@@ -272,18 +272,34 @@ class ReportController extends Controller
 
     private function buildFixedReport(DuesCycle $cycle, int $totalMembers, bool $showDetail, string $sort = 'name', string $dir = 'asc'): array
     {
-        $totalExpected  = $cycle->amount * $totalMembers;
         $totalCollected = (float) Payment::where('dues_cycle_id', $cycle->id)
             ->where('status', 'completed')->sum('amount');
-        $collectionRate = $totalExpected > 0
+
+        // Per-member obligation/payment using the same couple-aware logic as
+        // the Arrears report (obligationFor + totalPaidWithSpouse), so the two
+        // reports always tally for the same cycle instead of using different math.
+        $rows = User::where('role', '!=', 'super_admin')->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($m) use ($cycle) {
+                $obligation = $m->obligationFor($cycle);
+                $paid       = $m->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
+                return [
+                    'name'       => $m->name,
+                    'obligation' => $obligation,
+                    'paid'       => $paid,
+                    'balance'    => max(0, $obligation - $paid),
+                    'status'     => $paid >= $obligation ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+                ];
+            });
+
+        $totalExpected    = $rows->sum('obligation');
+        $totalOutstanding = $rows->sum('balance');
+        $collectionRate   = $totalExpected > 0
             ? round($totalCollected / $totalExpected * 100, 1) : 0;
 
-        $paidMemberIds = Payment::where('dues_cycle_id', $cycle->id)
-            ->where('status', 'completed')
-            ->distinct('user_id')
-            ->pluck('user_id');
-        $paidCount   = $paidMemberIds->count();
-        $unpaidCount = $totalMembers - $paidCount;
+        $paidCount   = $rows->where('status', 'paid')->count();
+        $unpaidCount = $rows->count() - $paidCount;
 
         $chartData       = $this->monthlyChart($cycle->id);
         $methodBreakdown = $this->methodBreakdown($cycle->id);
@@ -293,25 +309,11 @@ class ReportController extends Controller
             $validSorts = ['name', 'obligation', 'paid', 'balance', 'status'];
             $sortKey    = in_array($sort, $validSorts) ? $sort : 'name';
 
-            $rows = User::where('role', 'member')->where('status', 'active')
-                ->orderBy('name')
-                ->get()
-                ->map(function ($m) use ($cycle) {
-                    $paid = $m->totalPaid($cycle->id);
-                    return [
-                        'name'       => $m->name,
-                        'obligation' => $cycle->amount,
-                        'paid'       => $paid,
-                        'balance'    => max(0, $cycle->amount - $paid),
-                        'status'     => $paid >= $cycle->amount ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
-                    ];
-                });
-
             $memberDetail = ($dir === 'desc' ? $rows->sortByDesc($sortKey) : $rows->sortBy($sortKey))->values();
         }
 
         return compact(
-            'totalExpected', 'totalCollected', 'collectionRate',
+            'totalExpected', 'totalCollected', 'totalOutstanding', 'collectionRate',
             'paidCount', 'unpaidCount', 'chartData', 'methodBreakdown', 'memberDetail'
         );
     }
@@ -337,7 +339,7 @@ class ReportController extends Controller
             $pledgesByUser = MemberPledge::where('dues_cycle_id', $cycle->id)
                 ->pluck('pledged_amount', 'user_id');
 
-            $rows = User::where('role', 'member')->where('status', 'active')
+            $rows = User::where('role', '!=', 'super_admin')->where('status', 'active')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($m) use ($cycle, $pledgesByUser) {
@@ -498,13 +500,13 @@ class ReportController extends Controller
             $cycle = DuesCycle::findOrFail($cycleId);
 
             // Build full arrears list (unfiltered) for summary totals
-            $all = User::where('role', 'member')
+            $all = User::where('role', '!=', 'super_admin')
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($m) use ($cycle) {
                     $obligation  = $m->obligationFor($cycle);
-                    $paid        = $m->totalPaidWithSpouse($cycle->id);
+                    $paid        = $m->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
                     $outstanding = max(0, $obligation - $paid);
                     $m->obligation  = $obligation;
                     $m->paid        = $paid;
@@ -560,13 +562,13 @@ class ReportController extends Controller
 
         $cycle = DuesCycle::findOrFail($cycleId);
 
-        $rows = User::where('role', 'member')
+        $rows = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->orderBy('name')
             ->get()
             ->map(function ($m) use ($cycle) {
                 $obligation  = $m->obligationFor($cycle);
-                $paid        = $m->totalPaidWithSpouse($cycle->id);
+                $paid        = $m->totalPaidWithSpouse($cycle->id, $cycle->couple_shared);
                 $outstanding = max(0, $obligation - $paid);
                 $m->obligation  = $obligation;
                 $m->paid        = $paid;
@@ -627,12 +629,12 @@ class ReportController extends Controller
 
     public function memberSummary()
     {
-        $members = User::where('role', 'member')
+        $members = User::where('role', '!=', 'super_admin')
             ->withSum(['payments as total_paid' => fn($q) => $q->where('status', 'completed')], 'amount')
             ->withCount('payments')
             ->paginate(25);
 
-        $genderCounts = User::where('role', 'member')
+        $genderCounts = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->selectRaw("gender, COUNT(*) as total")
             ->groupBy('gender')

@@ -65,7 +65,7 @@ class ManualPaymentController extends Controller
 
     public function create(Request $request)
     {
-        $members = User::where('role', 'member')->where('status', 'active')
+        $members = User::where('role', '!=', 'super_admin')->where('status', 'active')
             ->orderBy('name')->get();
         $cycles  = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
 

@@ -19,7 +19,7 @@ class DonationItemController extends Controller
 
     public function create(DuesCycle $duesCycle)
     {
-        $members = User::where('role', 'member')->where('status', 'active')->orderBy('name')->get();
+        $members = User::where('role', '!=', 'super_admin')->where('status', 'active')->orderBy('name')->get();
 
         return view('admin.donation_items.create', compact('duesCycle', 'members'));
     }

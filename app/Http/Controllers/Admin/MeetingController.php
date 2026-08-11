@@ -116,7 +116,7 @@ class MeetingController extends Controller
     {
         $meeting->load('attendanceRecords.user', 'attendanceRecords.recordedBy');
 
-        $allMembers = User::where('role', 'member')
+        $allMembers = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
@@ -253,10 +253,10 @@ class MeetingController extends Controller
             ->get();
 
         $totalMeetings = $meetings->count();
-        $totalMembers  = User::where('role', 'member')->where('status', 'active')->count();
+        $totalMembers  = User::where('role', '!=', 'super_admin')->where('status', 'active')->count();
 
         // Aggregate stats for summary cards — always unfiltered so cards reflect the full year
-        $allStats = User::where('role', 'member')
+        $allStats = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->withCount(['attendanceRecords as attended_count' => fn($q) =>
                 $q->whereIn('status', ['present', 'late'])
@@ -275,7 +275,7 @@ class MeetingController extends Controller
         // Per-member table query with search + sort
         $perPage = in_array((int) $request->get('per_page'), [10, 20, 50, 100]) ? (int) $request->get('per_page') : 20;
 
-        $memberQuery = User::where('role', 'member')
+        $memberQuery = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->withCount(['attendanceRecords as attended_count' => fn($q) =>
                 $q->whereIn('status', ['present', 'late'])
@@ -466,7 +466,7 @@ class MeetingController extends Controller
                 'Attendance %', 'Eligible (≥70%)',
             ]);
 
-            $query = User::where('role', 'member')
+            $query = User::where('role', '!=', 'super_admin')
                 ->where('status', 'active')
                 ->withCount(['attendanceRecords as attended_count' => fn($q) =>
                     $q->whereIn('status', ['present', 'late'])
@@ -742,7 +742,7 @@ class MeetingController extends Controller
             ->pluck('user_id')
             ->unique();
 
-        $candidates = User::where('role', 'member')
+        $candidates = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->whereNotIn('id', $attendedAny)
             ->orderBy('name')

@@ -3,6 +3,13 @@
 @section('page-title', 'Member Profile')
 
 @section('content')
+
+<div class="mb-3">
+    <a href="{{ route('admin.members.index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to All Members
+    </a>
+</div>
+
 <div class="row g-4">
 
     {{-- Left: profile card --}}

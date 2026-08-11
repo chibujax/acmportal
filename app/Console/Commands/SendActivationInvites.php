@@ -17,7 +17,7 @@ class SendActivationInvites extends Command
 
     public function handle(SmsService $sms): int
     {
-        $query = User::where('role', 'member')->whereNull('portal_activated_at');
+        $query = User::where('role', '!=', 'super_admin')->where('status', 'active')->whereNull('portal_activated_at');
 
         if (! $this->option('resend')) {
             $query->whereNull('activation_invited_at');

@@ -14,8 +14,8 @@ class DashboardController extends Controller
     public function index()
     {
         $stats = [
-            'total_members'   => User::where('role', 'member')->count(),
-            'active_members'  => User::where('role', 'member')->where('status', 'active')->count(),
+            'total_members'   => User::where('role', '!=', 'super_admin')->count(),
+            'active_members'  => User::where('role', '!=', 'super_admin')->where('status', 'active')->count(),
             'pending_invites' => PendingMember::whereIn('status', ['pending', 'invited'])->count(),
             'active_cycles'   => DuesCycle::where('status', 'active')->count(),
             'total_collected' => Payment::where('status', 'completed')

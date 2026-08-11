@@ -31,7 +31,7 @@ class RelationshipController extends Controller
 
         $userId = auth()->id();
 
-        $results = User::where('role', 'member')
+        $results = User::where('role', '!=', 'super_admin')
             ->where('status', 'active')
             ->where('id', '!=', $userId)
             ->where(fn($query) => $query->where('name', 'like', "%{$q}%")

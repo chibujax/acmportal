@@ -112,16 +112,15 @@ class DuesCycleController extends Controller
         $dir     = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
         $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100]) ? (int) $request->get('per_page') : 25;
 
-        // Per-member obligation and payment status
-        // For pledge-based cycles, only show members who have actually pledged — since that list is
-        // already restricted to actual pledgers, admins who pledged personally are included too (they're
-        // real community members; only fixed-dues cycles stay restricted to role=member to avoid pulling
-        // in generic admin/office accounts that were never assigned an obligation).
+        // Per-member obligation and payment status. Admins are members of the
+        // organization too and owe dues like anyone else — only super_admin
+        // (and inactive/suspended accounts, via the status filter above) is excluded.
+        // Pledge-based cycles are further restricted to members who actually pledged.
         $allMembers = User::where('status', 'active')
+            ->where('role', '!=', 'super_admin')
             ->when(
                 $duesCycle->is_pledge_based,
-                fn($q) => $q->where('role', '!=', 'super_admin')->whereIn('id', $pledgesMap->keys()->toArray()),
-                fn($q) => $q->where('role', 'member')
+                fn($q) => $q->whereIn('id', $pledgesMap->keys()->toArray())
             )
             ->orderBy('name')
             ->get()
@@ -221,7 +220,7 @@ class DuesCycleController extends Controller
 
         $contactFilter = $channel === 'email' ? 'whereNotNull:email' : 'whereNotNull:phone';
         $members = User::where('status', 'active')
-            ->when($duesCycle->is_pledge_based, fn($q) => $q->where('role', '!=', 'super_admin'), fn($q) => $q->where('role', 'member'))
+            ->where('role', '!=', 'super_admin')
             ->when($channel === 'email', fn ($q) => $q->whereNotNull('email'))
             ->when($channel === 'sms',   fn ($q) => $q->whereNotNull('phone'))
             ->whereIn('id', $selectedIds)
@@ -285,10 +284,10 @@ class DuesCycleController extends Controller
         $anonymousPledges = $allPledges->whereNull('user_id')->values();
 
         $rows = User::where('status', 'active')
+            ->where('role', '!=', 'super_admin')
             ->when(
                 $duesCycle->is_pledge_based,
-                fn($q) => $q->where('role', '!=', 'super_admin')->whereIn('id', $pledgesMap->keys()->toArray()),
-                fn($q) => $q->where('role', 'member')
+                fn($q) => $q->whereIn('id', $pledgesMap->keys()->toArray())
             )
             ->orderBy('name')
             ->get()
