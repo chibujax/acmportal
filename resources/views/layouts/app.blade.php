@@ -205,7 +205,7 @@
             @endif
             @endif
 
-            @if($user->hasAccess('payments') || $user->hasAccess('reports') || $user->hasAccess('arrears') || $user->hasAccess('reconciliation'))
+            @if($user->hasAccess('payments') || $user->hasAccess('reports') || $user->hasAccess('arrears') || $user->hasAccess('engagement') || $user->hasAccess('reconciliation'))
             <div class="nav-section">Finance</div>
             @if($user->hasAccess('payments'))
             <a href="{{ route('admin.payments.index') }}"
@@ -239,6 +239,12 @@
             <a href="{{ route('admin.reports.arrears') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.arrears') ? 'active' : '' }}">
                 <i class="bi bi-exclamation-triangle"></i> Arrears
+            </a>
+            @endif
+            @if($user->hasAccess('engagement'))
+            <a href="{{ route('admin.reports.engagement') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.engagement') ? 'active' : '' }}">
+                <i class="bi bi-person-dash"></i> Member Engagement
             </a>
             @endif
             @endif
@@ -277,6 +283,14 @@
             </a>
             @endif
 
+            @if($user->hasAccess('minutes'))
+            <div class="nav-section">Minutes</div>
+            <a href="{{ route('admin.minutes.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.minutes.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Meeting Minutes
+            </a>
+            @endif
+
         @endif
 
         {{-- MY PORTAL – visible to all users (members and admins alike) --}}
@@ -288,6 +302,10 @@
         <a href="{{ route('member.attendance') }}"
            class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.attendance') ? 'active' : '' }}">
             <i class="bi bi-calendar-check"></i> My Attendance
+        </a>
+        <a href="{{ route('member.minutes.index') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.minutes.*') ? 'active' : '' }}">
+            <i class="bi bi-journal-text"></i> Meeting Minutes
         </a>
         <a href="{{ route('member.payments') }}"
            class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.payments') ? 'active' : '' }}">

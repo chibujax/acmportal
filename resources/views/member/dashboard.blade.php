@@ -64,6 +64,20 @@
 </div>
 @endif
 
+<!-- New minutes banner -->
+@if($latestMinutes)
+<div class="alert alert-info d-flex align-items-center gap-3 mb-4">
+    <i class="bi bi-journal-text fs-4"></i>
+    <div class="flex-grow-1">
+        <span class="badge bg-success me-1" style="font-size:.62rem">New</span>
+        <strong>{{ $latestMinutes->title }}</strong> minutes have been published.
+    </div>
+    <a href="{{ route('member.minutes.show', $latestMinutes) }}" class="btn btn-info btn-sm text-white">
+        <i class="bi bi-eye me-1"></i>View Minutes
+    </a>
+</div>
+@endif
+
 <!-- Welcome -->
 <div class="mb-4">
     <h5 class="fw-bold">Welcome back, {{ auth()->user()->name }} 👋</h5>

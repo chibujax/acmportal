@@ -11,7 +11,7 @@ class SecurityHeaders
     {
         $response = $next($request);
 
-        $response->headers->set('X-Frame-Options', 'DENY');
+        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
@@ -19,6 +19,8 @@ class SecurityHeaders
         // 'unsafe-inline' is still needed since the app has many inline <script>/style
         // blocks. Allowlist covers Bootstrap/Icons (jsdelivr), Stripe.js + its API/fraud-
         // detection calls (*.stripe.com), and the meeting check-in QR code image (qrserver).
+        // frame-src/frame-ancestors allow 'self' so the Meeting Minutes viewer can embed
+        // its own inline-PDF response in an <iframe>, but nothing cross-origin.
         $response->headers->set('Content-Security-Policy', implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://js.stripe.com",
@@ -26,10 +28,10 @@ class SecurityHeaders
             "font-src 'self' https://cdn.jsdelivr.net",
             "img-src 'self' data: https://api.qrserver.com https://cdn.jsdelivr.net",
             "connect-src 'self' https://*.stripe.com https://cdn.jsdelivr.net",
-            "frame-src https://*.stripe.com",
+            "frame-src 'self' https://*.stripe.com",
             "object-src 'none'",
             "base-uri 'self'",
-            "frame-ancestors 'none'",
+            "frame-ancestors 'self'",
         ]));
 
         if (app()->environment('production')) {

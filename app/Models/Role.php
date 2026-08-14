@@ -34,6 +34,8 @@ class Role extends Model
         'children'       => 'Children & Family Records',
         'audit'          => 'Audit Trail',
         'reconciliation' => 'Stripe Reconciliation',
+        'minutes'        => 'Meeting Minutes',
+        'engagement'     => 'Member Engagement Report',
     ];
 
     public function users()

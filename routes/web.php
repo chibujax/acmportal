@@ -23,9 +23,11 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\StripeEventController;
 use App\Http\Controllers\Admin\StripeReconciliationController;
+use App\Http\Controllers\Admin\MinutesController;
 use App\Http\Controllers\Attendance\CheckInController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
+use App\Http\Controllers\Member\MinutesController as MemberMinutesController;
 use App\Http\Controllers\Member\PledgeController as MemberPledgeController;
 use App\Http\Controllers\Member\RelationshipController;
 use App\Http\Controllers\Payment\ManualPaymentController;
@@ -166,6 +168,12 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/reports/arrears/export', [ReportController::class, 'arrearsExportCsv'])->name('reports.arrears.export');
         });
 
+        // Member Engagement report (last meeting attended / last dues payment) — separate slug
+        Route::middleware('page:engagement')->group(function () {
+            Route::get('/reports/engagement',        [ReportController::class, 'engagement'])->name('reports.engagement');
+            Route::get('/reports/engagement/export',  [ReportController::class, 'engagementExportCsv'])->name('reports.engagement.export');
+        });
+
         // Payments & Dues Cycles
         Route::middleware('page:payments')->group(function () {
             Route::prefix('payments')->name('payments.')->group(function () {
@@ -240,6 +248,20 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{meeting}/send-absent-sms',    [MeetingController::class, 'sendAbsenteeSms'])->name('send-absent-sms');
         });
 
+        // Meeting Minutes
+        Route::middleware('page:minutes')->prefix('minutes')->name('minutes.')->group(function () {
+            Route::get('/',                  [MinutesController::class, 'index'])->name('index');
+            Route::get('/create',            [MinutesController::class, 'create'])->name('create');
+            Route::post('/',                 [MinutesController::class, 'store'])->name('store');
+            Route::get('/{minutes}/edit',     [MinutesController::class, 'edit'])->name('edit');
+            Route::put('/{minutes}',          [MinutesController::class, 'update'])->name('update');
+            Route::patch('/{minutes}/publish',   [MinutesController::class, 'publish'])->name('publish');
+            Route::patch('/{minutes}/unpublish', [MinutesController::class, 'unpublish'])->name('unpublish');
+            Route::delete('/{minutes}',       [MinutesController::class, 'destroy'])->name('destroy');
+            Route::get('/{minutes}/view',     [MinutesController::class, 'view'])->name('view');
+            Route::get('/{minutes}/download', [MinutesController::class, 'download'])->name('download');
+        });
+
         // SMS Templates
         Route::middleware('page:communications')->group(function () {
             Route::resource('sms-templates', SmsTemplateController::class)
@@ -286,6 +308,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payments',     [MemberDashboard::class, 'paymentHistory'])->name('payments');
         Route::get('/attendance',   [MemberAttendanceController::class, 'index'])->name('attendance');
         Route::post('/pledges/{duesCycle}', [MemberPledgeController::class, 'store'])->name('pledges.store');
+
+        // Meeting Minutes
+        Route::prefix('minutes')->name('minutes.')->group(function () {
+            Route::get('/',                  [MemberMinutesController::class, 'index'])->name('index');
+            Route::get('/{minutes}',          [MemberMinutesController::class, 'show'])->name('show');
+            Route::get('/{minutes}/view',     [MemberMinutesController::class, 'view'])->name('view');
+            Route::get('/{minutes}/download', [MemberMinutesController::class, 'download'])->name('download');
+        });
 
         // ── Phase 2: Relationships ─────────────────────────────
         Route::get('/relationships',                              [RelationshipController::class, 'index'])->name('relationships');

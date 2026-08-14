@@ -646,4 +646,109 @@ class ReportController extends Controller
 
         return view('admin.reports.members', compact('members', 'genderCounts', 'childGenderCounts'));
     }
+
+    public function engagement(Request $request)
+    {
+        $search  = trim($request->get('search', ''));
+        $sort    = in_array($request->get('sort'), ['name', 'last_meeting_date', 'last_payment_date'])
+                   ? $request->get('sort') : 'last_meeting_date';
+        $dir     = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100])
+                   ? (int) $request->get('per_page') : 25;
+
+        $rows = $this->buildEngagementData($search);
+
+        $sorted = $dir === 'desc' ? $rows->sortByDesc($sort)->values() : $rows->sortBy($sort)->values();
+
+        $page   = max(1, (int) $request->get('page', 1));
+        $offset = ($page - 1) * $perPage;
+
+        $members = new \Illuminate\Pagination\LengthAwarePaginator(
+            $sorted->slice($offset, $perPage)->values(),
+            $sorted->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        $totalMembers  = $rows->count();
+        $neverAttended = $rows->whereNull('last_meeting_date')->count();
+        $neverPaid     = $rows->whereNull('last_payment_date')->count();
+
+        return view('admin.reports.engagement', compact(
+            'members', 'search', 'sort', 'dir', 'perPage',
+            'totalMembers', 'neverAttended', 'neverPaid'
+        ));
+    }
+
+    public function engagementExportCsv(Request $request)
+    {
+        $search = trim($request->get('search', ''));
+        $sort   = in_array($request->get('sort'), ['name', 'last_meeting_date', 'last_payment_date'])
+                  ? $request->get('sort') : 'last_meeting_date';
+        $dir    = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+
+        $rows = $this->buildEngagementData($search);
+        $rows = $dir === 'desc' ? $rows->sortByDesc($sort)->values() : $rows->sortBy($sort)->values();
+
+        $filename = 'acm-member-engagement' . ($search !== '' ? '-' . preg_replace('/[^a-z0-9]/i', '_', $search) : '') . '.csv';
+
+        $csv = Writer::createFromString();
+        $csv->insertOne(['ACM Member Engagement Report']);
+        $csv->insertOne(['Generated: ' . now()->format('d M Y H:i')]);
+        if ($search !== '') {
+            $csv->insertOne(['Filter: ' . $search]);
+        }
+        $csv->insertOne(['Total Members: ' . $rows->count()]);
+        $csv->insertOne([]);
+        $csv->insertOne(['Name', 'Phone', 'Last Meeting Attended', 'Last Dues Payment']);
+
+        foreach ($rows as $m) {
+            $csv->insertOne([
+                $m['name'],
+                $m['phone'] ?? '',
+                $m['last_meeting_date'] ? \Carbon\Carbon::parse($m['last_meeting_date'])->format('d M Y') : 'Never',
+                $m['last_payment_date'] ? \Carbon\Carbon::parse($m['last_payment_date'])->format('d M Y') : 'Never',
+            ]);
+        }
+
+        return response((string) $csv, 200, [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Shared builder for the Member Engagement report (view + CSV export) —
+     * one active-member row per member with their most recent attended
+     * meeting date and most recent completed dues payment date, regardless
+     * of year/cycle, so long-absent or long-unpaid members surface via sort.
+     */
+    private function buildEngagementData(string $search = '')
+    {
+        $lastMeetingByUser = \App\Models\AttendanceRecord::query()
+            ->join('meetings', 'meetings.id', '=', 'attendance_records.meeting_id')
+            ->whereIn('attendance_records.status', ['present', 'late'])
+            ->selectRaw('attendance_records.user_id, MAX(meetings.meeting_date) as last_meeting_date')
+            ->groupBy('attendance_records.user_id')
+            ->pluck('last_meeting_date', 'user_id');
+
+        $lastPaymentByUser = Payment::where('status', 'completed')
+            ->selectRaw('user_id, MAX(payment_date) as last_payment_date')
+            ->groupBy('user_id')
+            ->pluck('last_payment_date', 'user_id');
+
+        return User::where('role', '!=', 'super_admin')
+            ->where('status', 'active')
+            ->when($search !== '', fn($q) => $q->where('name', 'like', "%{$search}%"))
+            ->orderBy('name')
+            ->get()
+            ->map(fn($m) => [
+                'id'                => $m->id,
+                'name'              => $m->name,
+                'phone'             => $m->phone,
+                'last_meeting_date' => $lastMeetingByUser[$m->id] ?? null,
+                'last_payment_date' => $lastPaymentByUser[$m->id] ?? null,
+            ]);
+    }
 }

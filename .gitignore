@@ -53,5 +53,8 @@ coverage/
 /phase2/
 /.claude/
 
+# graphify codebase-graph output
+/graphify/
+
 /database/dusk.sqlite
 database/*.sqlite

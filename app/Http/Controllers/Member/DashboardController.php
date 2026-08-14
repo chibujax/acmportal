@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\DonationItem;
 use App\Models\DuesCycle;
+use App\Models\MeetingMinutes;
 use App\Models\MemberLegacyBalance;
 use App\Models\MemberPledge;
 use App\Models\Meeting;
@@ -126,6 +127,12 @@ class DashboardController extends Controller
             ->where('qr_expires_at', '>', now())
             ->first();
 
+        // Most recently published minutes, shown as a banner for 5 days after publishing
+        $latestMinutes = MeetingMinutes::published()
+            ->where('published_at', '>=', now()->subDays(5))
+            ->orderByDesc('published_at')
+            ->first();
+
         // Missed attendance summary (current year) — clicking takes them to My Attendance
         $attendanceYear = now()->year;
         $yearMeetings = Meeting::whereYear('meeting_date', $attendanceYear)
@@ -143,7 +150,7 @@ class DashboardController extends Controller
         return view('member.dashboard', compact(
             'activeCycles', 'legacyBalances', 'legacyTotal',
             'currentCycles', 'currentTotal', 'totalOutstanding',
-            'recentPayments', 'totalPaid', 'liveMeeting',
+            'recentPayments', 'totalPaid', 'liveMeeting', 'latestMinutes',
             'absentCount', 'lateCount', 'excusedCount'
         ));
     }
