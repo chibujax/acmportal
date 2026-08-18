@@ -39,4 +39,28 @@ class PiiScrubberTest extends TestCase
         $this->assertSame('status: 9', PiiScrubber::scrub('status: 9'));
         $this->assertSame('Payment of £60.00 failed', PiiScrubber::scrub('Payment of £60.00 failed'));
     }
+
+    public function test_mask_keeps_last_four_digits_of_a_phone_number(): void
+    {
+        $this->assertSame('xxxxxxxx7890', PiiScrubber::mask('447445127890'));
+    }
+
+    public function test_mask_keeps_last_three_characters_of_an_email_local_part(): void
+    {
+        $this->assertSame('xxxxfgh@gmail.com', PiiScrubber::mask('abcdfgh@gmail.com'));
+    }
+
+    public function test_mask_applies_within_a_full_log_message(): void
+    {
+        $this->assertSame(
+            'Vonage SMS delivery failed. To: xxxxxxxx3456, status: 9, error: Quota Exceeded - rejected',
+            PiiScrubber::mask('Vonage SMS delivery failed. To: 447445123456, status: 9, error: Quota Exceeded - rejected')
+        );
+    }
+
+    public function test_mask_leaves_normal_text_untouched(): void
+    {
+        $this->assertSame('status: 9', PiiScrubber::mask('status: 9'));
+        $this->assertSame('Payment of £60.00 failed', PiiScrubber::mask('Payment of £60.00 failed'));
+    }
 }
