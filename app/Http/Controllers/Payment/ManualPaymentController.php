@@ -121,16 +121,20 @@ class ManualPaymentController extends Controller
         }
 
         $payForSpouse = $request->boolean('pay_for_spouse');
-        $spouseId     = null;
 
-        // Only allow couple payment when there's a cycle and the cycle is NOT couple_shared
-        if ($payForSpouse && $request->dues_cycle_id) {
-            $cycle = DuesCycle::find($request->dues_cycle_id);
-            if ($cycle && ! $cycle->couple_shared) {
-                $rel = MemberRelationship::spouseRelationshipFor($request->user_id);
-                if ($rel) {
-                    $spouseId = $rel->otherMember($request->user_id)?->id;
-                }
+        // "Pay for spouse" duplicated the entered amount into two separate payment rows
+        // instead of splitting/sharing it, which produced incorrect totals (see the Onuoha
+        // £90-recorded-as-£180 case). couple_shared cycles never needed this — a single
+        // payment there already counts for both spouses via totalPaidWithSpouse()'s merge —
+        // so this was only ever reachable for non-couple_shared cycles, which is exactly
+        // where it's now rejected. Admins must record each person's payment separately.
+        if ($payForSpouse) {
+            $cycle = $request->dues_cycle_id ? DuesCycle::find($request->dues_cycle_id) : null;
+
+            if (! $cycle || ! $cycle->couple_shared) {
+                return back()->withInput()->withErrors([
+                    'pay_for_spouse' => "Spouse payment isn't supported for this dues cycle. Please record each person's payment separately.",
+                ]);
             }
         }
 
@@ -146,29 +150,60 @@ class ManualPaymentController extends Controller
             'proof_of_payment' => $proofPath,
         ];
 
-        // Create primary member payment
-        $primary = Payment::create(array_merge($commonData, [
+        Payment::create(array_merge($commonData, [
             'user_id'        => $request->user_id,
             'receipt_number' => Payment::generateReceiptNumber(),
         ]));
 
-        // If paying for spouse, create a linked payment
-        if ($spouseId) {
-            $spousePayment = Payment::create(array_merge($commonData, [
-                'user_id'           => $spouseId,
-                'receipt_number'    => Payment::generateReceiptNumber(),
-                'linked_payment_id' => $primary->id,
-            ]));
+        return redirect()->route('admin.payments.index')->with('success', 'Payment recorded successfully.');
+    }
 
-            // Link back from primary to spouse payment
-            $primary->update(['linked_payment_id' => $spousePayment->id]);
+    /**
+     * AJAX: whether the given member has already fully paid their obligation for the given
+     * cycle, so the create-payment form can warn before a payment is recorded against the
+     * wrong cycle. Uses the same obligation/paid calculation as everywhere else in the app.
+     */
+    public function checkStatus(Request $request)
+    {
+        $request->validate([
+            'user_id'       => 'required|exists:users,id',
+            'dues_cycle_id' => 'required|string',
+        ]);
+
+        if ($request->dues_cycle_id === 'general') {
+            return response()->json(['settled' => false]);
         }
 
-        $msg = $spouseId
-            ? 'Payment recorded for member and spouse.'
-            : 'Payment recorded successfully.';
+        $cycle = DuesCycle::find($request->dues_cycle_id);
+        $user  = User::find($request->user_id);
 
-        return redirect()->route('admin.payments.index')->with('success', $msg);
+        if (! $cycle || ! $user) {
+            return response()->json(['settled' => false]);
+        }
+
+        if ($cycle->is_pledge_based) {
+            $pledge = MemberPledge::where('user_id', $user->id)->where('dues_cycle_id', $cycle->id)->first();
+
+            if (! $pledge) {
+                return response()->json(['settled' => false]);
+            }
+
+            $obligation      = (float) $pledge->pledged_amount;
+            $mergeWithSpouse = (bool) $pledge->shared_with_spouse;
+        } else {
+            $obligation      = $user->obligationFor($cycle);
+            $mergeWithSpouse = $cycle->couple_shared;
+        }
+
+        $paid      = $user->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
+        $remaining = $obligation - $paid;
+
+        return response()->json([
+            'settled'    => $remaining <= 0 && $obligation != 0,
+            'obligation' => round($obligation, 2),
+            'paid'       => round($paid, 2),
+            'remaining'  => round($remaining, 2),
+        ]);
     }
 
     public function show(Payment $payment)

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Sentry\Severity;
+use function Sentry\captureMessage;
 
 class SmsService
 {
@@ -43,7 +45,9 @@ class SmsService
         $from   = config('services.vonage.sms_from', 'ACMPortal');
 
         if (! $key || ! $secret) {
-            Log::warning("SMS not sent via Vonage (credentials missing). To: {$to}");
+            $message = "SMS not sent via Vonage (credentials missing). To: {$to}";
+            Log::warning($message);
+            captureMessage($message, Severity::error());
             return false;
         }
 
@@ -75,7 +79,9 @@ class SmsService
 
             if ($status !== '0') {
                 $error = $msgData['error-text'] ?? 'unknown error';
-                Log::error("Vonage SMS delivery failed. To: {$to}, status: {$status}, error: {$error}");
+                $message = "Vonage SMS delivery failed. To: {$to}, status: {$status}, error: {$error}";
+                Log::error($message);
+                captureMessage($message, Severity::error());
                 return false;
             }
 
@@ -84,7 +90,9 @@ class SmsService
             return true;
 
         } catch (\Exception $e) {
-            Log::error("Vonage SMS exception. To: {$to}, error: " . $e->getMessage());
+            $message = "Vonage SMS exception. To: {$to}, error: " . $e->getMessage();
+            Log::error($message);
+            captureMessage($message, Severity::error());
             return false;
         }
     }
@@ -96,7 +104,9 @@ class SmsService
         $from  = config('services.twilio.from');
 
         if (! $sid || ! $token || ! $from) {
-            Log::warning("SMS not sent via Twilio (credentials missing). To: {$to}");
+            $message = "SMS not sent via Twilio (credentials missing). To: {$to}";
+            Log::warning($message);
+            captureMessage($message, Severity::error());
             return false;
         }
 
@@ -113,7 +123,9 @@ class SmsService
                 $body  = $response->json();
                 $error = $body['message'] ?? $response->body();
                 $code  = $body['code'] ?? $response->status();
-                Log::error("Twilio SMS delivery failed. To: {$to}, HTTP: {$response->status()}, code: {$code}, error: {$error}");
+                $message = "Twilio SMS delivery failed. To: {$to}, HTTP: {$response->status()}, code: {$code}, error: {$error}";
+                Log::error($message);
+                captureMessage($message, Severity::error());
                 return false;
             }
 
@@ -122,7 +134,9 @@ class SmsService
             return true;
 
         } catch (\Exception $e) {
-            Log::error("Twilio SMS exception. To: {$to}, error: " . $e->getMessage());
+            $message = "Twilio SMS exception. To: {$to}, error: " . $e->getMessage();
+            Log::error($message);
+            captureMessage($message, Severity::error());
             return false;
         }
     }

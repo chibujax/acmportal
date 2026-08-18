@@ -4,6 +4,8 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Sentry\Severity;
+use function Sentry\captureMessage;
 
 class EmailService
 {
@@ -20,7 +22,9 @@ class EmailService
             Log::info("Email sent. To: {$to}, Subject: {$subject}");
             return true;
         } catch (\Exception $e) {
-            Log::error("Email failed. To: {$to}, error: " . $e->getMessage());
+            $message = "Email failed. To: {$to}, error: " . $e->getMessage();
+            Log::error($message);
+            captureMessage($message, Severity::error());
             return false;
         }
     }

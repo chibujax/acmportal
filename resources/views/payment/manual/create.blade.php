@@ -54,19 +54,24 @@
                             @endforeach
                         </select>
                         @error('dues_cycle_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        @error('pay_for_spouse')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                         <div id="obligationHint" class="form-text text-info d-none"></div>
                         <div id="pledgeHint" class="form-text text-warning d-none"></div>
+                        <div id="settledWarning" class="alert alert-warning py-2 px-3 mt-2 mb-0 d-none"></div>
                     </div>
 
-                    {{-- Pay for Spouse checkbox (shown dynamically via JS) --}}
+                    {{-- Spouse payment is not supported for non-couple_shared cycles (shown dynamically via JS) --}}
                     <div id="couplePayWrap" class="mb-3 d-none">
-                        <div class="form-check p-3 rounded" style="border:1px solid #e5e7eb; background:#f0fdf4">
+                        <div class="alert alert-warning py-2 px-3 mb-0">
                             <input type="hidden" name="pay_for_spouse" value="0">
-                            <input type="checkbox" name="pay_for_spouse" value="1" id="payForSpouse" class="form-check-input">
-                            <label class="form-check-label" for="payForSpouse">
-                                <strong>Pay for spouse too</strong>
-                                <span id="spouseNameHint" class="text-muted small d-block"></span>
-                            </label>
+                            <div class="form-check">
+                                <input type="checkbox" id="payForSpouse" class="form-check-input" disabled>
+                                <label class="form-check-label text-muted" for="payForSpouse">
+                                    <strong>Pay for spouse too</strong>
+                                    <span class="badge bg-secondary ms-1" style="font-size:.62rem">Not available</span>
+                                </label>
+                            </div>
+                            <div id="spouseNameHint" class="small mt-1"></div>
                         </div>
                     </div>
 
@@ -137,11 +142,29 @@
     const amountInput    = document.querySelector('input[name="amount"]');
     const obligationHint = document.getElementById('obligationHint');
     const pledgeHint     = document.getElementById('pledgeHint');
+    const settledWarning = document.getElementById('settledWarning');
     const couplePayWrap  = document.getElementById('couplePayWrap');
     const spouseNameHint = document.getElementById('spouseNameHint');
-    const payForSpouse   = document.getElementById('payForSpouse');
+    const statusCheckUrl = '{{ route('admin.payments.status-check') }}';
 
     let selectedMember = null;
+
+    function checkSettledStatus(memberId, cycleId) {
+        fetch(`${statusCheckUrl}?user_id=${memberId}&dues_cycle_id=${cycleId}`, {
+            headers: { 'Accept': 'application/json' },
+        })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && data.settled) {
+                    settledWarning.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>` +
+                        `<strong>${selectedMember.name}</strong> has already completed their obligation for this cycle ` +
+                        `(paid £${data.paid.toFixed(2)} of £${data.obligation.toFixed(2)}). ` +
+                        `Please confirm the correct cycle is selected.`;
+                    settledWarning.classList.remove('d-none');
+                }
+            })
+            .catch(() => {}); // fail open - never block the form over a network hiccup
+    }
 
     function updateObligation() {
         const cycleId = parseInt(cycleSelect.value);
@@ -149,8 +172,8 @@
         // Reset UI
         obligationHint.classList.add('d-none');
         pledgeHint.classList.add('d-none');
+        settledWarning.classList.add('d-none');
         couplePayWrap.classList.add('d-none');
-        if (payForSpouse) payForSpouse.checked = false;
 
         if (!selectedMember || !cycleId) return;
 
@@ -158,6 +181,8 @@
         if (!cycle) return;
 
         const memberId = selectedMember.id;
+
+        checkSettledStatus(memberId, cycleId);
 
         // Pledge-based cycle: use pledge amount if available
         if (cycle.is_pledge_based) {
@@ -187,11 +212,12 @@
         }
         amountInput.value = obligation.toFixed(2);
 
-        // Show "pay for spouse" checkbox only if member has spouse AND cycle is NOT couple_shared
+        // Member has a spouse, but this cycle isn't couple_shared — each spouse owes their
+        // own independent amount, so warn rather than offer to duplicate a payment for them.
         if (selectedMember.has_spouse && !cycle.couple_shared) {
             const spouse = spouseMap[memberId];
             if (spouse) {
-                spouseNameHint.textContent = `This will also create a £${obligation.toFixed(2)} record for ${spouse.name}.`;
+                spouseNameHint.textContent = `Spouse payment isn't supported for this dues cycle. Record ${spouse.name}'s payment separately.`;
                 couplePayWrap.classList.remove('d-none');
             }
         }
@@ -246,6 +272,7 @@
         selectedDiv.classList.add('d-none');
         obligationHint.classList.add('d-none');
         pledgeHint.classList.add('d-none');
+        settledWarning.classList.add('d-none');
         couplePayWrap.classList.add('d-none');
         searchInput.focus();
     });

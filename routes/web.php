@@ -180,7 +180,8 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('/',                [ManualPaymentController::class, 'index'])->name('index');
                 Route::get('/create',          [ManualPaymentController::class, 'create'])->name('create');
                 Route::post('/',               [ManualPaymentController::class, 'store'])->name('store');
-                // stripe-events must come before /{payment} so the wildcard doesn't swallow it.
+                // status-check and stripe-events must come before /{payment} so the wildcard doesn't swallow them.
+                Route::get('/status-check',    [ManualPaymentController::class, 'checkStatus'])->name('status-check');
                 Route::get('/stripe-events',   [StripeEventController::class, 'index'])->name('stripe-events.index')->middleware('superadmin');
                 Route::get('/{payment}',       [ManualPaymentController::class, 'show'])->name('show');
                 Route::patch('/{payment}',     [ManualPaymentController::class, 'update'])->name('update');

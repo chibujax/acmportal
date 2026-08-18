@@ -5,8 +5,11 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
+use Sentry\Laravel\Integration as SentryIntegration;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withProviders([
@@ -50,4 +53,20 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->view('errors.500', [], 500);
             }
         });
+
+        // Suppress routine, expected exceptions before Sentry (registered below) ever sees
+        // them — returning false here stops the report chain entirely, so this MUST be
+        // registered before SentryIntegration::handles(). Failed login attempts throw
+        // ValidationException (see LoginController::login()) and are not worth alerting on;
+        // 404s/expired sessions are routine bot/browser noise, not application errors.
+        $exceptions->reportable(function (Throwable $e) {
+            if ($e instanceof ValidationException
+                || $e instanceof AuthenticationException
+                || $e instanceof NotFoundHttpException
+                || $e instanceof TokenMismatchException) {
+                return false;
+            }
+        });
+
+        SentryIntegration::handles($exceptions);
     })->create();
