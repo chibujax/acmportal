@@ -42,9 +42,10 @@
     <a href="{{ route('admin.dues-cycles.export', $duesCycle) }}?sort={{ $sort }}&dir={{ $dir }}" class="btn btn-sm btn-outline-success">
         <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
     </a>
-    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+    <a href="{{ request()->fullUrlWithQuery(['per_page' => 'all', 'page' => null, 'autoprint' => 1]) }}"
+       class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-printer me-1"></i>Print / PDF
-    </button>
+    </a>
     @if($duesCycle->is_pledge_based)
     <a href="{{ route('admin.pledges.index', $duesCycle) }}" class="btn btn-sm btn-outline-info">
         <i class="bi bi-hand-thumbs-up me-1"></i>Manage Pledges
@@ -201,6 +202,8 @@
                         <td>
                             @if($member->remaining > 0)
                                 <span class="text-danger">£{{ number_format($member->remaining, 2) }}</span>
+                            @elseif($member->remaining < 0)
+                                <span class="text-success">Credit £{{ number_format(abs($member->remaining), 2) }}</span>
                             @else
                                 <span class="text-success">—</span>
                             @endif
@@ -464,6 +467,12 @@
 </script>
 @endpush
 @endif
+@endif
+
+@if(request('autoprint'))
+@push('scripts')
+<script>window.addEventListener('load', () => window.print());</script>
+@endpush
 @endif
 
 @endsection

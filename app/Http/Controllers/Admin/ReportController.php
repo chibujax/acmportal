@@ -23,6 +23,9 @@ class ReportController extends Controller
         $legacySearch = trim($request->get('legacy_search', ''));
         $legacySort   = in_array($request->get('legacy_sort'), ['name', 'year', 'amount']) ? $request->get('legacy_sort') : 'amount';
         $legacyDir    = $request->get('legacy_dir', 'desc') === 'asc' ? 'asc' : 'desc';
+        // 'all' is used by the Print/PDF button so the printout isn't silently
+        // truncated to whatever page happened to be on screen.
+        $showAll      = $request->get('per_page') === 'all';
 
         // Historical debt is its own selectable "period" in the year dropdown, not tied to a calendar year
         if ($request->get('year') === 'legacy') {
@@ -39,7 +42,7 @@ class ReportController extends Controller
             $txnSort       = 'date';
             $txnDir        = 'desc';
 
-            $reportData = $this->buildLegacyReport($legacySearch, $legacySort, $legacyDir);
+            $reportData = $this->buildLegacyReport($legacySearch, $legacySort, $legacyDir, $showAll);
 
             return view('admin.reports.financial', array_merge($reportData, compact(
                 'year', 'cycleId', 'cycles', 'totalMembers', 'selectedCycle', 'showDetail', 'mode', 'sort', 'dir',
@@ -78,7 +81,7 @@ class ReportController extends Controller
                 $reportData = $this->buildFixedReport($selectedCycle, $totalMembers, $showDetail, $sort, $dir);
             }
         } else {
-            $reportData = $this->buildYearReport($year, $cycles, $totalMembers, $txnSearch, $txnSort, $txnDir);
+            $reportData = $this->buildYearReport($year, $cycles, $totalMembers, $txnSearch, $txnSort, $txnDir, $showAll);
         }
 
         return view('admin.reports.financial', array_merge($reportData, compact(
@@ -363,7 +366,7 @@ class ReportController extends Controller
         );
     }
 
-    private function buildYearReport(int $year, $cycles, int $totalMembers, string $txnSearch = '', string $txnSort = 'date', string $txnDir = 'desc'): array
+    private function buildYearReport(int $year, $cycles, int $totalMembers, string $txnSearch = '', string $txnSort = 'date', string $txnDir = 'desc', bool $showAll = false): array
     {
         $chartData       = $this->monthlyChart(null, $year);
         $methodBreakdown = $this->methodBreakdown(null, $year);
@@ -413,17 +416,19 @@ class ReportController extends Controller
 
         $txnTotal = $paymentsQuery ? (clone $paymentsQuery)->sum('amount') : 0;
 
+        $txnPerPage = $showAll ? 100000 : 20;
+
         $annualDuesPayments = $paymentsQuery
             ? $paymentsQuery->with(['user', 'duesCycle'])
                 ->orderBy($txnSort === 'amount' ? 'amount' : 'payment_date', $txnDir === 'asc' ? 'asc' : 'desc')
-                ->paginate(20)
+                ->paginate($txnPerPage)
                 ->withQueryString()
-            : new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 20);
+            : new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, $txnPerPage);
 
         return compact('chartData', 'totalCollected', 'fixedCycles', 'pledgeCycles', 'methodBreakdown', 'annualDuesPayments', 'txnTotal');
     }
 
-    private function buildLegacyReport(string $legacySearch, string $legacySort, string $legacyDir): array
+    private function buildLegacyReport(string $legacySearch, string $legacySort, string $legacyDir, bool $showAll = false): array
     {
         $legacyQuery = MemberLegacyBalance::query()
             ->join('users', 'users.id', '=', 'member_legacy_balances.user_id')
@@ -441,7 +446,7 @@ class ReportController extends Controller
 
         $legacyBalances = $legacyQuery
             ->orderBy($legacySortColumn, $legacyDir === 'asc' ? 'asc' : 'desc')
-            ->paginate(20, ['*'], 'legacy_page')
+            ->paginate($showAll ? 100000 : 20, ['*'], 'legacy_page')
             ->withQueryString();
 
         return compact('legacyBalances', 'legacyGrandTotal', 'legacyMemberCount');
@@ -487,8 +492,12 @@ class ReportController extends Controller
         $sort    = in_array($request->get('sort'), ['name', 'obligation', 'paid', 'outstanding'])
                    ? $request->get('sort') : 'outstanding';
         $dir     = $request->get('dir', 'desc') === 'asc' ? 'asc' : 'desc';
-        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100])
-                   ? (int) $request->get('per_page') : 25;
+        // 'all' is used by the Print/PDF button so the printout isn't silently
+        // truncated to whatever page happened to be on screen.
+        $showAll = $request->get('per_page') === 'all';
+        $perPage = $showAll
+            ? null
+            : (in_array((int) $request->get('per_page'), [10, 25, 50, 100]) ? (int) $request->get('per_page') : 25);
 
         $cycles = DuesCycle::whereIn('status', ['active', 'closed'])->orderByDesc('start_date')->get();
 
@@ -530,6 +539,10 @@ class ReportController extends Controller
                 ? $filtered->sortByDesc($sort)->values()
                 : $filtered->sortBy($sort)->values();
 
+            if ($showAll) {
+                $perPage = max(1, $sorted->count());
+            }
+
             // Paginate the sorted collection
             $page   = max(1, (int) $request->get('page', 1));
             $offset = ($page - 1) * $perPage;
@@ -542,6 +555,8 @@ class ReportController extends Controller
                 ['path' => $request->url(), 'query' => $request->query()]
             );
         }
+
+        $perPage = $perPage ?? 25;
 
         return view('admin.reports.arrears', compact(
             'cycles', 'cycleId', 'arrearsMembers',
@@ -653,12 +668,20 @@ class ReportController extends Controller
         $sort    = in_array($request->get('sort'), ['name', 'last_meeting_date', 'last_payment_date'])
                    ? $request->get('sort') : 'last_meeting_date';
         $dir     = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
-        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100])
-                   ? (int) $request->get('per_page') : 25;
+        // 'all' is used by the Print/PDF button so the printout isn't silently
+        // truncated to whatever page happened to be on screen.
+        $showAll = $request->get('per_page') === 'all';
+        $perPage = $showAll
+            ? null
+            : (in_array((int) $request->get('per_page'), [10, 25, 50, 100]) ? (int) $request->get('per_page') : 25);
 
         $rows = $this->buildEngagementData($search);
 
         $sorted = $dir === 'desc' ? $rows->sortByDesc($sort)->values() : $rows->sortBy($sort)->values();
+
+        if ($showAll) {
+            $perPage = max(1, $sorted->count());
+        }
 
         $page   = max(1, (int) $request->get('page', 1));
         $offset = ($page - 1) * $perPage;

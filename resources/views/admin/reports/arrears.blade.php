@@ -108,10 +108,10 @@
                     </a>
 
                     {{-- Print / PDF --}}
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                            onclick="window.print()">
+                    <a href="{{ request()->fullUrlWithQuery(['per_page' => 'all', 'page' => null, 'autoprint' => 1]) }}"
+                       class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-printer me-1"></i>Print / PDF
-                    </button>
+                    </a>
                 </div>
 
                 @else
@@ -273,6 +273,12 @@
 <div class="alert alert-success">
     <i class="bi bi-check-circle me-2"></i>All active members are up to date for this cycle.
 </div>
+@endif
+
+@if(request('autoprint'))
+@push('scripts')
+<script>window.addEventListener('load', () => window.print());</script>
+@endpush
 @endif
 
 @endsection

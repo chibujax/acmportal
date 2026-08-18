@@ -71,6 +71,15 @@ class DuesCycle extends Model
             && now()->between($this->start_date, $this->end_date);
     }
 
+    /**
+     * Whether this is the one currently-collecting yearly dues cycle — the cycle
+     * that pre-2026 legacy/carryover balances get folded into (see User::obligationFor()).
+     */
+    public function isCurrentYearlyDues(): bool
+    {
+        return $this->type === 'yearly_dues' && $this->status === 'active';
+    }
+
     public function installmentAmount(): float
     {
         if ($this->payment_options === 'installments' && $this->installment_count > 0) {

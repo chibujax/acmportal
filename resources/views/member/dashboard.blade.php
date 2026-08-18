@@ -335,10 +335,14 @@
 
                 {{-- Pre-2026 legacy section --}}
                 @if($legacyBalances->isNotEmpty())
+                @php $legacyFolded = \App\Models\DuesCycle::where('type', 'yearly_dues')->where('status', 'active')->exists(); @endphp
                 <div class="px-3 pt-3 pb-1">
                     <div class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">
                         <i class="bi bi-clock-history me-1"></i>Pre-2026 (from records)
                     </div>
+                    @if($legacyFolded)
+                    <div class="text-muted" style="font-size:.72rem">Included in Annual Dues below, not billed separately.</div>
+                    @endif
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">

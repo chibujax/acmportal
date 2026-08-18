@@ -71,7 +71,9 @@ class DashboardController extends Controller
             $mergeWithSpouse = $cycle->is_pledge_based ? $cycle->pledge_is_shared : $cycle->couple_shared;
 
             $paid      = $user->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
-            $remaining = max(0, $obligation - $paid);
+            // Left signed (can be negative — a credit) so totals can net it correctly;
+            // callers that only want "what's still owed" should filter > 0 themselves.
+            $remaining = $obligation - $paid;
             $percent   = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
 
             $cycle->user_obligation   = $obligation;
@@ -99,17 +101,23 @@ class DashboardController extends Controller
 
         $legacyTotal = $legacyBalances->sum('amount');
 
-        // 2026+ cycles — calculated outstanding from cycle data
-        $currentCycles = DuesCycle::whereIn('status', ['active', 'closed'])
+        // 2026+ cycles — calculated outstanding from cycle data. Sum the total from the
+        // full (unfiltered) collection so a credit on one cycle (e.g. legacy carryover
+        // folded into Annual Dues, see User::obligationFor()) still nets into the total
+        // correctly, before filtering down to only the cycles actually still owed for display.
+        $allCurrentCycles = DuesCycle::whereIn('status', ['active', 'closed'])
             ->where('start_date', '>=', '2026-01-01')
             ->orderBy('start_date')
             ->get()
-            ->map($cycleMapper)
-            ->where('user_remaining', '>', 0);
+            ->map($cycleMapper);
 
-        $currentTotal = $currentCycles->sum('user_remaining');
+        $currentTotal  = $allCurrentCycles->sum('user_remaining');
+        $currentCycles = $allCurrentCycles->where('user_remaining', '>', 0);
 
-        $totalOutstanding = $legacyTotal + $currentTotal;
+        // Legacy is already inside $currentTotal via the Annual Dues cycle's obligation
+        // whenever a current yearly-dues cycle exists — unfoldedLegacyBalance() is only
+        // non-zero as a fallback for the (currently theoretical) case where none does.
+        $totalOutstanding = $currentTotal + $user->unfoldedLegacyBalance();
 
         $recentPayments = Payment::where('user_id', $user->id)
             ->with('duesCycle')

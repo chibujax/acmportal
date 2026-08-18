@@ -110,7 +110,12 @@ class DuesCycleController extends Controller
 
         $sort    = in_array($request->get('sort'), ['name', 'paid', 'remaining', 'status']) ? $request->get('sort') : 'name';
         $dir     = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
-        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50, 100]) ? (int) $request->get('per_page') : 25;
+        // 'all' is used by the Print/PDF button so the printout isn't silently
+        // truncated to whatever page happened to be on screen.
+        $showAll = $request->get('per_page') === 'all';
+        $perPage = $showAll
+            ? null
+            : (in_array((int) $request->get('per_page'), [10, 25, 50, 100]) ? (int) $request->get('per_page') : 25);
 
         // Per-member obligation and payment status. Admins are members of the
         // organization too and owe dues like anyone else — only super_admin
@@ -128,23 +133,31 @@ class DuesCycleController extends Controller
                 if ($duesCycle->is_pledge_based) {
                     $pledge     = $pledgesMap->get($user->id);
                     $obligation = $pledge ? $pledge->pledged_amount : 0;
-                    // Only show a spouse here if this pledge was explicitly marked shared —
-                    // otherwise every married member would show a spouse even when they gave individually.
-                    $spouseName = ($pledge && $pledge->shared_with_spouse) ? $user->spouse()?->name : null;
+                    // For pledge-based cycles, merging with the spouse's payments is governed by
+                    // the pledge's own shared_with_spouse flag, not the cycle's couple_shared field —
+                    // those are independent settings (see Member/DashboardController for the same rule).
+                    $mergeWithSpouse = $pledge && $pledge->shared_with_spouse;
+                    $spouseName      = $mergeWithSpouse ? $user->spouse()?->name : null;
                 } else {
-                    $obligation = $user->obligationFor($duesCycle);
-                    $spouseName = $user->spouse()?->name;
+                    $obligation      = $user->obligationFor($duesCycle);
+                    $mergeWithSpouse = $duesCycle->couple_shared;
+                    $spouseName      = $user->spouse()?->name;
                 }
 
-                $paid        = $user->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
-                $remaining   = max(0, $obligation - $paid);
+                $paid        = $user->totalPaidWithSpouse($duesCycle->id, $mergeWithSpouse);
+                // Only the current yearly-dues cycle ever has legacy carryover folded into
+                // its obligation (see User::obligationFor()), so it's the only one where a
+                // credit (negative remaining) is meaningful to surface rather than clamp away.
+                $remaining   = $duesCycle->isCurrentYearlyDues() ? ($obligation - $paid) : max(0, $obligation - $paid);
                 $percent     = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
 
                 $user->obligation   = $obligation;
                 $user->paid         = $paid;
                 $user->remaining    = $remaining;
                 $user->percent      = $percent;
-                $user->settled      = $remaining <= 0 && $obligation > 0;
+                // != 0 (not > 0) so a credit (negative obligation, from folded-in legacy
+                // carryover) still reads as settled rather than falsely "Outstanding".
+                $user->settled      = $remaining <= 0 && $obligation != 0;
                 $user->spouseName   = $spouseName;
                 $user->is_anonymous = false;
                 return $user;
@@ -179,6 +192,10 @@ class DuesCycleController extends Controller
 
         $sortKey = $sort === 'status' ? 'settled' : $sort;
         $sorted  = ($dir === 'desc' ? $allMembers->sortByDesc($sortKey) : $allMembers->sortBy($sortKey))->values();
+
+        if ($showAll) {
+            $perPage = max(1, $sorted->count());
+        }
 
         $page   = max(1, (int) $request->get('page', 1));
         $offset = ($page - 1) * $perPage;
@@ -295,19 +312,23 @@ class DuesCycleController extends Controller
                 if ($duesCycle->is_pledge_based) {
                     $pledge     = $pledgesMap->get($user->id);
                     $obligation = $pledge ? $pledge->pledged_amount : 0;
-                    $spouseName = ($pledge && $pledge->shared_with_spouse) ? $user->spouse()?->name : null;
+                    $mergeWithSpouse = $pledge && $pledge->shared_with_spouse;
+                    $spouseName      = $mergeWithSpouse ? $user->spouse()?->name : null;
                 } else {
-                    $obligation = $user->obligationFor($duesCycle);
-                    $spouseName = $user->spouse()?->name;
+                    $obligation      = $user->obligationFor($duesCycle);
+                    $mergeWithSpouse = $duesCycle->couple_shared;
+                    $spouseName      = $user->spouse()?->name;
                 }
 
-                $paid       = $user->totalPaidWithSpouse($duesCycle->id, $duesCycle->couple_shared);
-                $remaining  = max(0, $obligation - $paid);
+                $paid       = $user->totalPaidWithSpouse($duesCycle->id, $mergeWithSpouse);
+                $remaining  = $duesCycle->isCurrentYearlyDues() ? ($obligation - $paid) : max(0, $obligation - $paid);
 
                 $user->obligation = $obligation;
                 $user->paid       = $paid;
                 $user->remaining  = $remaining;
-                $user->settled    = $remaining <= 0 && $obligation > 0;
+                // != 0 (not > 0) so a credit (negative obligation, from folded-in legacy
+                // carryover) still reads as settled rather than falsely "Outstanding".
+                $user->settled    = $remaining <= 0 && $obligation != 0;
                 $user->spouseName = $spouseName;
                 return $user;
             });

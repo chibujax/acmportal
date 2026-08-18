@@ -40,6 +40,13 @@ Icon?
 # Ignore test coverage
 coverage/
 /.phpunit.cache/
+.phpunit.result.cache
+
+# Deploy packaging output (the build-deploy-package.ps1 script itself is tracked)
+/deploy/.last-deployed
+/deploy/*.zip
+/deploy/*-manifest.txt
+/deploy/staging-*/
 
 # Member data exports / imports — never belong in the repo
 *.csv

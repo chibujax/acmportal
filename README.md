@@ -73,6 +73,50 @@ chmod -R 775 framework
    * * * * * /usr/local/bin/php /home/YOUR_USER/public_html/artisan schedule:run >> /dev/null 2>&1
    ```
 
+### Incremental deploys (`deploy/build-deploy-package.ps1`)
+
+For routine changes that don't touch `composer.json` (most day-to-day work), you don't need to
+re-upload `vendor/` or run composer on the server at all. This PowerShell script packages only
+the changed application files into a zip for upload via cPanel File Manager, and writes a
+plain-text manifest listing each file's local (Windows) path and its destination (cPanel/Linux)
+path relative to the app root.
+
+Dev-only files (`tests/`, `phpunit.xml`, `.gitignore`, `deploy/` itself, `README.md`) are never
+packaged. Deleted files are listed separately (in the console output and the manifest) since
+extracting a zip can't remove files — those need manual deletion in File Manager.
+
+**Options**
+
+| Parameter | Type | Purpose |
+|---|---|---|
+| `-Uncommitted` | switch | Package whatever `git status` shows right now (modified + untracked + deleted), ignoring commit history entirely. |
+| `-Since <ref>` | string | Committed-mode only. Commit/tag/hash to diff from. Only needed the first time (or to override the saved marker). |
+| `-ServerRoot <path>` | string | Optional. Prefixes the manifest's destination column with this absolute path (e.g. your real cPanel doc root) instead of leaving destinations relative to the app root. |
+
+**Usage**
+
+```powershell
+# Package whatever's currently modified/untracked (uncommitted mode)
+.\deploy\build-deploy-package.ps1 -Uncommitted
+
+# Same, with the real server path baked into the manifest
+.\deploy\build-deploy-package.ps1 -Uncommitted -ServerRoot '/home/YOUR_USER/public_html/YOUR_DOMAIN'
+
+# Committed-history mode, first run ever — tell it what commit is currently live
+.\deploy\build-deploy-package.ps1 -Since <commit-or-tag>
+
+# Committed-history mode, every run after — uses the saved marker (deploy/.last-deployed) automatically
+.\deploy\build-deploy-package.ps1
+```
+
+`-Since` is ignored (with a warning) if passed together with `-Uncommitted` — it's one mode or
+the other per run. After uploading, in cPanel Terminal:
+
+```bash
+php artisan migrate --force   # if there are new migrations
+php artisan optimize:clear && php artisan config:cache && php artisan view:cache
+```
+
 ---
 
 ## VSCode Debug

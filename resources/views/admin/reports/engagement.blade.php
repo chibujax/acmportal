@@ -87,10 +87,10 @@
                     </a>
 
                     {{-- Print / PDF --}}
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                            onclick="window.print()">
+                    <a href="{{ request()->fullUrlWithQuery(['per_page' => 'all', 'page' => null, 'autoprint' => 1]) }}"
+                       class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-printer me-1"></i>Print / PDF
-                    </button>
+                    </a>
                 </div>
             </div>
         </form>
@@ -230,5 +230,11 @@
 <p class="text-muted small mt-2 no-print">
     <i class="bi bi-info-circle me-1"></i>Dates in red are more than 90 days ago (or never).
 </p>
+
+@if(request('autoprint'))
+@push('scripts')
+<script>window.addEventListener('load', () => window.print());</script>
+@endpush
+@endif
 
 @endsection

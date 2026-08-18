@@ -161,16 +161,48 @@ class User extends Authenticatable
     /**
      * If couple_shared: married members owe the full amount (shared),
      * single members owe half. Otherwise every member owes the full amount.
+     * Pre-2026 carryover (legacy balance) is folded into whichever yearly
+     * dues cycle is currently collecting — there's no "Carryover" cycle of
+     * its own, and outstanding dues are conceptually cumulative across years.
+     * Unsplit even on a couple_shared cycle: carryover belongs to the individual.
      */
     public function obligationFor(DuesCycle $cycle): float
     {
-        if ($cycle->couple_shared) {
-            return $this->hasSpouse()
-                ? $cycle->amount
-                : round($cycle->amount / 2, 2);
+        $obligation = $cycle->couple_shared
+            ? ($this->hasSpouse() ? $cycle->amount : round($cycle->amount / 2, 2))
+            : $cycle->amount;
+
+        if ($cycle->isCurrentYearlyDues()) {
+            $obligation += $this->legacyBalanceTotal();
         }
 
-        return $cycle->amount;
+        return $obligation;
+    }
+
+    public function legacyBalances()
+    {
+        return $this->hasMany(MemberLegacyBalance::class);
+    }
+
+    /**
+     * Sum of pre-2026 carryover balances (can be negative — a credit).
+     */
+    public function legacyBalanceTotal(): float
+    {
+        return (float) $this->legacyBalances()->sum('amount');
+    }
+
+    /**
+     * Legacy balance not currently folded into any cycle's obligation — i.e. the
+     * full amount, unless a current yearly dues cycle exists to absorb it via
+     * obligationFor(). Callers summing "total outstanding" should add this once,
+     * separately from any per-cycle totals, to avoid double-counting.
+     */
+    public function unfoldedLegacyBalance(): float
+    {
+        return DuesCycle::query()->where('type', 'yearly_dues')->where('status', 'active')->exists()
+            ? 0.0
+            : $this->legacyBalanceTotal();
     }
 
     /**
