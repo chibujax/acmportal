@@ -19,10 +19,11 @@ class CsvImportController extends Controller
     {
         $batches = PendingMember::select('import_batch', DB::raw('count(*) as total'),
                 DB::raw("sum(case when status = 'registered' then 1 else 0 end) as registered"),
-                DB::raw("sum(case when status = 'invited' then 1 else 0 end) as invited"))
+                DB::raw("sum(case when status = 'invited' then 1 else 0 end) as invited"),
+                DB::raw('max(created_at) as last_imported_at'))
             ->whereNotNull('import_batch')
             ->groupBy('import_batch')
-            ->latest('created_at')
+            ->orderByDesc('last_imported_at')
             ->get();
 
         return view('admin.members.import', compact('batches'));

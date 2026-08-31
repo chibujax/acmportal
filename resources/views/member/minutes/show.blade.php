@@ -16,6 +16,9 @@
             </div>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ route('member.minutes.view', $minutes) }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+                <i class="bi bi-eye me-1"></i>View
+            </a>
             <a href="{{ route('member.minutes.download', $minutes) }}" class="btn btn-success btn-sm">
                 <i class="bi bi-download me-1"></i>Download
             </a>
@@ -27,9 +30,14 @@
 </div>
 
 <div class="card border-0 shadow-sm">
-    <div class="card-body p-0">
-        <iframe src="{{ route('member.minutes.view', $minutes) }}"
-                style="width:100%; height:80vh; border:0;" title="{{ $minutes->title }}"></iframe>
+    <div class="card-body text-center py-5">
+        <i class="bi bi-file-earmark-pdf text-danger" style="font-size:3rem"></i>
+        <p class="text-muted mt-3 mb-3">
+            Opens in your device's own PDF viewer for the best experience
+        </p>
+        <a href="{{ route('member.minutes.view', $minutes) }}" target="_blank" rel="noopener" class="btn btn-primary">
+            <i class="bi bi-eye me-1"></i>View {{ $minutes->title }}
+        </a>
     </div>
 </div>
 @endsection

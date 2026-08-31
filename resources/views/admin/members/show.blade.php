@@ -271,7 +271,7 @@
                                 <tr><th>Date</th><th>Cycle</th><th>Amount</th><th>Method</th><th>Status</th><th>Receipt</th></tr>
                             </thead>
                             <tbody>
-                                @forelse($member->payments->sortByDesc('created_at') as $p)
+                                @forelse($member->payments->sortByDesc(fn ($p) => $p->payment_date ?? $p->created_at) as $p)
                                 <tr>
                                     <td class="small">{{ $p->payment_date ? $p->payment_date->format('d M Y') : $p->created_at->format('d M Y') }}</td>
                                     <td class="small">{{ $p->duesCycle?->title ?? '—' }}</td>

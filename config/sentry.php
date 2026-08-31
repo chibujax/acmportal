@@ -60,28 +60,11 @@ return [
     // @see: https://docs.sentry.io/platforms/php/guides/laravel/configuration/options/#send_default_pii
     'send_default_pii' => env('SENTRY_SEND_DEFAULT_PII', false),
 
-    // Members' phone numbers and emails are embedded directly in some log messages
-    // (SmsService, EmailService) and 'breadcrumbs.logs' below attaches recent log
-    // lines to every event, so redact both the event itself and its breadcrumbs
-    // before anything leaves the server.
-    'before_send' => function (\Sentry\Event $event, ?\Sentry\EventHint $hint): ?\Sentry\Event {
-        if ($event->getMessage() !== null) {
-            $event->setMessage(\App\Support\PiiScrubber::scrub($event->getMessage()));
-        }
-
-        foreach ($event->getExceptions() as $exception) {
-            $exception->setValue(\App\Support\PiiScrubber::scrub($exception->getValue()));
-        }
-
-        $event->setBreadcrumb(array_map(
-            fn (\Sentry\Breadcrumb $breadcrumb) => $breadcrumb->getMessage() !== null
-                ? $breadcrumb->withMessage(\App\Support\PiiScrubber::scrub($breadcrumb->getMessage()))
-                : $breadcrumb,
-            $event->getBreadcrumbs()
-        ));
-
-        return $event;
-    },
+    // A static method callable, not an inline Closure - `php artisan config:cache`
+    // uses var_export() on every config value, and Closures can't be serialized that
+    // way, so this file must not return one directly. See SentryEventScrubber for
+    // what it actually does (PII redaction).
+    'before_send' => [\App\Support\SentryEventScrubber::class, 'beforeSend'],
 
     // @see: https://docs.sentry.io/platforms/php/guides/laravel/configuration/options/#ignore_exceptions
     // 'ignore_exceptions' => [],

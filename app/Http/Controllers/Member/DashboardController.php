@@ -121,7 +121,8 @@ class DashboardController extends Controller
 
         $recentPayments = Payment::where('user_id', $user->id)
             ->with('duesCycle')
-            ->latest()
+            ->orderByDesc('payment_date')
+            ->orderByDesc('created_at')
             ->take(5)
             ->get();
 
@@ -188,7 +189,8 @@ class DashboardController extends Controller
     {
         $payments = Payment::where('user_id', auth()->id())
             ->with('duesCycle')
-            ->latest()
+            ->orderByDesc('payment_date')
+            ->orderByDesc('created_at')
             ->paginate(15);
 
         return view('member.payments', compact('payments'));
