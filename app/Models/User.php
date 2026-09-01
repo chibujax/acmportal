@@ -18,7 +18,7 @@ class User extends Authenticatable
         'role', 'status', 'profile_photo', 'address',
         'date_of_birth', 'gender', 'occupation', 'email_verified_at',
         'activation_token', 'activation_token_expires_at', 'activation_invited_at',
-        'portal_activated_at',
+        'portal_activated_at', 'join_date',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -26,6 +26,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at'           => 'datetime',
         'date_of_birth'               => 'date',
+        'join_date'                   => 'date',
         'password'                    => 'hashed',
         'activation_token_expires_at' => 'datetime',
         'activation_invited_at'       => 'datetime',
@@ -161,6 +162,8 @@ class User extends Authenticatable
     /**
      * If couple_shared: married members owe the full amount (shared),
      * single members owe half. Otherwise every member owes the full amount.
+     * A member who joined partway through the cycle's own year owes a
+     * prorated share - see prorateForJoinDate().
      * Pre-2026 carryover (legacy balance) is folded into whichever yearly
      * dues cycle is currently collecting — there's no "Carryover" cycle of
      * its own, and outstanding dues are conceptually cumulative across years.
@@ -172,11 +175,39 @@ class User extends Authenticatable
             ? ($this->hasSpouse() ? $cycle->amount : round($cycle->amount / 2, 2))
             : $cycle->amount;
 
+        $obligation = $this->prorateForJoinDate($obligation, $cycle);
+
         if ($cycle->isCurrentYearlyDues()) {
             $obligation += $this->legacyBalanceTotal();
         }
 
         return $obligation;
+    }
+
+    /**
+     * Prorate a yearly-dues obligation for a member who joined during the
+     * cycle's own year, based on join month. A member who joined in an
+     * earlier year (or has no recorded join_date - the default for existing
+     * members) owes the full amount, unaffected by this.
+     *
+     * Billed from the join month itself (inclusive): January joiners owe the
+     * full amount, December joiners owe 1/12. Zero-based month index makes
+     * this fall out directly: Jan = 0 -> owes 12 months, Dec = 11 -> owes 1.
+     */
+    private function prorateForJoinDate(float $obligation, DuesCycle $cycle): float
+    {
+        if ($cycle->type !== 'yearly_dues' || $this->join_date === null) {
+            return $obligation;
+        }
+
+        if ($this->join_date->year !== $cycle->start_date->year) {
+            return $obligation;
+        }
+
+        $zeroBasedJoinMonth = $this->join_date->month - 1; // Jan = 0 ... Dec = 11
+        $monthsOwed = 12 - $zeroBasedJoinMonth;             // Jan -> 12, Dec -> 1
+
+        return round($obligation / 12 * $monthsOwed, 2);
     }
 
     public function legacyBalances()
@@ -230,10 +261,15 @@ class User extends Authenticatable
     // ── Existing helpers ──────────────────────────────────────
 
     /**
-     * Earliest evidence of membership — payment or attendance — falling back to account creation date.
+     * The recorded join_date if set, otherwise inferred from the earliest evidence
+     * of membership — payment or attendance — falling back to account creation date.
      */
     public function memberSince(): \Carbon\Carbon
     {
+        if ($this->join_date !== null) {
+            return $this->join_date->copy();
+        }
+
         $earliestPayment = $this->payments()->min('payment_date');
 
         $earliestAttendance = $this->attendanceRecords()

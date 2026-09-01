@@ -157,4 +157,64 @@ class DuesObligationTest extends TestCase
         $this->assertSame(60.0, $member->obligationFor($cycle));
         $this->assertSame(0.0, $member->unfoldedLegacyBalance());
     }
+
+    public function test_member_joining_mid_cycle_year_owes_a_prorated_amount(): void
+    {
+        // June (zero-based month 5) -> owes 7 of 12 months: (60/12)*7 = 35.
+        $member = $this->makeMember('07100000005');
+        $member->update(['join_date' => '2026-06-15']);
+        $cycle = $this->makeCycle();
+
+        $this->assertSame(35.0, $member->obligationFor($cycle));
+    }
+
+    public function test_member_joining_in_january_owes_the_full_amount(): void
+    {
+        $member = $this->makeMember('07100000006');
+        $member->update(['join_date' => '2026-01-20']);
+        $cycle = $this->makeCycle();
+
+        $this->assertSame(60.0, $member->obligationFor($cycle));
+    }
+
+    public function test_member_joining_in_december_owes_one_twelfth(): void
+    {
+        $member = $this->makeMember('07100000007');
+        $member->update(['join_date' => '2026-12-05']);
+        $cycle = $this->makeCycle();
+
+        $this->assertSame(5.0, $member->obligationFor($cycle));
+    }
+
+    public function test_join_date_from_an_earlier_year_does_not_prorate(): void
+    {
+        // Joined in a prior year - a full, established member for this cycle's year.
+        $member = $this->makeMember('07100000008');
+        $member->update(['join_date' => '2024-06-15']);
+        $cycle = $this->makeCycle();
+
+        $this->assertSame(60.0, $member->obligationFor($cycle));
+    }
+
+    public function test_join_date_does_not_prorate_non_yearly_dues_cycles(): void
+    {
+        $member = $this->makeMember('07100000009');
+        $member->update(['join_date' => '2026-06-15']);
+
+        $eventLevy = $this->makeCycle([
+            'title' => 'Iriji 2026', 'type' => 'event_levy', 'amount' => 50,
+        ]);
+
+        $this->assertSame(50.0, $member->obligationFor($eventLevy));
+    }
+
+    public function test_mid_year_join_prorates_before_legacy_balance_is_added(): void
+    {
+        // June join on a £60 cycle -> £35 prorated dues, plus the full £20 carryover.
+        $member = $this->makeMember('07100000010', 20.00);
+        $member->update(['join_date' => '2026-06-15']);
+        $cycle = $this->makeCycle();
+
+        $this->assertSame(55.0, $member->obligationFor($cycle));
+    }
 }
