@@ -319,6 +319,10 @@
            class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.relationships*') ? 'active' : '' }}">
             <i class="bi bi-heart"></i> Family &amp; Relationships
         </a>
+        <a href="{{ route('docs.index') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('docs.*') ? 'active' : '' }}">
+            <i class="bi bi-question-circle"></i> Help
+        </a>
 
     </div>
     </div>{{-- end nav-scroll --}}

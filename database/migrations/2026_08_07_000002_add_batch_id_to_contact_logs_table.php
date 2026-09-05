@@ -19,6 +19,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('contact_logs', function (Blueprint $table) {
+            $table->dropIndex(['batch_id']);
             $table->dropColumn('batch_id');
         });
     }

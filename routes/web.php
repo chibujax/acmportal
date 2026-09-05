@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\StripeEventController;
 use App\Http\Controllers\Admin\StripeReconciliationController;
 use App\Http\Controllers\Admin\MinutesController;
 use App\Http\Controllers\Attendance\CheckInController;
+use App\Http\Controllers\DocsController;
 use App\Http\Controllers\Member\AttendanceController as MemberAttendanceController;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
 use App\Http\Controllers\Member\MinutesController as MemberMinutesController;
@@ -98,6 +99,17 @@ Route::middleware(['auth'])->group(function () {
 
     // Email verification resend
     Route::post('/email/resend', [EmailVerificationController::class, 'resend'])->name('email.resend');
+
+    /*
+    |----------------------------------------------------------------------
+    | Help / Documentation (member + admin guides, filtered per user)
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('docs')->name('docs.')->group(function () {
+        Route::get('/', [DocsController::class, 'index'])->name('index');
+        Route::get('/search-index.json', [DocsController::class, 'searchIndex'])->name('search-index');
+        Route::get('/{namespace}/{section}/{article}', [DocsController::class, 'show'])->name('show');
+    });
 
     /*
     |----------------------------------------------------------------------
