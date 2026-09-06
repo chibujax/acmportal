@@ -7,7 +7,7 @@ use Laravel\Dusk\Browser;
 use Tests\DuskTestCase;
 
 /**
- * Meeting creation should be stable even if postcode geocoding fails.
+ * Meeting creation should be stable independent of the live Google Maps picker.
  */
 class CreateMeetingTest extends DuskTestCase
 {
@@ -24,11 +24,18 @@ class CreateMeetingTest extends DuskTestCase
                     ->type('input[name="meeting_time"]', '18:00')
                     ->type('input[name="late_after_time"]', '18:15')
                     ->type('input[name="meeting_end_time"]', '20:00')
-                    ->type('input[name="venue"]', 'Community Hall')
-                    ->type('input[name="venue_postcode"]', 'SW1A 1AA')
+                    ->type('input[name="venue"]', 'Community Hall, SW1A 1AA')
                     ->type('input[name="venue_radius"]', '150')
                     ->select('select[name="gps_failure_action"]', 'flag')
                     ->type('textarea[name="description"]', 'Created by Dusk test')
+                    // Confirming a pin requires the live Google Maps/Places widget,
+                    // which isn't available in the test environment — simulate a
+                    // confirmed location directly instead of driving the real map.
+                    ->script([
+                        "document.getElementById('venueLat').value = '51.5010';",
+                        "document.getElementById('venueLng').value = '-0.1416';",
+                        "document.getElementById('submitBtn').disabled = false;",
+                    ])
                     ->press('Create Meeting')
                     ->waitForLocation('/admin/meetings')
                     ->assertSee('Meeting created successfully.')

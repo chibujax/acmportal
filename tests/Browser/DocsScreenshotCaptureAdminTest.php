@@ -119,9 +119,19 @@ class DocsScreenshotCaptureAdminTest extends DuskTestCase
                 'input[name="title"]',
             ]);
 
-            // create-2: an active meeting's detail page with a live QR code.
+            // create-2: venue searched and pinned on the map, radius + Confirm Location visible.
+            $browser->pause(1500); // let the Maps JS SDK finish loading before typing
+            $browser->type('input[name="venue"]', 'Manchester Town Hall')
+                    ->waitFor('.pac-item', 10)
+                    ->click('.pac-item')
+                    ->pause(1500);
+            $this->captureAnnotated($browser, 'meetings-create-2', 'admin/meetings-and-attendance/create-2.png', [
+                '#confirmLocationBtn',
+            ]);
+
+            // create-3: an active meeting's detail page with a live QR code.
             $browser->visit('/admin/meetings/' . $meeting->id)->pause(500);
-            $this->capturePlain($browser, 'meetings-create-2', 'admin/meetings-and-attendance/create-2.png');
+            $this->capturePlain($browser, 'meetings-create-3', 'admin/meetings-and-attendance/create-3.png');
 
             // report-1: attendance report.
             $browser->visit('/admin/meetings/report')->pause(500);

@@ -55,9 +55,9 @@ return [
         'key' => env('WHAT3WORDS_API_KEY'),
     ],
 
-    // ── Ideal Postcodes ────────────────────────────────────────
-    'ideal_postcodes' => [
-        'key' => env('IDEAL_POSTCODES_KEY'),
+    // ── Google Maps (venue picker: Places Autocomplete + Maps JS) ──
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
 ];

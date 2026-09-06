@@ -6,15 +6,15 @@
     <strong>Late</strong>, and the end time (when the QR code expires).
 </x-docs.step>
 
-<x-docs.step :number="2">
-    Enter the venue <strong>Postcode</strong> and select <strong>Look Up</strong> — this finds candidate addresses
-    and their coordinates automatically. Choose the correct one from the dropdown. If the lookup doesn't work for
-    your venue, tick <strong>Enter address & coordinates manually</strong> instead.
+<x-docs.step :number="2" image="admin/meetings-and-attendance/create-2.png" alt="Venue searched and pinned on the satellite map, with GPS radius and Confirm Location">
+    Start typing the venue <strong>Address</strong> and pick it from the suggestions. It appears as a pin on the
+    satellite map — drag the pin to the exact building if it's slightly off, set the <strong>GPS Radius</strong>
+    (how close a member's phone must be to count as "at the venue"), then select <strong>Confirm Location</strong>.
+    The meeting can't be saved until the location is confirmed.
 </x-docs.step>
 
 <x-docs.step :number="3">
-    Set the <strong>GPS Radius</strong> (how close a member's phone must be to count as "at the venue") and choose
-    what happens if someone checks in from outside it: <strong>Block & contact admin</strong>, or
+    Choose what happens if someone checks in from outside the radius: <strong>Block & contact admin</strong>, or
     <strong>Allow but flag for review</strong>.
 </x-docs.step>
 
@@ -23,7 +23,7 @@
     check in yet.
 </x-docs.step>
 
-<x-docs.step :number="5" image="admin/meetings-and-attendance/create-2.png" alt="A meeting's detail page with the live QR code">
+<x-docs.step :number="5" image="admin/meetings-and-attendance/create-3.png" alt="A meeting's detail page with the live QR code">
     When it's time, open the meeting and select <strong>Start Meeting (Activate QR)</strong>. A QR code appears —
     display it on a screen for members to scan. The page also shows live attendance stats and an
     <strong>Open Check-In URL</strong> link you can share directly.

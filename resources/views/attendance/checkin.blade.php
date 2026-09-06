@@ -259,7 +259,7 @@
         showStep(stepError);
     }
 
-    function submitCheckin(lat, lng) {
+    function submitCheckin(lat, lng, accuracy) {
         fetch(checkinUrl, {
             method:  'POST',
             headers: {
@@ -267,7 +267,7 @@
                 'Content-Type': 'application/json',
                 'Accept':       'application/json',
             },
-            body: JSON.stringify({ lat: lat ?? null, lng: lng ?? null }),
+            body: JSON.stringify({ lat: lat ?? null, lng: lng ?? null, accuracy: accuracy ?? null }),
         })
         .then(r => {
             const ct = r.headers.get('content-type') || '';
@@ -304,6 +304,8 @@
                 location.reload();
             } else if (data.gps_error === 'out_of_range') {
                 showGpsError('Too Far from Venue', data.message);
+            } else if (data.gps_error === 'low_accuracy_out_of_range') {
+                showGpsError('Location Not Precise Enough', data.message);
             } else if (data.gps_error === 'location_denied') {
                 showGpsError('Location Required', data.message, true);
             } else {
@@ -326,14 +328,14 @@
 
         if (!('geolocation' in navigator)) {
             // Device has no GPS — send null, server decides based on meeting settings.
-            submitCheckin(null, null);
+            submitCheckin(null, null, null);
             return;
         }
 
         showStep(stepGps);
 
         navigator.geolocation.getCurrentPosition(
-            pos => submitCheckin(pos.coords.latitude, pos.coords.longitude),
+            pos => submitCheckin(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
             err => {
                 if (err && err.code === 1) {
                     // PERMISSION_DENIED — no point submitting null; user must re-enable in settings.
@@ -344,7 +346,7 @@
                     );
                 } else {
                     // Timeout or position unavailable — submit null, let the server decide.
-                    submitCheckin(null, null);
+                    submitCheckin(null, null, null);
                 }
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }

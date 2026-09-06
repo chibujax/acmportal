@@ -14,10 +14,10 @@
             <div class="card-body">
                 <form method="POST" action="{{ route('admin.meetings.update', $meeting) }}" id="meetingForm">
                     @csrf @method('PUT')
-                    {{-- Hidden geocode fields populated by JS after address lookup --}}
+                    {{-- Hidden fields populated by the map picker once the location is confirmed --}}
                     <input type="hidden" name="venue_lat"      id="venueLat"      value="{{ old('venue_lat', $meeting->venue_lat) }}">
                     <input type="hidden" name="venue_lng"      id="venueLng"      value="{{ old('venue_lng', $meeting->venue_lng) }}">
-                    <input type="hidden" name="geocode_source" id="geocodeSource" value="{{ old('geocode_source', $meeting->venue_lat ? 'ideal_postcodes' : '') }}">
+                    <input type="hidden" name="venue_postcode" id="venuePostcode" value="{{ old('venue_postcode', $meeting->venue_postcode) }}">
 
                     <div class="mb-3">
                         <label class="form-label fw-medium">Title <span class="text-danger">*</span></label>
@@ -60,17 +60,6 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Venue Address <span class="text-danger">*</span></label>
-                        <input type="text" name="venue" id="venueInput"
-                               class="form-control @error('venue') is-invalid @enderror"
-                               value="{{ old('venue', $meeting->venue) }}"
-                               placeholder="Auto-filled when you select an address below"
-                               {{ old('manual_location') ? '' : 'readonly' }} required>
-                        <div class="form-text">To change the venue, enter a new postcode in the Location section and select an address.</div>
-                        @error('venue')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
-
                     <div class="mb-4">
                         <label class="form-label fw-medium">Description</label>
                         <textarea name="description" rows="3"
@@ -78,75 +67,37 @@
                         @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
-                    {{-- ── Location & GPS ───────────────────────────── --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Venue Address <span class="text-danger">*</span></label>
+                        <input type="text" name="venue" id="venueInput"
+                               class="form-control @error('venue') is-invalid @enderror"
+                               value="{{ old('venue', $meeting->venue) }}"
+                               placeholder="Start typing an address..."
+                               autocomplete="off" required>
+                        <div class="form-text">To change the venue, search for a new address and confirm its pin on the map below.</div>
+                        @error('venue')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+
+                    {{-- Location & GPS --}}
                     <div class="card border-0 bg-light mb-4">
                         <div class="card-body pb-2">
                             <h6 class="fw-semibold mb-3">
-                                <i class="bi bi-geo-alt text-success me-1"></i> Location & GPS Check-In
+                                <i class="bi bi-geo-alt text-success me-1"></i> Confirm Location on Map
                             </h6>
 
-                            <div class="mb-3">
-                                <label class="form-label fw-medium">Venue Postcode <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <input type="text" name="venue_postcode" id="venuePostcode"
-                                           class="form-control @error('venue_postcode') is-invalid @enderror"
-                                           value="{{ old('venue_postcode', $meeting->venue_postcode) }}"
-                                           placeholder="e.g. M21 9WQ"
-                                           style="text-transform:uppercase">
-                                    <button type="button" class="btn btn-outline-success" id="lookupBtn">
-                                        <i class="bi bi-search me-1"></i>Look Up
-                                    </button>
-                                </div>
-                                @error('venue_postcode')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                <div id="lookupStatus" class="mt-2">
-                                    @if($meeting->venue_lat)
-                                        <span class="text-success small"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed: {{ $meeting->venue }} — change postcode and Look Up to update</span>
-                                    @else
-                                        <span class="text-muted small">Enter the postcode and click Look Up to find addresses.</span>
-                                    @endif
-                                </div>
-                            </div>
+                            <p class="form-text mb-2">
+                                Drag the pin below to fine-tune the location, or search a new address above. Adjust the
+                                check-in radius if needed, then confirm below.
+                            </p>
 
-                            {{-- Address dropdown (shown after lookup) --}}
-                            <div id="addressSelectWrap" class="mb-3 d-none">
-                                <label class="form-label fw-medium">Select Address <span class="text-danger">*</span></label>
-                                <select id="addressSelect" class="form-select">
-                                    <option value="">— select an address —</option>
-                                </select>
-                                <div class="form-text">Select the specific address for GPS check-in accuracy.</div>
-                            </div>
-
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="manualLocationToggle"
-                                       name="manual_location" value="1" {{ old('manual_location') ? 'checked' : '' }}>
-                                <label class="form-check-label small fw-medium" for="manualLocationToggle">
-                                    Postcode lookup not working? Enter address &amp; coordinates manually instead.
-                                </label>
-                            </div>
-
-                            {{-- Manual location entry (used when postcode lookup can't be used) --}}
-                            <div id="manualLocationFields" class="row g-3 mb-3 {{ old('manual_location') ? '' : 'd-none' }}">
-                                <div class="col-12">
-                                    <div class="form-text mb-2">
-                                        Enter the venue address above, then find its latitude/longitude by searching the address on Google Maps and copying the numbers from the URL.
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label fw-medium">Latitude <span class="text-danger">*</span></label>
-                                    <input type="number" step="any" id="manualLatInput" class="form-control"
-                                           value="{{ old('venue_lat') }}" placeholder="e.g. 53.4808">
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label fw-medium">Longitude <span class="text-danger">*</span></label>
-                                    <input type="number" step="any" id="manualLngInput" class="form-control"
-                                           value="{{ old('venue_lng') }}" placeholder="e.g. -2.2426">
-                                </div>
+                            <div id="mapWrap" class="mb-3 d-none">
+                                <div id="venueMap" style="width:100%; height:360px; border-radius:8px;"></div>
                             </div>
 
                             <div class="row g-3 mb-3">
                                 <div class="col-6">
                                     <label class="form-label fw-medium">GPS Radius (metres) <span class="text-danger">*</span></label>
-                                    <input type="number" name="venue_radius"
+                                    <input type="number" name="venue_radius" id="radiusInput"
                                            class="form-control @error('venue_radius') is-invalid @enderror"
                                            value="{{ old('venue_radius', $meeting->venue_radius ?? 50) }}"
                                            min="5" max="1000" required>
@@ -167,6 +118,18 @@
                                     @error('gps_failure_action')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                             </div>
+
+                            <button type="button" class="btn btn-outline-success btn-sm d-none" id="confirmLocationBtn">
+                                <i class="bi bi-check-circle me-1"></i>Confirm Location
+                            </button>
+
+                            <div id="locationStatus" class="mt-2">
+                                @if($meeting->venue_lat && $meeting->venue_lng)
+                                    <span class="text-success small"><i class="bi bi-geo-alt-fill me-1"></i>Location confirmed: {{ $meeting->venue }}</span>
+                                @else
+                                    <span class="text-muted small">Search for the venue address above to place it on the map.</span>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
@@ -185,166 +148,130 @@
 @push('scripts')
 <script>
 (function () {
-    const lookupUrl   = '{{ route('admin.meetings.verify-address') }}';
-    const csrfToken   = document.querySelector('meta[name="csrf-token"]').content;
-
     const venueInput    = document.getElementById('venueInput');
-    const postcodeInput = document.getElementById('venuePostcode');
-    const lookupBtn     = document.getElementById('lookupBtn');
-    const statusDiv     = document.getElementById('lookupStatus');
     const latField      = document.getElementById('venueLat');
     const lngField      = document.getElementById('venueLng');
-    const sourceField   = document.getElementById('geocodeSource');
-    const addressSelect = document.getElementById('addressSelect');
-    const addressWrap   = document.getElementById('addressSelectWrap');
+    const postcodeField = document.getElementById('venuePostcode');
+    const radiusInput   = document.getElementById('radiusInput');
+    const mapWrap       = document.getElementById('mapWrap');
+    const confirmBtn    = document.getElementById('confirmLocationBtn');
+    const statusDiv     = document.getElementById('locationStatus');
     const form          = document.getElementById('meetingForm');
     const submitBtn     = document.getElementById('submitBtn');
 
-    const manualToggle   = document.getElementById('manualLocationToggle');
-    const manualFields   = document.getElementById('manualLocationFields');
-    const manualLatInput = document.getElementById('manualLatInput');
-    const manualLngInput = document.getElementById('manualLngInput');
+    let map, marker, circle, autocomplete;
+    let pendingAddress = venueInput.value || '';
+    submitBtn.disabled = !isConfirmed();
 
-    // Pre-confirmed if meeting already has coordinates
-    let addressConfirmed = !!(latField.value && lngField.value);
-    submitBtn.disabled = !addressConfirmed;
-
-    manualToggle.addEventListener('change', function () {
-        if (this.checked) {
-            manualFields.classList.remove('d-none');
-            addressWrap.classList.add('d-none');
-            lookupBtn.disabled = true;
-            venueInput.readOnly = false;
-            venueInput.placeholder = 'Enter the venue address manually';
-            sourceField.value = 'manual';
-            if (!manualLatInput.value && latField.value) manualLatInput.value = latField.value;
-            if (!manualLngInput.value && lngField.value) manualLngInput.value = lngField.value;
-            statusDiv.innerHTML = '<span class="text-muted small">Manual location entry — fill in the address and coordinates.</span>';
-            updateManualConfirmed();
-        } else {
-            manualFields.classList.add('d-none');
-            lookupBtn.disabled = false;
-            venueInput.readOnly = true;
-            venueInput.placeholder = 'Auto-filled when you select an address below';
-            venueInput.value  = '';
-            latField.value    = '';
-            lngField.value    = '';
-            sourceField.value = '';
-            addressConfirmed  = false;
-            submitBtn.disabled = true;
-            statusDiv.innerHTML = '<span class="text-muted small">Enter the postcode and click Look Up to find addresses.</span>';
-        }
-    });
-
-    function updateManualConfirmed() {
-        latField.value = manualLatInput.value;
-        lngField.value = manualLngInput.value;
-        addressConfirmed = venueInput.value.trim() !== '' && manualLatInput.value !== '' && manualLngInput.value !== '';
-        submitBtn.disabled = !addressConfirmed;
+    function isConfirmed() {
+        return !!(latField.value && lngField.value);
     }
 
-    manualLatInput.addEventListener('input', updateManualConfirmed);
-    manualLngInput.addEventListener('input', updateManualConfirmed);
-    venueInput.addEventListener('input', function () {
-        if (manualToggle.checked) updateManualConfirmed();
-    });
+    window.initMeetingMap = function () {
+        map = new google.maps.Map(document.getElementById('venueMap'), {
+            center: { lat: 53.4808, lng: -2.2426 },
+            zoom: 15,
+            mapTypeId: 'satellite',
+        });
 
-    // Postcode change → require fresh lookup (not applicable in manual mode)
-    postcodeInput.addEventListener('input', function () {
-        if (manualToggle.checked) return;
-        latField.value    = '';
-        lngField.value    = '';
-        sourceField.value = '';
-        venueInput.value  = '';
-        addressSelect.innerHTML = '<option value="">— select an address —</option>';
-        addressWrap.classList.add('d-none');
-        addressConfirmed  = false;
-        submitBtn.disabled = true;
-        statusDiv.innerHTML = '<span class="text-warning small"><i class="bi bi-arrow-clockwise me-1"></i>Postcode changed — click Look Up and select an address.</span>';
-    });
+        marker = new google.maps.Marker({ map: map, draggable: true, visible: false });
 
-    lookupBtn.addEventListener('click', doLookup);
+        circle = new google.maps.Circle({
+            map: map,
+            radius: Number(radiusInput.value) || 50,
+            fillColor: '#198754',
+            fillOpacity: 0.15,
+            strokeColor: '#198754',
+            strokeWeight: 2,
+        });
+        circle.bindTo('center', marker, 'position');
 
-    async function doLookup() {
-        const postcode = postcodeInput.value.trim();
+        autocomplete = new google.maps.places.Autocomplete(venueInput, {
+            componentRestrictions: { country: 'gb' },
+            fields: ['geometry', 'formatted_address', 'name', 'address_components'],
+        });
+        autocomplete.bindTo('bounds', map);
 
-        if (!postcode) {
-            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please enter a postcode first.</span>';
-            return;
-        }
-
-        lookupBtn.disabled = true;
-        lookupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Looking up…';
-        statusDiv.innerHTML = '';
-        addressWrap.classList.add('d-none');
-        addressConfirmed  = false;
-        submitBtn.disabled = true;
-
-        try {
-            const res  = await fetch(lookupUrl, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
-                body:    JSON.stringify({ postcode }),
-            });
-            const data = await res.json();
-
-            if (data.success && data.addresses.length > 0) {
-                addressSelect.innerHTML = '<option value="">— select an address —</option>';
-                data.addresses.forEach((addr, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = addr.address;
-                    opt.dataset.lat     = addr.lat;
-                    opt.dataset.lng     = addr.lng;
-                    opt.dataset.address = addr.address;
-                    addressSelect.appendChild(opt);
-                });
-                addressWrap.classList.remove('d-none');
-                statusDiv.innerHTML = `<span class="text-success small"><i class="bi bi-list-ul me-1"></i>${data.addresses.length} address(es) found — please select one below.</span>`;
-            } else {
-                statusDiv.innerHTML = `<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>${escHtml(data.message || 'No addresses found for this postcode.')}</span>`;
+        autocomplete.addListener('place_changed', function () {
+            const place = autocomplete.getPlace();
+            if (!place.geometry || !place.geometry.location) {
+                setUnconfirmed('Please choose an address from the suggestions list.');
+                return;
             }
-        } catch (e) {
-            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>Network error. Please try again.</span>';
-        } finally {
-            lookupBtn.disabled = false;
-            lookupBtn.innerHTML = '<i class="bi bi-search me-1"></i>Look Up';
+
+            pendingAddress = place.formatted_address || place.name || venueInput.value;
+            venueInput.value    = pendingAddress;
+            postcodeField.value = extractPostcode(place.address_components);
+
+            mapWrap.classList.remove('d-none');
+            map.setCenter(place.geometry.location);
+            map.setZoom(18);
+            marker.setPosition(place.geometry.location);
+            marker.setVisible(true);
+
+            setUnconfirmed('Drag the pin to the exact building, then confirm the location.');
+        });
+
+        marker.addListener('dragend', function () {
+            setUnconfirmed('Pin moved - click Confirm Location to lock it in.');
+        });
+
+        // Restore the previously confirmed pin (existing meeting, or a validation-error redisplay)
+        if (latField.value && lngField.value) {
+            const pos = { lat: parseFloat(latField.value), lng: parseFloat(lngField.value) };
+            map.setCenter(pos);
+            map.setZoom(18);
+            marker.setPosition(pos);
+            marker.setVisible(true);
+            mapWrap.classList.remove('d-none');
         }
+    };
+
+    radiusInput.addEventListener('input', function () {
+        if (circle) circle.setRadius(Number(radiusInput.value) || 50);
+        if (marker && marker.getVisible()) setUnconfirmed('Radius changed - click Confirm Location to lock it in.');
+    });
+
+    venueInput.addEventListener('input', function () {
+        if (marker && marker.getVisible()) setUnconfirmed('Address changed - search again and confirm the new location.');
+    });
+
+    confirmBtn.addEventListener('click', function () {
+        const pos = marker.getPosition();
+        latField.value = pos.lat();
+        lngField.value = pos.lng();
+        submitBtn.disabled = false;
+        confirmBtn.classList.add('d-none');
+        statusDiv.innerHTML = '<span class="text-success small"><i class="bi bi-geo-alt-fill me-1"></i>Location confirmed: ' + escHtml(pendingAddress) + '</span>';
+    });
+
+    // Block submit if the location hasn't been confirmed
+    form.addEventListener('submit', function (e) {
+        if (!isConfirmed()) {
+            e.preventDefault();
+            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please confirm the venue location on the map before saving.</span>';
+        }
+    });
+
+    function setUnconfirmed(message) {
+        submitBtn.disabled = true;
+        latField.value = '';
+        lngField.value = '';
+        confirmBtn.classList.remove('d-none');
+        statusDiv.innerHTML = '<span class="text-warning small"><i class="bi bi-exclamation-circle me-1"></i>' + escHtml(message) + '</span>';
     }
 
-    addressSelect.addEventListener('change', function () {
-        if (this.value === '') {
-            venueInput.value  = '';
-            latField.value    = '';
-            lngField.value    = '';
-            sourceField.value = '';
-            addressConfirmed  = false;
-            submitBtn.disabled = true;
-            return;
-        }
-        const opt = this.options[this.selectedIndex];
-        venueInput.value  = opt.dataset.address;
-        latField.value    = opt.dataset.lat;
-        lngField.value    = opt.dataset.lng;
-        sourceField.value = 'ideal_postcodes';
-        addressConfirmed  = true;
-        submitBtn.disabled = false;
-        statusDiv.innerHTML = `<span class="text-success small"><i class="bi bi-geo-alt-fill me-1"></i>Address confirmed: ${escHtml(opt.dataset.address)}</span>`;
-    });
-
-    // Block submit if no address confirmed
-    form.addEventListener('submit', function (e) {
-        if (!addressConfirmed) {
-            e.preventDefault();
-            statusDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Please look up the postcode and select an address before saving.</span>';
-            postcodeInput.focus();
-        }
-    });
+    function extractPostcode(components) {
+        if (!components) return '';
+        const comp = components.find(function (c) { return c.types.includes('postal_code'); });
+        return comp ? comp.long_name : '';
+    }
 
     function escHtml(str) {
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 })();
 </script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=places&loading=async&callback=initMeetingMap" async defer></script>
 @endpush
 @endsection
