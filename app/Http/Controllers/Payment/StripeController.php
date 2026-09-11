@@ -45,11 +45,22 @@ class StripeController extends Controller
         // admin records a manual payment.
         $amount = min($cycle->installmentAmount(), $remaining) ?: $remaining;
 
-        return view('payment.stripe.checkout', compact('cycle', 'amount', 'remaining'));
+        return view('payment.stripe.checkout', [
+            'cycle'     => $cycle,
+            'amount'    => $amount,
+            'remaining' => $remaining,
+            'stripeKey' => config('services.stripe.key'),
+        ]);
     }
 
     /**
      * Create a PaymentIntent and return clientSecret to the front end.
+     *
+     * Called only once the member submits the form (after elements.submit()
+     * has validated the Payment Element client-side) — the Payment Element
+     * itself is mounted in "deferred intent" mode using just amount/currency,
+     * so no PaymentIntent (or pending Payment row) exists until an actual
+     * payment attempt is made.
      */
     public function createIntent(Request $request)
     {

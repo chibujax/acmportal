@@ -57,9 +57,10 @@ class DocsScreenshotCaptureMemberTest extends DuskTestCase
             $browser->visit('/member/payments')->pause(300);
             $this->capturePlain($browser, 'history-1', 'member/paying-your-dues/history-1.png');
 
-            // stripe-1: the card payment form (Stripe key is a fake test-shaped
-            // value in .env.dusk.local — enough to render the form; no real
-            // charge is ever attempted in this script).
+            // stripe-1: the Payment Element form (STRIPE_KEY in .env.dusk.local
+            // must be a real test-mode publishable key — Payment Element
+            // validates against Stripe's API to render at all, unlike the old
+            // Card Element; no real charge is ever attempted in this script).
             $browser->visit('/pay/stripe/' . $standardLevy->id)->pause(500);
             $this->capturePlain($browser, 'stripe-1', 'member/paying-your-dues/stripe-1.png');
         });

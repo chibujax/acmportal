@@ -28,20 +28,12 @@
                                value="{{ number_format($amount, 2, '.', '') }}" required>
                         <div class="form-text">You can pay this off in full or make a partial payment, up to £{{ number_format($remaining, 2) }}.</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Cardholder Name</label>
-                        <input type="text" id="card-name" class="form-control" placeholder="Name on card" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Postcode</label>
-                        <input type="text" id="card-postcode" class="form-control" placeholder="e.g. SW1A 1AA" maxlength="10" required>
-                    </div>
+
                     <div class="mb-4">
-                        <label class="form-label fw-medium">Card Details</label>
-                        <div id="card-element" class="form-control" style="height:42px; padding-top:10px">
-                            <!-- Stripe Element will mount here -->
+                        <label class="form-label fw-medium">Payment Details</label>
+                        <div id="payment-element">
+                            <!-- Stripe Payment Element will mount here -->
                         </div>
-                        <div id="card-errors" class="text-danger small mt-1"></div>
                     </div>
 
                     <button id="pay-btn" type="submit"
@@ -68,35 +60,39 @@
 </div>
 @endsection
 
-@push('styles')
-<style>
-    #card-element { border: 1px solid #ced4da; border-radius: 6px; }
-    #card-element.StripeElement--focus { border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25); }
-    #card-element.StripeElement--invalid { border-color: #dc3545; }
-</style>
-@endpush
-
 @push('scripts')
 <!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-const stripe = Stripe('{{ config('services.stripe.key') }}');
-const elements = stripe.elements();
-// UK postcodes are alphanumeric (e.g. SW1A 1AA) — Stripe's built-in postal
-// code field only accepts digits, so it's hidden in favour of our own field.
-const cardElement = elements.create('card', {
-    hidePostalCode: true,
-    style: {
-        base: { fontSize: '15px', color: '#212529', '::placeholder': { color: '#6c757d' } },
-        invalid: { color: '#dc3545' },
-    }
-});
-cardElement.mount('#card-element');
+const stripe = Stripe('{{ $stripeKey }}');
 
 const remainingBalance = {{ $remaining }};
+const currency = '{{ strtolower($cycle->currency) }}';
 
-cardElement.addEventListener('change', ({ error }) => {
-    document.getElementById('card-errors').textContent = error ? error.message : '';
+// "Deferred intent" mode: the Payment Element mounts from just an
+// amount/currency, with no PaymentIntent (and no pending Payment row)
+// created until the member actually submits. This also means the amount
+// field can be edited freely client-side via elements.update() below,
+// with no server round trip needed to keep wallet sheets (Apple Pay/Google
+// Pay) in sync.
+const elements = stripe.elements({
+    mode: 'payment',
+    amount: toMinorUnits(parseFloat(document.getElementById('pay-amount').value)),
+    currency: currency,
+});
+const paymentElement = elements.create('payment');
+paymentElement.mount('#payment-element');
+
+function toMinorUnits(amount) {
+    return Math.round(amount * 100);
+}
+
+document.getElementById('pay-amount').addEventListener('input', () => {
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+
+    if (amount >= 0.50) {
+        elements.update({ amount: toMinorUnits(amount) });
+    }
 });
 
 document.getElementById('stripe-form').addEventListener('submit', async (e) => {
@@ -114,7 +110,16 @@ document.getElementById('stripe-form').addEventListener('submit', async (e) => {
     document.getElementById('btn-text').classList.add('d-none');
     document.getElementById('btn-spinner').classList.remove('d-none');
 
-    // 1. Create PaymentIntent via our backend
+    // 1. Validate and collect the payment details entered into the Element.
+    const { error: submitError } = await elements.submit();
+
+    if (submitError) {
+        showError(submitError.message);
+        return;
+    }
+
+    // 2. Create the PaymentIntent via our backend, now that we know the
+    // member is actually ready to pay.
     const res = await fetch('{{ route('payment.stripe.intent') }}', {
         method: 'POST',
         headers: {
@@ -134,21 +139,22 @@ document.getElementById('stripe-form').addEventListener('submit', async (e) => {
         return;
     }
 
-    // 2. Confirm payment with Stripe
-    const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
-        payment_method: {
-            card: cardElement,
-            billing_details: {
-                name: document.getElementById('card-name').value,
-                address: { postal_code: document.getElementById('card-postcode').value },
-            },
+    // 3. Confirm payment with Stripe.
+    const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret: data.clientSecret,
+        confirmParams: {
+            return_url: '{{ route('payment.stripe.success') }}',
         },
+        redirect: 'if_required',
     });
 
     if (error) {
         showError(error.message);
-    } else if (paymentIntent.status === 'succeeded') {
+    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         window.location.href = '{{ route('payment.stripe.success') }}?payment_intent=' + paymentIntent.id;
+    } else {
+        showError('Payment was not completed.');
     }
 });
 
