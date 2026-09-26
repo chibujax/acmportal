@@ -2,20 +2,24 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\MemberPledge;
+use App\Models\DonationItem;
 
 class DuesCycle extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'title', 'type', 'amount', 'currency',
         'start_date', 'end_date', 'payment_options',
         'installment_count', 'description', 'status',
-        'send_reminders', 'created_by',
+        'send_reminders', 'couple_shared', 'is_pledge_based',
+        'accepts_items', 'created_by',
     ];
 
     protected $casts = [
@@ -23,6 +27,9 @@ class DuesCycle extends Model
         'end_date'        => 'date',
         'amount'          => 'float',
         'send_reminders'  => 'boolean',
+        'couple_shared'   => 'boolean',
+        'is_pledge_based' => 'boolean',
+        'accepts_items'   => 'boolean',
     ];
 
     public function payments(): HasMany
@@ -33,6 +40,16 @@ class DuesCycle extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function pledges(): HasMany
+    {
+        return $this->hasMany(MemberPledge::class);
+    }
+
+    public function donationItems(): HasMany
+    {
+        return $this->hasMany(DonationItem::class);
     }
 
     public function totalCollected(): float
@@ -52,6 +69,15 @@ class DuesCycle extends Model
     {
         return $this->status === 'active'
             && now()->between($this->start_date, $this->end_date);
+    }
+
+    /**
+     * Whether this is the one currently-collecting yearly dues cycle — the cycle
+     * that pre-2026 legacy/carryover balances get folded into (see User::obligationFor()).
+     */
+    public function isCurrentYearlyDues(): bool
+    {
+        return $this->type === 'yearly_dues' && $this->status === 'active';
     }
 
     public function installmentAmount(): float

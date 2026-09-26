@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class RegisterController extends Controller
 {
@@ -50,20 +51,26 @@ class RegisterController extends Controller
         $pending = $regToken->pendingMember;
 
         $request->validate([
-            'token'                 => 'required|string',
-            'phone'                 => "required|string|unique:users,phone",
-            'password'              => 'required|string|min:8|confirmed',
-            'email'                 => 'nullable|email|unique:users,email',
+            'token'        => 'required|string',
+            'phone'        => 'required|string|unique:users,phone',
+            'password'     => ['required', 'string', Password::min(10)->letters()->numbers(), 'confirmed'],
+            'email'        => 'nullable|email|unique:users,email',
+            'gender'       => 'nullable|in:male,female,other',
+            'data_consent' => 'accepted',
+        ], [
+            'data_consent.accepted' => 'You must consent to the data privacy policy to create an account.',
         ]);
 
         DB::transaction(function () use ($request, $pending, $regToken) {
             $user = User::create([
-                'name'     => $pending->name,
-                'phone'    => $request->phone,
-                'email'    => $request->email,
-                'password' => Hash::make($request->password),
-                'role'     => 'member',
-                'status'   => 'active',
+                'name'                 => $pending->name,
+                'phone'                => $request->phone,
+                'email'                => $request->email,
+                'password'             => Hash::make($request->password),
+                'role'                 => 'member',
+                'status'               => 'active',
+                'gender'               => $request->gender,
+                'portal_activated_at'  => now(),
             ]);
 
             // Mark registration token used

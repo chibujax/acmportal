@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'ACM Portal') – Abia Community Manchester</title>
+    <link rel="icon" type="image/jpeg" href="{{ asset('logo.jpg') }}">
 
     <!-- Bootstrap 5 CDN (no Node/build needed) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -23,13 +24,21 @@
         /* Sidebar */
         #sidebar {
             width: var(--sidebar-w);
-            min-height: 100vh;
+            height: 100vh;
             background: var(--acm-dark);
             position: fixed;
             top: 0; left: 0;
             transition: transform .3s;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
         }
+        #sidebar .nav-scroll {
+            flex: 1 1 0;
+            overflow-y: auto;
+        }
+        #sidebar .nav-scroll::-webkit-scrollbar { width: 4px; }
+        #sidebar .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 2px; }
         #sidebar .brand {
             padding: 1.25rem 1.5rem;
             background: var(--acm-green);
@@ -49,58 +58,61 @@
         #sidebar .nav-link.active {
             color: #fff;
             background: rgba(255,255,255,.12);
-            border-left: 3px solid var(--acm-gold);
         }
         #sidebar .nav-section {
+            padding: .5rem 1.5rem .25rem;
             font-size: .7rem;
             text-transform: uppercase;
-            letter-spacing: .1em;
+            letter-spacing: .08em;
             color: rgba(255,255,255,.35);
-            padding: 1rem 1.5rem .25rem;
+            margin-top: .5rem;
         }
-        #sidebar .nav-link .bi { width: 20px; margin-right: .5rem; }
 
         /* Main content */
-        #main {
+        #main-content {
             margin-left: var(--sidebar-w);
             min-height: 100vh;
             transition: margin .3s;
         }
         .topbar {
             background: #fff;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e9ecef;
             padding: .75rem 1.5rem;
             position: sticky;
             top: 0;
-            z-index: 999;
+            z-index: 900;
         }
-        .page-content { padding: 1.75rem 1.5rem; }
+        .page-content { padding: 1.5rem; }
 
-        /* Cards */
-        .stat-card {
-            border: none;
-            border-radius: 12px;
-            transition: transform .15s;
-        }
-        .stat-card:hover { transform: translateY(-2px); }
+        /* Stat card icon */
         .stat-icon {
-            width: 52px; height: 52px;
+            width: 48px; height: 48px;
             border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
             font-size: 1.4rem;
+            flex-shrink: 0;
         }
 
-        /* Badge colours */
-        .badge-pending   { background: #fef3c7; color: #92400e; }
+        /* Member status badges */
         .badge-active    { background: #d1fae5; color: #065f46; }
+        .badge-inactive  { background: #f3f4f6; color: #374151; }
         .badge-suspended { background: #fee2e2; color: #991b1b; }
 
-        /* Responsive sidebar */
-        @media (max-width: 768px) {
+        /* Mobile sidebar */
+        @media (max-width: 991.98px) {
             #sidebar { transform: translateX(-100%); }
             #sidebar.show { transform: translateX(0); }
-            #main { margin-left: 0; }
+            #main-content { margin-left: 0; }
         }
+
+        /* Overlay for mobile */
+        #sidebar-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 999;
+        }
+        #sidebar-overlay.show { display: block; }
     </style>
 
     @stack('styles')
@@ -108,172 +120,326 @@
 <body>
 
 @auth
+<!-- Sidebar Overlay (mobile) -->
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
 <!-- Sidebar -->
 <nav id="sidebar">
     <div class="brand">
-        <div>🦅 ACM Portal</div>
+        <div class="d-flex align-items-center gap-2">
+            <img src="{{ asset('logo.jpg') }}" alt="ACM" style="height:36px; object-fit:contain; border-radius:4px">
+            ACM Portal
+        </div>
         <small>Abia Community Manchester</small>
     </div>
 
-    <ul class="nav flex-column mt-2">
-        @if(auth()->user()->isAdmin() || auth()->user()->isFinancialSecretary())
-            <li class="nav-section">Administration</li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}"
-                   href="{{ route('admin.dashboard') }}">
-                    <i class="bi bi-speedometer2"></i> Dashboard
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.members.*') ? 'active' : '' }}"
-                   href="{{ route('admin.members.index') }}">
-                    <i class="bi bi-people"></i> Members
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.members.import') ? 'active' : '' }}"
-                   href="{{ route('admin.members.import') }}">
-                    <i class="bi bi-upload"></i> CSV Import
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.members.pending') ? 'active' : '' }}"
-                   href="{{ route('admin.members.pending') }}">
-                    <i class="bi bi-person-plus"></i> Pending Members
-                </a>
-            </li>
-            <li class="nav-section">Finance</li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}"
-                   href="{{ route('admin.payments.index') }}">
-                    <i class="bi bi-cash-stack"></i> Manual Payments
-                </a>
-            </li>
-            <li class="nav-section">Reports</li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.reports.financial') ? 'active' : '' }}"
-                   href="{{ route('admin.reports.financial') }}">
-                    <i class="bi bi-bar-chart"></i> Financial Report
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.reports.arrears') ? 'active' : '' }}"
-                   href="{{ route('admin.reports.arrears') }}">
-                    <i class="bi bi-exclamation-triangle"></i> Arrears Report
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.reports.members') ? 'active' : '' }}"
-                   href="{{ route('admin.reports.members') }}">
-                    <i class="bi bi-person-check"></i> Member Summary
-                </a>
-            </li>
-        @else
-            <li class="nav-section">My Account</li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('member.dashboard') ? 'active' : '' }}"
-                   href="{{ route('member.dashboard') }}">
-                    <i class="bi bi-house"></i> Dashboard
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('member.payments') ? 'active' : '' }}"
-                   href="{{ route('member.payments') }}">
-                    <i class="bi bi-receipt"></i> Payment History
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('member.profile') ? 'active' : '' }}"
-                   href="{{ route('member.profile') }}">
-                    <i class="bi bi-person-circle"></i> My Profile
-                </a>
-            </li>
-        @endif
-    </ul>
+    @php $user = auth()->user(); @endphp
 
-    <div class="position-absolute bottom-0 w-100 p-3" style="border-top:1px solid rgba(255,255,255,.1)">
-        <div class="text-white-50 small mb-2">
-            <i class="bi bi-person"></i> {{ auth()->user()->name }}
-            <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">
-                {{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}
-            </span>
-        </div>
+    <div class="nav-scroll">
+    <div class="py-2">
+
+        @if($user->isAdmin())
+
+            {{-- ADMIN NAV --}}
+            @if($user->isSuperAdmin())
+            <div class="nav-section">Overview</div>
+            <a href="{{ route('admin.dashboard') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                <i class="bi bi-speedometer2"></i> Admin Dashboard
+            </a>
+            @endif
+
+            @if($user->isSuperAdmin() || $user->hasAccess('audit'))
+            <div class="nav-section">Administration</div>
+            @if($user->isSuperAdmin())
+            <a href="{{ route('admin.roles.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+                <i class="bi bi-shield-lock"></i> Role Management
+            </a>
+            @endif
+            @if($user->isSuperAdmin() || $user->hasAccess('audit'))
+            <a href="{{ route('admin.audit.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.audit.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Audit Trail
+            </a>
+            @endif
+            @endif
+
+            @if($user->hasAccess('members'))
+            <div class="nav-section">Members</div>
+            <a href="{{ route('admin.members.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.members.*') ? 'active' : '' }}">
+                <i class="bi bi-people"></i> All Members
+            </a>
+            @if($user->hasAccess('import'))
+            <a href="{{ route('admin.members.import') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.members.import*') ? 'active' : '' }}">
+                <i class="bi bi-upload"></i> Import (CSV)
+            </a>
+            <a href="{{ route('admin.members.pending') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.members.pending') ? 'active' : '' }}">
+                <i class="bi bi-person-plus"></i> Pending Invites
+            </a>
+            @endif
+            @endif
+
+            @if($user->hasAccess('meetings') || $user->hasAccess('attendance') || $user->hasAccess('absentees'))
+            <div class="nav-section">Attendance</div>
+            @if($user->hasAccess('meetings'))
+            <a href="{{ route('admin.meetings.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.meetings.index') || request()->routeIs('admin.meetings.create') || request()->routeIs('admin.meetings.show') || request()->routeIs('admin.meetings.edit') ? 'active' : '' }}">
+                <i class="bi bi-calendar-event"></i> Meetings
+            </a>
+            @endif
+            @if($user->hasAccess('attendance'))
+            <a href="{{ route('admin.meetings.report') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.meetings.report') ? 'active' : '' }}">
+                <i class="bi bi-bar-chart-line"></i> Attendance Report
+            </a>
+            @endif
+            @if($user->hasAccess('absentees'))
+            <a href="{{ route('admin.meetings.consecutive-absentees') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.meetings.consecutive-absentees') ? 'active' : '' }}">
+                <i class="bi bi-person-x"></i> Consecutive Absentees
+            </a>
+            @endif
+            @endif
+
+            @if($user->hasAccess('payments') || $user->hasAccess('reports') || $user->hasAccess('arrears') || $user->hasAccess('engagement') || $user->hasAccess('reconciliation'))
+            <div class="nav-section">Finance</div>
+            @if($user->hasAccess('payments'))
+            <a href="{{ route('admin.payments.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.*') && !request()->routeIs('admin.payments.stripe-events.*') ? 'active' : '' }}">
+                <i class="bi bi-cash-stack"></i> Payments
+            </a>
+            <a href="{{ route('admin.dues-cycles.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.dues-cycles.*') ? 'active' : '' }}">
+                <i class="bi bi-wallet2"></i> Dues Cycles
+            </a>
+            @endif
+            @if($user->hasAccess('reconciliation'))
+            <a href="{{ route('admin.stripe-reconciliation.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.stripe-reconciliation.*') ? 'active' : '' }}">
+                <i class="bi bi-bank"></i> Stripe Reconciliation
+            </a>
+            @endif
+            @if($user->isSuperAdmin())
+            <a href="{{ route('admin.payments.stripe-events.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.payments.stripe-events.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Stripe Events
+            </a>
+            @endif
+            @if($user->hasAccess('reports'))
+            <a href="{{ route('admin.reports.financial') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.financial') ? 'active' : '' }}">
+                <i class="bi bi-graph-up"></i> Financial Report
+            </a>
+            @endif
+            @if($user->hasAccess('arrears'))
+            <a href="{{ route('admin.reports.arrears') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.arrears') ? 'active' : '' }}">
+                <i class="bi bi-exclamation-triangle"></i> Arrears
+            </a>
+            @endif
+            @if($user->hasAccess('engagement'))
+            <a href="{{ route('admin.reports.engagement') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.reports.engagement') ? 'active' : '' }}">
+                <i class="bi bi-person-dash"></i> Member Engagement
+            </a>
+            @endif
+            @endif
+
+            @if($user->hasAccess('communications') || $user->hasAccess('messaging') || $user->hasAccess('recipients'))
+            <div class="nav-section">Communications</div>
+            @if($user->hasAccess('communications'))
+            <a href="{{ route('admin.sms-templates.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.sms-templates.*') ? 'active' : '' }}">
+                <i class="bi bi-chat-dots"></i> Message Templates
+            </a>
+            @endif
+            @if($user->hasAccess('messaging'))
+            <a href="{{ route('admin.messages.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.messages.*') && !request()->routeIs('admin.contact-log.*') ? 'active' : '' }}">
+                <i class="bi bi-send"></i> Bulk Message
+            </a>
+            <a href="{{ route('admin.contact-log.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.contact-log.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Contact Log
+            </a>
+            @endif
+            @if($user->hasAccess('recipients'))
+            <a href="{{ route('admin.notification-recipients.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.notification-recipients.*') ? 'active' : '' }}">
+                <i class="bi bi-bell"></i> Alert Recipients
+            </a>
+            @endif
+            @endif
+
+            @if($user->hasAccess('children') || $user->hasAccess('relationships'))
+            <div class="nav-section">Family Records</div>
+            @endif
+            @if($user->hasAccess('children'))
+            <a href="{{ route('admin.children.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.children.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill"></i> Children
+            </a>
+            @endif
+            @if($user->hasAccess('relationships'))
+            <a href="{{ route('admin.spouses.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.spouses.*') ? 'active' : '' }}">
+                <i class="bi bi-heart"></i> Spouse Linking
+            </a>
+            @endif
+
+            @if($user->hasAccess('minutes'))
+            <div class="nav-section">Minutes</div>
+            <a href="{{ route('admin.minutes.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.minutes.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Meeting Minutes
+            </a>
+            @endif
+
+        @endif
+
+        {{-- MY PORTAL – visible to all users (members and admins alike) --}}
+        <div class="nav-section">My Portal</div>
+        <a href="{{ route('member.dashboard') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.dashboard') ? 'active' : '' }}">
+            <i class="bi bi-house"></i> Dashboard
+        </a>
+        <a href="{{ route('member.attendance') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.attendance') ? 'active' : '' }}">
+            <i class="bi bi-calendar-check"></i> My Attendance
+        </a>
+        <a href="{{ route('member.minutes.index') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.minutes.*') ? 'active' : '' }}">
+            <i class="bi bi-journal-text"></i> Meeting Minutes
+        </a>
+        <a href="{{ route('member.payments') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.payments') ? 'active' : '' }}">
+            <i class="bi bi-receipt"></i> Payment History
+        </a>
+        <a href="{{ route('member.profile') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.profile') ? 'active' : '' }}">
+            <i class="bi bi-person-circle"></i> My Profile
+        </a>
+        <a href="{{ route('member.relationships') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('member.relationships*') ? 'active' : '' }}">
+            <i class="bi bi-heart"></i> Family &amp; Relationships
+        </a>
+        <a href="{{ route('docs.index') }}"
+           class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('docs.*') ? 'active' : '' }}">
+            <i class="bi bi-question-circle"></i> Help
+        </a>
+
+    </div>
+    </div>{{-- end nav-scroll --}}
+
+    {{-- Logout pinned at sidebar bottom --}}
+    <div class="p-3 mt-2 border-top border-secondary">
         <form method="POST" action="{{ route('logout') }}">
             @csrf
-            <button class="btn btn-outline-light btn-sm w-100">
-                <i class="bi bi-box-arrow-left"></i> Sign Out
+            <button type="submit" class="btn btn-sm w-100 text-white border-0"
+                    style="background:rgba(255,255,255,.1)">
+                <i class="bi bi-box-arrow-left me-2"></i>Sign Out
             </button>
         </form>
     </div>
 </nav>
 
-<!-- Main -->
-<div id="main">
+<!-- Main content -->
+<div id="main-content">
     <!-- Topbar -->
     <div class="topbar d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-sm d-md-none" id="sidebarToggle">
+            <button class="btn btn-sm d-lg-none" onclick="toggleSidebar()">
                 <i class="bi bi-list fs-5"></i>
             </button>
-            <h6 class="mb-0 fw-semibold text-muted">@yield('page-title', 'Dashboard')</h6>
+            <h6 class="mb-0 fw-semibold text-dark">@yield('page-title', 'ACM Portal')</h6>
         </div>
         <div class="d-flex align-items-center gap-2">
-            @if(auth()->user()->email && !auth()->user()->hasVerifiedEmail())
-                <a href="{{ route('email.resend') }}" class="badge bg-warning text-dark text-decoration-none"
-                   onclick="event.preventDefault(); document.getElementById('resend-form').submit()">
-                    <i class="bi bi-envelope-exclamation"></i> Verify Email
-                </a>
-                <form id="resend-form" method="POST" action="{{ route('email.resend') }}" class="d-none">@csrf</form>
-            @endif
-            <span class="text-muted small d-none d-md-inline">{{ auth()->user()->name }}</span>
+            <span class="small text-muted d-none d-sm-inline">{{ auth()->user()->name }}</span>
+            @php
+                $badgeColor = match(auth()->user()->role) {
+                    'super_admin' => '#7c3aed',
+                    'admin'       => '#1d4ed8',
+                    default       => '#6b7280',
+                };
+            @endphp
+            <span class="badge" style="background:{{ $badgeColor }}">
+                {{ ucfirst(str_replace('_',' ', auth()->user()->role)) }}
+            </span>
+            <form method="POST" action="{{ route('logout') }}" class="mb-0">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Sign Out">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="d-none d-md-inline ms-1">Sign Out</span>
+                </button>
+            </form>
         </div>
     </div>
 
-    <!-- Alerts -->
-    <div class="px-3 pt-3">
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-        @if(session('info'))
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                <i class="bi bi-info-circle me-2"></i>{{ session('info') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-        @if($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle me-2"></i>
-                <ul class="mb-0 ps-3">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-    </div>
-
+    <!-- Page content -->
     <div class="page-content">
+
+        @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        @if(session('warning'))
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>{{ session('warning') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        @if($errors->any() && !$errors->has('login') && !$errors->has('password'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @foreach($errors->all() as $error)
+                {{ $error }}<br>
+            @endforeach
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
         @yield('content')
     </div>
 </div>
 
-@endauth
-
-@guest
+@else
+    {{-- Guest pages (login, register) --}}
     @yield('content')
-@endguest
+@endauth
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-    document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('show');
-    });
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('show');
+    document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+
+// Scroll active nav item into view on page load
+document.addEventListener('DOMContentLoaded', function () {
+    const active = document.querySelector('#sidebar .nav-scroll .nav-link.active');
+    if (active) {
+        active.scrollIntoView({ block: 'nearest' });
+    }
+});
 </script>
+
 @stack('scripts')
 </body>
 </html>

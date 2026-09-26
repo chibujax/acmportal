@@ -8,12 +8,21 @@
         <h6 class="fw-semibold mb-0">
             <i class="bi bi-person-plus text-warning me-2"></i>Pending Registration
         </h6>
-        <form method="POST" action="{{ route('admin.members.invites') }}">
-            @csrf
-            <button class="btn btn-primary btn-sm">
-                <i class="bi bi-send me-1"></i>Send All Pending Invites
-            </button>
-        </form>
+        <div class="d-flex align-items-center gap-2">
+            <form method="GET" action="{{ route('admin.members.pending') }}" class="d-flex align-items-center gap-2">
+                <select name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+                    @foreach([10, 20, 50, 100] as $n)
+                        <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
+                    @endforeach
+                </select>
+            </form>
+            <form method="POST" action="{{ route('admin.members.invites') }}">
+                @csrf
+                <button class="btn btn-primary btn-sm">
+                    <i class="bi bi-send me-1"></i>Send All Pending Invites
+                </button>
+            </form>
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">

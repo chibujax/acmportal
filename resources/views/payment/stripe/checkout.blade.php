@@ -14,12 +14,7 @@
                 <div class="p-3 rounded mb-4" style="background:#f8f9fa; border-left:4px solid #1a6b3c">
                     <div class="fw-semibold">{{ $cycle->title }}</div>
                     <div class="text-muted small">{{ $cycle->description }}</div>
-                    <div class="fs-4 fw-bold text-success mt-2">
-                        £{{ number_format($amount, 2) }}
-                        @if($cycle->payment_options !== 'once')
-                            <small class="fs-6 text-muted">/ {{ $cycle->payment_options === 'monthly' ? 'month' : 'instalment' }}</small>
-                        @endif
-                    </div>
+                    <div class="text-muted small mt-1">Remaining balance: £{{ number_format($remaining, 2) }}</div>
                 </div>
 
                 <!-- Stripe Payment Form -->
@@ -27,22 +22,25 @@
 
                 <form id="stripe-form">
                     <div class="mb-3">
-                        <label class="form-label fw-medium">Cardholder Name</label>
-                        <input type="text" id="card-name" class="form-control" placeholder="Name on card" required>
+                        <label class="form-label fw-medium">Amount to Pay (£)</label>
+                        <input type="number" id="pay-amount" class="form-control"
+                               min="0.50" max="{{ $remaining }}" step="0.01"
+                               value="{{ number_format($amount, 2, '.', '') }}" required>
+                        <div class="form-text">You can pay this off in full or make a partial payment, up to £{{ number_format($remaining, 2) }}.</div>
                     </div>
+
                     <div class="mb-4">
-                        <label class="form-label fw-medium">Card Details</label>
-                        <div id="card-element" class="form-control" style="height:42px; padding-top:10px">
-                            <!-- Stripe Element will mount here -->
+                        <label class="form-label fw-medium">Payment Details</label>
+                        <div id="payment-element">
+                            <!-- Stripe Payment Element will mount here -->
                         </div>
-                        <div id="card-errors" class="text-danger small mt-1"></div>
                     </div>
 
                     <button id="pay-btn" type="submit"
                             class="btn w-100 text-white fw-semibold"
                             style="background:#635bff; border-radius:8px; padding:.7rem">
                         <span id="btn-text">
-                            <i class="bi bi-lock me-2"></i>Pay £{{ number_format($amount, 2) }} Securely
+                            <i class="bi bi-lock me-2"></i>Pay Securely
                         </span>
                         <span id="btn-spinner" class="d-none">
                             <span class="spinner-border spinner-border-sm me-2"></span>Processing…
@@ -62,41 +60,66 @@
 </div>
 @endsection
 
-@push('styles')
-<style>
-    #card-element { border: 1px solid #ced4da; border-radius: 6px; }
-    #card-element.StripeElement--focus { border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25); }
-    #card-element.StripeElement--invalid { border-color: #dc3545; }
-</style>
-@endpush
-
 @push('scripts')
 <!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-const stripe = Stripe('{{ config('services.stripe.key') }}');
-const elements = stripe.elements();
-const cardElement = elements.create('card', {
-    style: {
-        base: { fontSize: '15px', color: '#212529', '::placeholder': { color: '#6c757d' } },
-        invalid: { color: '#dc3545' },
-    }
-});
-cardElement.mount('#card-element');
+const stripe = Stripe('{{ $stripeKey }}');
 
-cardElement.addEventListener('change', ({ error }) => {
-    document.getElementById('card-errors').textContent = error ? error.message : '';
+const remainingBalance = {{ $remaining }};
+const currency = '{{ strtolower($cycle->currency) }}';
+
+// "Deferred intent" mode: the Payment Element mounts from just an
+// amount/currency, with no PaymentIntent (and no pending Payment row)
+// created until the member actually submits. This also means the amount
+// field can be edited freely client-side via elements.update() below,
+// with no server round trip needed to keep wallet sheets (Apple Pay/Google
+// Pay) in sync.
+const elements = stripe.elements({
+    mode: 'payment',
+    amount: toMinorUnits(parseFloat(document.getElementById('pay-amount').value)),
+    currency: currency,
+});
+const paymentElement = elements.create('payment');
+paymentElement.mount('#payment-element');
+
+function toMinorUnits(amount) {
+    return Math.round(amount * 100);
+}
+
+document.getElementById('pay-amount').addEventListener('input', () => {
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+
+    if (amount >= 0.50) {
+        elements.update({ amount: toMinorUnits(amount) });
+    }
 });
 
 document.getElementById('stripe-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+
+    if (!(amount >= 0.50) || amount > remainingBalance + 0.01) {
+        showError('Enter an amount between £0.50 and £' + remainingBalance.toFixed(2) + '.');
+        return;
+    }
 
     const btn = document.getElementById('pay-btn');
     btn.disabled = true;
     document.getElementById('btn-text').classList.add('d-none');
     document.getElementById('btn-spinner').classList.remove('d-none');
 
-    // 1. Create PaymentIntent via our backend
+    // 1. Validate and collect the payment details entered into the Element.
+    const { error: submitError } = await elements.submit();
+
+    if (submitError) {
+        showError(submitError.message);
+        return;
+    }
+
+    // 2. Create the PaymentIntent via our backend, now that we know the
+    // member is actually ready to pay.
     const res = await fetch('{{ route('payment.stripe.intent') }}', {
         method: 'POST',
         headers: {
@@ -105,7 +128,7 @@ document.getElementById('stripe-form').addEventListener('submit', async (e) => {
         },
         body: JSON.stringify({
             dues_cycle_id: {{ $cycle->id }},
-            amount: {{ $amount }},
+            amount: amount,
         }),
     });
 
@@ -116,18 +139,22 @@ document.getElementById('stripe-form').addEventListener('submit', async (e) => {
         return;
     }
 
-    // 2. Confirm payment with Stripe
-    const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
-        payment_method: {
-            card: cardElement,
-            billing_details: { name: document.getElementById('card-name').value },
+    // 3. Confirm payment with Stripe.
+    const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret: data.clientSecret,
+        confirmParams: {
+            return_url: '{{ route('payment.stripe.success') }}',
         },
+        redirect: 'if_required',
     });
 
     if (error) {
         showError(error.message);
-    } else if (paymentIntent.status === 'succeeded') {
+    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         window.location.href = '{{ route('payment.stripe.success') }}?payment_intent=' + paymentIntent.id;
+    } else {
+        showError('Payment was not completed.');
     }
 });
 

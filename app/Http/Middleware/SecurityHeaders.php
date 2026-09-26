@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class SecurityHeaders
+{
+    public function handle(Request $request, Closure $next)
+    {
+        $response = $next($request);
+
+        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+        // Loose CSP: restricts which external origins can load/connect, without nonces —
+        // 'unsafe-inline' is still needed since the app has many inline <script>/style
+        // blocks. Allowlist covers Bootstrap/Icons (jsdelivr), Stripe.js + its API/fraud-
+        // detection calls (*.stripe.com), the meeting check-in QR code image (qrserver),
+        // and Google Maps (venue picker: Places Autocomplete + map tiles/markers).
+        // frame-src/frame-ancestors allow 'self' so the Meeting Minutes viewer can embed
+        // its own inline-PDF response in an <iframe>, but nothing cross-origin.
+        $response->headers->set('Content-Security-Policy', implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://js.stripe.com https://maps.googleapis.com",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+            "font-src 'self' https://cdn.jsdelivr.net",
+            "img-src 'self' data: https://api.qrserver.com https://cdn.jsdelivr.net https://maps.googleapis.com https://maps.gstatic.com https://*.googleusercontent.com",
+            "connect-src 'self' https://*.stripe.com https://cdn.jsdelivr.net https://maps.googleapis.com",
+            "frame-src 'self' https://*.stripe.com",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "frame-ancestors 'self'",
+        ]));
+
+        if (app()->environment('production')) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        }
+
+        return $response;
+    }
+}

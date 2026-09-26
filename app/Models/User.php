@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,32 +11,38 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'name', 'phone', 'email', 'password',
         'role', 'status', 'profile_photo', 'address',
-        'date_of_birth', 'occupation', 'email_verified_at',
+        'date_of_birth', 'gender', 'occupation', 'email_verified_at',
+        'activation_token', 'activation_token_expires_at', 'activation_invited_at',
+        'portal_activated_at', 'join_date',
     ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'date_of_birth'     => 'date',
-        'password'          => 'hashed',
+        'email_verified_at'           => 'datetime',
+        'date_of_birth'               => 'date',
+        'join_date'                   => 'date',
+        'password'                    => 'hashed',
+        'activation_token_expires_at' => 'datetime',
+        'activation_invited_at'       => 'datetime',
+        'portal_activated_at'         => 'datetime',
     ];
 
     // ── Roles ─────────────────────────────────────────────────
 
-    public function isAdmin(): bool
+    public function isSuperAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'super_admin';
     }
 
-    public function isFinancialSecretary(): bool
+    public function isAdmin(): bool
     {
-        return in_array($this->role, ['admin', 'financial_secretary']);
+        return in_array($this->role, ['super_admin', 'admin']);
     }
 
     public function isMember(): bool
@@ -43,7 +50,26 @@ class User extends Authenticatable
         return $this->role === 'member';
     }
 
+    /**
+     * Whether this user can access a given admin page slug.
+     * Super admins always have full access.
+     * Regular admins need at least one assigned role that grants access to the page.
+     */
+    public function hasAccess(string $page): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->roles->contains(fn($role) => in_array($page, $role->pages ?? []));
+    }
+
     // ── Relationships ─────────────────────────────────────────
+
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class);
+    }
 
     public function payments()
     {
@@ -55,11 +81,217 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class, 'recorded_by');
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    public function attendanceRecords()
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
+    /**
+     * All MemberRelationship rows involving this user.
+     */
+    public function memberRelationships()
+    {
+        return MemberRelationship::where('member_id_1', $this->id)
+            ->orWhere('member_id_2', $this->id)
+            ->where('relationship_type', 'spouse');
+    }
+
+    /**
+     * Children where this user is the father or mother.
+     */
+    public function childrenAsFather()
+    {
+        return $this->hasMany(MemberChild::class, 'father_id');
+    }
+
+    public function childrenAsMother()
+    {
+        return $this->hasMany(MemberChild::class, 'mother_id');
+    }
+
+    // ── Spouse helpers ────────────────────────────────────────
+
+    /**
+     * Returns the spouse User or null.
+     */
+    public function spouse(): ?self
+    {
+        $rel = MemberRelationship::spouseRelationshipFor($this->id);
+        if (! $rel) return null;
+        return $rel->otherMember($this->id);
+    }
+
+    /**
+     * Returns the MemberRelationship for the spouse link, or null.
+     */
+    public function spouseRelationship(): ?MemberRelationship
+    {
+        return MemberRelationship::spouseRelationshipFor($this->id);
+    }
+
+    public function hasSpouse(): bool
+    {
+        return MemberRelationship::where(function ($q) {
+            $q->where('member_id_1', $this->id)
+              ->orWhere('member_id_2', $this->id);
+        })->where('relationship_type', 'spouse')->exists();
+    }
+
+    /**
+     * All children visible to this user:
+     * - Children they added as father or mother
+     * - If they have a spouse, children of that spouse are also included
+     */
+    public function visibleChildren()
+    {
+        $ids = collect([$this->id]);
+
+        $spouse = $this->spouse();
+        if ($spouse) {
+            $ids->push($spouse->id);
+        }
+
+        return MemberChild::where(function ($q) use ($ids) {
+            $q->whereIn('father_id', $ids)
+              ->orWhereIn('mother_id', $ids);
+        })->with(['father', 'mother'])->get();
+    }
+
+    // ── Family dues helpers ───────────────────────────────────
+
+    /**
+     * If couple_shared: married members owe the full amount (shared),
+     * single members owe half. Otherwise every member owes the full amount.
+     * A member who joined partway through the cycle's own year owes a
+     * prorated share - see prorateForJoinDate().
+     * Pre-2026 carryover (legacy balance) is folded into whichever yearly
+     * dues cycle is currently collecting — there's no "Carryover" cycle of
+     * its own, and outstanding dues are conceptually cumulative across years.
+     * Unsplit even on a couple_shared cycle: carryover belongs to the individual.
+     */
+    public function obligationFor(DuesCycle $cycle): float
+    {
+        $obligation = $cycle->couple_shared
+            ? ($this->hasSpouse() ? $cycle->amount : round($cycle->amount / 2, 2))
+            : $cycle->amount;
+
+        $obligation = $this->prorateForJoinDate($obligation, $cycle);
+
+        if ($cycle->isCurrentYearlyDues()) {
+            $obligation += $this->legacyBalanceTotal();
+        }
+
+        return $obligation;
+    }
+
+    /**
+     * Prorate a yearly-dues obligation for a member who joined during the
+     * cycle's own year, based on join month. A member who joined in an
+     * earlier year (or has no recorded join_date - the default for existing
+     * members) owes the full amount, unaffected by this.
+     *
+     * Billed from the join month itself (inclusive): January joiners owe the
+     * full amount, December joiners owe 1/12. Zero-based month index makes
+     * this fall out directly: Jan = 0 -> owes 12 months, Dec = 11 -> owes 1.
+     */
+    private function prorateForJoinDate(float $obligation, DuesCycle $cycle): float
+    {
+        if ($cycle->type !== 'yearly_dues' || $this->join_date === null) {
+            return $obligation;
+        }
+
+        if ($this->join_date->year !== $cycle->start_date->year) {
+            return $obligation;
+        }
+
+        $zeroBasedJoinMonth = $this->join_date->month - 1; // Jan = 0 ... Dec = 11
+        $monthsOwed = 12 - $zeroBasedJoinMonth;             // Jan -> 12, Dec -> 1
+
+        return round($obligation / 12 * $monthsOwed, 2);
+    }
+
+    public function legacyBalances()
+    {
+        return $this->hasMany(MemberLegacyBalance::class);
+    }
+
+    /**
+     * Sum of pre-2026 carryover balances (can be negative — a credit).
+     */
+    public function legacyBalanceTotal(): float
+    {
+        return (float) $this->legacyBalances()->sum('amount');
+    }
+
+    /**
+     * Legacy balance not currently folded into any cycle's obligation — i.e. the
+     * full amount, unless a current yearly dues cycle exists to absorb it via
+     * obligationFor(). Callers summing "total outstanding" should add this once,
+     * separately from any per-cycle totals, to avoid double-counting.
+     */
+    public function unfoldedLegacyBalance(): float
+    {
+        return DuesCycle::query()->where('type', 'yearly_dues')->where('status', 'active')->exists()
+            ? 0.0
+            : $this->legacyBalanceTotal();
+    }
+
+    /**
+     * Total paid for a dues cycle.
+     * If couple_shared, includes the spouse's payments too.
+     * If not couple_shared, only this member's own payments count.
+     */
+    public function totalPaidWithSpouse(int $cycleId, bool $coupleShared = true): float
+    {
+        $ids = [$this->id];
+
+        if ($coupleShared) {
+            $spouse = $this->spouse();
+            if ($spouse) {
+                $ids[] = $spouse->id;
+            }
+        }
+
+        return (float) Payment::whereIn('user_id', $ids)
+            ->where('dues_cycle_id', $cycleId)
+            ->where('status', 'completed')
+            ->sum('amount');
+    }
+
+    // ── Existing helpers ──────────────────────────────────────
+
+    /**
+     * The recorded join_date if set, otherwise inferred from the earliest evidence
+     * of membership — payment or attendance — falling back to account creation date.
+     */
+    public function memberSince(): \Carbon\Carbon
+    {
+        if ($this->join_date !== null) {
+            return $this->join_date->copy();
+        }
+
+        $earliestPayment = $this->payments()->min('payment_date');
+
+        $earliestAttendance = $this->attendanceRecords()
+            ->join('meetings', 'attendance_records.meeting_id', '=', 'meetings.id')
+            ->min('meetings.meeting_date');
+
+        $candidates = array_filter([$earliestPayment, $earliestAttendance]);
+
+        return $candidates
+            ? \Carbon\Carbon::parse(min($candidates))
+            : $this->created_at;
+    }
 
     public function hasVerifiedEmail(): bool
     {
         return ! is_null($this->email_verified_at);
+    }
+
+    /** Whether this member has set their portal password and can log in. */
+    public function hasPortalAccess(): bool
+    {
+        return ! is_null($this->portal_activated_at);
     }
 
     public function totalPaid(int $cycleId = null): float
@@ -69,5 +301,25 @@ class User extends Authenticatable
             $q->where('dues_cycle_id', $cycleId);
         }
         return (float) $q->sum('amount');
+    }
+
+    /**
+     * Attendance percentage across all closed meetings in a given year.
+     */
+    public function attendancePercentage(int $year = null): float
+    {
+        $year = $year ?? now()->year;
+
+        $total = Meeting::whereYear('meeting_date', $year)
+            ->whereIn('status', ['active', 'closed'])
+            ->count();
+
+        if ($total === 0) return 0;
+
+        $attended = $this->attendanceRecords()
+            ->whereHas('meeting', fn($q) => $q->whereYear('meeting_date', $year))
+            ->count();
+
+        return round(($attended / $total) * 100, 1);
     }
 }

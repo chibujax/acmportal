@@ -2,20 +2,21 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'user_id', 'dues_cycle_id', 'amount', 'currency',
         'method', 'status', 'gateway_reference', 'gateway_response',
         'gateway_payload', 'recorded_by', 'receipt_number', 'notes',
         'payment_date', 'proof_of_payment', 'installment_number',
-        'total_installments',
+        'total_installments', 'linked_payment_id',
     ];
 
     protected $casts = [
@@ -23,6 +24,9 @@ class Payment extends Model
         'gateway_payload'  => 'array',
         'payment_date'     => 'date',
     ];
+
+    // Raw gateway payloads are large and not meaningful for a human audit trail.
+    protected array $activityLogExcept = ['gateway_payload'];
 
     public function user(): BelongsTo
     {
@@ -37,6 +41,11 @@ class Payment extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function pairedPayment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class, 'linked_payment_id');
     }
 
     public function isCompleted(): bool

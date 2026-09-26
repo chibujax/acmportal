@@ -13,7 +13,7 @@
                            value="{{ request('search') }}">
                 </div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
                     <option value="active"    {{ request('status')==='active'    ? 'selected' : '' }}>Active</option>
@@ -21,7 +21,28 @@
                     <option value="suspended" {{ request('status')==='suspended' ? 'selected' : '' }}>Suspended</option>
                 </select>
             </div>
-            <div class="col-6 col-md-3 d-flex gap-2">
+            <div class="col-6 col-md-2">
+                <select name="role" class="form-select">
+                    <option value="">All Roles</option>
+                    <option value="member" {{ request('role')==='member' ? 'selected' : '' }}>Members</option>
+                    <option value="admin"  {{ request('role')==='admin'  ? 'selected' : '' }}>Admins</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select name="portal" class="form-select">
+                    <option value="">All Portal Access</option>
+                    <option value="registered"     {{ request('portal')==='registered'     ? 'selected' : '' }}>Registered</option>
+                    <option value="not_registered" {{ request('portal')==='not_registered' ? 'selected' : '' }}>Not Registered</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select name="per_page" class="form-select">
+                    @foreach([10, 20, 50, 100] as $n)
+                        <option value="{{ $n }}" {{ request('per_page', 20) == $n ? 'selected' : '' }}>{{ $n }} / page</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-2">
                 <button class="btn btn-success flex-grow-1">Filter</button>
                 <a href="{{ route('admin.members.index') }}" class="btn btn-outline-secondary">Reset</a>
             </div>
@@ -38,6 +59,7 @@
                         <th>Phone</th>
                         <th>Email</th>
                         <th>Email Verified</th>
+                        <th>Portal Access</th>
                         <th>Status</th>
                         <th>Role</th>
                         <th>Actions</th>
@@ -64,6 +86,13 @@
                             @endif
                         </td>
                         <td>
+                            @if($m->portal_activated_at || $m->activation_invited_at)
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Registered</span>
+                            @else
+                                <span class="badge bg-secondary">Not Registered</span>
+                            @endif
+                        </td>
+                        <td>
                             <span class="badge badge-{{ $m->status }}">{{ ucfirst($m->status) }}</span>
                         </td>
                         <td class="small">{{ ucfirst(str_replace('_',' ',$m->role)) }}</td>
@@ -75,7 +104,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-4">No members found.</td>
+                        <td colspan="9" class="text-center text-muted py-4">No members found.</td>
                     </tr>
                     @endforelse
                 </tbody>

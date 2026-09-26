@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PendingMember;
 use App\Models\RegistrationToken;
 use App\Notifications\RegistrationInviteNotification;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -18,10 +19,11 @@ class CsvImportController extends Controller
     {
         $batches = PendingMember::select('import_batch', DB::raw('count(*) as total'),
                 DB::raw("sum(case when status = 'registered' then 1 else 0 end) as registered"),
-                DB::raw("sum(case when status = 'invited' then 1 else 0 end) as invited"))
+                DB::raw("sum(case when status = 'invited' then 1 else 0 end) as invited"),
+                DB::raw('max(created_at) as last_imported_at'))
             ->whereNotNull('import_batch')
             ->groupBy('import_batch')
-            ->latest('created_at')
+            ->orderByDesc('last_imported_at')
             ->get();
 
         return view('admin.members.import', compact('batches'));
@@ -105,21 +107,22 @@ class CsvImportController extends Controller
 
         $members = $query->get();
         $sent    = 0;
+        $sms     = app(SmsService::class);
 
         foreach ($members as $member) {
-            $token = RegistrationToken::generate($member);
-
+            $token           = RegistrationToken::generate($member);
             $registrationUrl = route('register.form', ['token' => $token->token]);
 
-            // Send via SMS or Email (whichever available)
             try {
                 if ($member->email) {
-                    // Email notification (requires MAIL config)
                     Notification::route('mail', $member->email)
                         ->notify(new RegistrationInviteNotification($member, $registrationUrl));
+                } elseif ($member->phone) {
+                    // SMS fallback when no email is available
+                    $appName = config('app.name');
+                    $smsBody = "Hi {$member->name}, you are invited to join {$appName}. Register here: {$registrationUrl}";
+                    $sms->send($member->phone, $smsBody);
                 }
-                // TODO: integrate SMS gateway for phone invites (Twilio, Vonage)
-                // For now, the admin can copy the link manually.
 
                 $member->update([
                     'status'     => 'invited',
@@ -138,14 +141,68 @@ class CsvImportController extends Controller
     }
 
     /**
+     * Create a single pending member and send them an invite immediately.
+     */
+    public function inviteSingle(Request $request)
+    {
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'phone' => 'required|string|max:30|unique:pending_members,phone|unique:users,phone',
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        $phone = preg_replace('/\s+/', '', $request->phone);
+
+        $member = PendingMember::create([
+            'name'        => $request->name,
+            'phone'       => $phone,
+            'email'       => $request->email ?: null,
+            'status'      => 'pending',
+            'imported_by' => auth()->id(),
+        ]);
+
+        $token = RegistrationToken::generate($member);
+        $registrationUrl = route('register.form', ['token' => $token->token]);
+
+        try {
+            if ($member->email) {
+                Notification::route('mail', $member->email)
+                    ->notify(new RegistrationInviteNotification($member, $registrationUrl));
+            } elseif ($member->phone) {
+                $appName = config('app.name');
+                $smsBody = "Hi {$member->name}, you are invited to join {$appName}. Register here: {$registrationUrl}";
+                app(SmsService::class)->send($member->phone, $smsBody);
+            }
+
+            $member->update([
+                'status'     => 'invited',
+                'invited_at' => now(),
+            ]);
+
+            return redirect()->route('admin.members.pending')
+                ->with('success', "Invite created for {$member->name}. Share the registration link from the pending list.");
+        } catch (\Exception $e) {
+            $member->update([
+                'status'         => 'failed',
+                'failure_reason' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('admin.members.pending')
+                ->with('warning', "Member added but invite notification failed: {$e->getMessage()}. You can copy the link manually.");
+        }
+    }
+
+    /**
      * Show pending members list with their registration link so admin can share manually.
      */
-    public function pendingList()
+    public function pendingList(Request $request)
     {
+        $perPage = in_array((int) $request->per_page, [10, 20, 50, 100]) ? (int) $request->per_page : 20;
         $members = PendingMember::with('registrationToken')
             ->whereIn('status', ['pending', 'invited'])
             ->latest()
-            ->paginate(20);
+            ->paginate($perPage)
+            ->withQueryString();
 
         return view('admin.members.pending', compact('members'));
     }

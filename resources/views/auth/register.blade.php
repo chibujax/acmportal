@@ -8,7 +8,7 @@
             <div class="col-12 col-sm-10 col-md-7 col-lg-5">
 
                 <div class="text-center mb-4">
-                    <div style="font-size:3rem">🦅</div>
+                    <img src="{{ asset('logo.jpg') }}" alt="ACM Portal" style="height:80px; object-fit:contain">
                     <h2 class="text-white fw-bold mt-2">Create Your Account</h2>
                     <p class="text-white-50">Welcome, {{ $pendingMember->name }}</p>
                 </div>
@@ -57,10 +57,23 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label fw-medium">Gender <span class="text-muted small">(optional)</span></label>
+                                <select name="gender" class="form-select @error('gender') is-invalid @enderror">
+                                    <option value="">— Select gender —</option>
+                                    <option value="male"   {{ old('gender') === 'male'   ? 'selected' : '' }}>Male</option>
+                                    <option value="female" {{ old('gender') === 'female' ? 'selected' : '' }}>Female</option>
+                                    <option value="other"  {{ old('gender') === 'other'  ? 'selected' : '' }}>Other</option>
+                                </select>
+                                @error('gender')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label fw-medium">Password <span class="text-danger">*</span></label>
                                 <input type="password" name="password"
                                        class="form-control @error('password') is-invalid @enderror"
-                                       placeholder="Minimum 8 characters" required>
+                                       placeholder="Min. 10 characters, with a letter and a number" required>
                                 @error('password')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -70,6 +83,24 @@
                                 <label class="form-label fw-medium">Confirm Password <span class="text-danger">*</span></label>
                                 <input type="password" name="password_confirmation"
                                        class="form-control" placeholder="Repeat password" required>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input type="checkbox" name="data_consent" id="data_consent" value="1"
+                                           class="form-check-input @error('data_consent') is-invalid @enderror"
+                                           {{ old('data_consent') ? 'checked' : '' }} required>
+                                    <label class="form-check-label small" for="data_consent">
+                                        I consent to <strong>ACM</strong> collecting and using my personal information
+                                        (name, contact details, and membership records) for the purposes of membership
+                                        administration, welfare coordination, and official communications.
+                                        My data will be handled securely and not shared with third parties.
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    @error('data_consent')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                </div>
                             </div>
 
                             <button type="submit" class="btn w-100 text-white fw-semibold"

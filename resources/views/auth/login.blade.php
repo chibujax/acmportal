@@ -10,7 +10,7 @@
             <div class="col-12 col-sm-10 col-md-7 col-lg-5">
 
                 <div class="text-center mb-4">
-                    <div style="font-size:3rem">🦅</div>
+                    <img src="{{ asset('logo.jpg') }}" alt="ACM Portal" style="height:80px; object-fit:contain">
                     <h2 class="text-white fw-bold mt-2">ACM Portal</h2>
                     <p class="text-white-50">Abia Community Manchester</p>
                 </div>
@@ -18,6 +18,10 @@
                 <div class="card border-0 shadow-lg" style="border-radius:16px">
                     <div class="card-body p-4 p-md-5">
                         <h5 class="fw-semibold mb-4">Sign in to your account</h5>
+
+                        @if(session('success'))
+                            <div class="alert alert-success small">{{ session('success') }}</div>
+                        @endif
 
                         <form method="POST" action="{{ route('login.post') }}">
                             @csrf
@@ -57,6 +61,9 @@
                                     <input class="form-check-input" type="checkbox" name="remember" id="remember">
                                     <label class="form-check-label" for="remember">Remember me</label>
                                 </div>
+                                <a href="{{ route('password.forgot') }}" class="small text-muted">
+                                    Forgot password?
+                                </a>
                             </div>
 
                             <button type="submit" class="btn w-100 text-white fw-semibold"

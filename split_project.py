@@ -32,6 +32,7 @@ IGNORE_DIRS = {
     ".vscode",
     "__pycache__",
     "bootstrap/cache",
+    "screenshots"
 }
 
 # Specific file names to skip (exact match, any directory)

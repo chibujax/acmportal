@@ -16,3 +16,8 @@ Artisan::command('inspire', function () {
 |   * * * * * /usr/bin/php /path/to/artisan schedule:run >> /dev/null 2>&1
 */
 Schedule::command('queue:work --stop-when-empty')->everyMinute();
+
+// Last Saturday of every month: notify configured recipients that the consecutive absentees report is ready.
+Schedule::command('acm:monthly-absentee-alert')
+    ->saturdays()
+    ->when(fn () => now()->copy()->addDays(7)->month !== now()->month);
