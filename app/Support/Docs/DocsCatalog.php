@@ -86,8 +86,8 @@ class DocsCatalog
                             'paying-online-with-stripe' => [
                                 'title'    => 'Paying Online with Stripe',
                                 'view'     => 'docs.member.paying-your-dues.paying-online-with-stripe',
-                                'keywords' => ['pay', 'card payment', 'stripe', 'dues'],
-                                'excerpt'  => 'Paying dues online by card, in full or in part.',
+                                'keywords' => ['pay', 'card payment', 'stripe', 'dues', 'family', 'spouse', 'pay for spouse'],
+                                'excerpt'  => 'Paying dues online by card, in full or in part — alone or together with your spouse.',
                             ],
                             'payment-history' => [
                                 'title'    => 'Payment History',
@@ -110,7 +110,7 @@ class DocsCatalog
                                 'title'    => 'Linking or Unlinking a Spouse',
                                 'view'     => 'docs.member.profile-and-family.spouse-link-unlink',
                                 'keywords' => ['spouse', 'marriage', 'couple dues', 'family'],
-                                'excerpt'  => 'Linking your spouse so dues are calculated as a shared household.',
+                                'excerpt'  => 'Linking your spouse so you can see each other\'s dues and pay together.',
                             ],
                             'managing-children' => [
                                 'title'    => 'Managing Children',
@@ -167,6 +167,13 @@ class DocsCatalog
                                 'keywords' => ['import members', 'csv', 'invite', 'bulk add', 'spreadsheet'],
                                 'excerpt'  => 'Bulk-adding members from a spreadsheet and sending registration invites.',
                             ],
+                            'spouse-linking' => [
+                                'title'    => 'Linking or Correcting Spouse Pairs',
+                                'page'     => 'relationships',
+                                'view'     => 'docs.admin.member-management.spouse-linking',
+                                'keywords' => ['spouse', 'couple', 'family', 'link spouse', 'correct spouse', 'relationship'],
+                                'excerpt'  => 'Linking two members as spouses on their behalf, or fixing a wrong pairing.',
+                            ],
                         ],
                     ],
                     'dues-and-payments' => [
@@ -188,8 +195,8 @@ class DocsCatalog
                             'manual-payments' => [
                                 'title'    => 'Recording Manual Payments',
                                 'view'     => 'docs.admin.dues-and-payments.manual-payments',
-                                'keywords' => ['manual payment', 'cash', 'bank transfer', 'record payment'],
-                                'excerpt'  => 'Recording a cash or bank transfer payment on a member\'s behalf.',
+                                'keywords' => ['manual payment', 'cash', 'bank transfer', 'record payment', 'split', 'spouse'],
+                                'excerpt'  => 'Recording a cash or bank transfer payment on a member\'s behalf, including a split between spouses.',
                             ],
                             'stripe-reconciliation' => [
                                 'title'    => 'Stripe Reconciliation',

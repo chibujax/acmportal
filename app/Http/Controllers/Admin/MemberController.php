@@ -56,10 +56,38 @@ class MemberController extends Controller
         $spouse = $member->spouse();
         $children = $member->visibleChildren();
 
-        $myPledges = MemberPledge::where('user_id', $member->id)
+        $summary          = $this->duesOutstandingFor($member);
+        $activeCycles     = $summary['activeCycles'];
+        $legacyBalances   = $summary['legacyBalances'];
+        $legacyTotal      = $summary['legacyTotal'];
+        $currentCycles    = $summary['currentCycles'];
+        $currentTotal     = $summary['currentTotal'];
+        $totalOutstanding = $summary['totalOutstanding'];
+
+        // Spouse's own dues/obligations — so an admin viewing either half of a couple
+        // can see both people's debt without navigating away (mirrors what's shown
+        // above for $member itself).
+        $spouseSummary = $spouse ? $this->duesOutstandingFor($spouse) : null;
+
+        return view('admin.members.show', compact(
+            'member', 'spouse', 'children', 'activeCycles',
+            'legacyBalances', 'legacyTotal', 'currentCycles', 'currentTotal', 'totalOutstanding',
+            'spouseSummary'
+        ));
+    }
+
+    /**
+     * Dues/obligations summary for one member — used both for the page's own
+     * member and (see show()) for their spouse, so the shapes stay identical.
+     */
+    private function duesOutstandingFor(User $user): array
+    {
+        $spouse = $user->spouse();
+
+        $myPledges = MemberPledge::where('user_id', $user->id)
             ->get()->keyBy('dues_cycle_id');
 
-        $myItemsByCycle = DonationItem::where('user_id', $member->id)
+        $myItemsByCycle = DonationItem::where('user_id', $user->id)
             ->latest()->get()->groupBy('dues_cycle_id');
 
         // Spouse's pledges explicitly marked "shared" — fallback when this member hasn't pledged individually
@@ -67,7 +95,7 @@ class MemberController extends Controller
             ? MemberPledge::where('user_id', $spouse->id)->where('shared_with_spouse', true)->get()->keyBy('dues_cycle_id')
             : collect();
 
-        $pledgeCycleMapper = function ($cycle) use ($member, $myPledges, $myItemsByCycle, $spousePledges) {
+        $pledgeCycleMapper = function ($cycle) use ($user, $myPledges, $myItemsByCycle, $spousePledges) {
             $pledgeFromSpouse = false;
 
             if ($cycle->is_pledge_based) {
@@ -84,7 +112,7 @@ class MemberController extends Controller
                 $cycle->pledge_is_shared   = $pledge ? (bool) $pledge->shared_with_spouse : false;
                 $cycle->my_items           = $myItemsByCycle->get($cycle->id, collect());
             } else {
-                $obligation                = $member->obligationFor($cycle);
+                $obligation                = $user->obligationFor($cycle);
                 $cycle->pledge_amount      = null;
                 $cycle->pledge_from_spouse = false;
                 $cycle->pledge_is_shared   = false;
@@ -92,7 +120,7 @@ class MemberController extends Controller
             }
 
             $mergeWithSpouse = $cycle->is_pledge_based ? $cycle->pledge_is_shared : $cycle->couple_shared;
-            $paid            = $member->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
+            $paid            = $user->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
 
             $cycle->user_obligation   = $obligation;
             $cycle->user_paid         = $paid;
@@ -100,7 +128,7 @@ class MemberController extends Controller
             // callers that only want "what's still owed" should filter > 0 themselves.
             $cycle->user_remaining    = $obligation - $paid;
             $cycle->user_percent      = $obligation > 0 ? min(100, round(($paid / $obligation) * 100)) : 0;
-            $cycle->is_family_billing = $member->hasSpouse() && $mergeWithSpouse;
+            $cycle->is_family_billing = $user->hasSpouse() && $mergeWithSpouse;
             return $cycle;
         };
 
@@ -111,7 +139,7 @@ class MemberController extends Controller
             ->map($pledgeCycleMapper);
 
         // Legacy outstanding (pre-2026 carryover)
-        $legacyBalances = MemberLegacyBalance::where('user_id', $member->id)
+        $legacyBalances = MemberLegacyBalance::where('user_id', $user->id)
             ->orderBy('year')->orderBy('label')->get();
         $legacyTotal = $legacyBalances->sum('amount');
 
@@ -135,12 +163,9 @@ class MemberController extends Controller
         // Legacy is already inside $currentTotal via the Annual Dues cycle's obligation
         // whenever a current yearly-dues cycle exists — unfoldedLegacyBalance() is only
         // non-zero as a fallback for the (currently theoretical) case where none does.
-        $totalOutstanding = $currentTotal + $member->unfoldedLegacyBalance();
+        $totalOutstanding = $currentTotal + $user->unfoldedLegacyBalance();
 
-        return view('admin.members.show', compact(
-            'member', 'spouse', 'children', 'activeCycles',
-            'legacyBalances', 'legacyTotal', 'currentCycles', 'currentTotal', 'totalOutstanding'
-        ));
+        return compact('activeCycles', 'legacyBalances', 'legacyTotal', 'currentCycles', 'currentTotal', 'totalOutstanding');
     }
 
     public function updateStatus(Request $request, User $member)

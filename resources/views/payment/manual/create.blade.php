@@ -15,7 +15,7 @@
                 <small class="text-muted">Financial Secretary use only</small>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ route('admin.payments.store') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('admin.payments.store') }}" enctype="multipart/form-data" id="paymentForm">
                     @csrf
 
                     <div class="mb-3">
@@ -54,35 +54,60 @@
                             @endforeach
                         </select>
                         @error('dues_cycle_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        @error('pay_for_spouse')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                         <div id="obligationHint" class="form-text text-info d-none"></div>
                         <div id="pledgeHint" class="form-text text-warning d-none"></div>
                         <div id="settledWarning" class="alert alert-warning py-2 px-3 mt-2 mb-0 d-none"></div>
                     </div>
 
-                    {{-- Spouse payment is not supported for non-couple_shared cycles (shown dynamically via JS) --}}
+                    {{-- Split payment with spouse — only offered for non-couple_shared, non-pledge
+                         cycles where the selected member has a linked spouse (shown via JS) --}}
                     <div id="couplePayWrap" class="mb-3 d-none">
-                        <div class="alert alert-warning py-2 px-3 mb-0">
-                            <input type="hidden" name="pay_for_spouse" value="0">
+                        <div class="alert alert-light border py-2 px-3 mb-0">
+                            <input type="hidden" name="split_with_spouse" value="0">
                             <div class="form-check">
-                                <input type="checkbox" id="payForSpouse" class="form-check-input" disabled>
-                                <label class="form-check-label text-muted" for="payForSpouse">
-                                    <strong>Pay for spouse too</strong>
-                                    <span class="badge bg-secondary ms-1" style="font-size:.62rem">Not available</span>
+                                <input type="checkbox" name="split_with_spouse" value="1" id="splitWithSpouse" class="form-check-input">
+                                <label class="form-check-label fw-medium" for="splitWithSpouse">
+                                    Split this payment with spouse
                                 </label>
                             </div>
-                            <div id="spouseNameHint" class="small mt-1"></div>
+                            <div id="spouseNameHint" class="small text-muted mt-1"></div>
+                            @error('split_with_spouse')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+
+                            <div id="splitFields" class="mt-2 d-none">
+                                <label class="form-label small mb-1 fw-medium">Total Amount Received (£)</label>
+                                <input type="number" name="total_amount" step="0.01" min="0.02"
+                                       class="form-control form-control-sm @error('total_amount') is-invalid @enderror"
+                                       id="totalAmountInput" value="{{ old('total_amount') }}">
+                                @error('total_amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <div class="form-text">Enter the full amount received from the family, then adjust the breakdown below so it adds up to this.</div>
+
+                                <div class="row g-2 mt-1">
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1" id="selfShareLabel">This member's share (£)</label>
+                                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="selfShareInput">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1" id="spouseAmountLabel">Spouse's share (£)</label>
+                                        <input type="number" name="spouse_amount" step="0.01" min="0.01"
+                                               class="form-control form-control-sm @error('spouse_amount') is-invalid @enderror"
+                                               id="spouseAmountInput" value="{{ old('spouse_amount') }}">
+                                        @error('spouse_amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                    </div>
+                                </div>
+
+                                <div id="allocationStatus" class="small mt-2 fw-medium"></div>
+                            </div>
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
-                        <div class="col-6">
+                        <div class="col-6" id="soloAmountCol">
                             <label class="form-label fw-medium">Amount (GBP) <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">£</span>
                                 <input type="number" name="amount" step="0.01" min="0.01"
                                        class="form-control @error('amount') is-invalid @enderror"
-                                       value="{{ old('amount') }}" required>
+                                       value="{{ old('amount') }}" required id="amountInput">
                                 @error('amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
@@ -143,11 +168,24 @@
     const obligationHint = document.getElementById('obligationHint');
     const pledgeHint     = document.getElementById('pledgeHint');
     const settledWarning = document.getElementById('settledWarning');
-    const couplePayWrap  = document.getElementById('couplePayWrap');
-    const spouseNameHint = document.getElementById('spouseNameHint');
-    const statusCheckUrl = '{{ route('admin.payments.status-check') }}';
+    const couplePayWrap    = document.getElementById('couplePayWrap');
+    const spouseNameHint   = document.getElementById('spouseNameHint');
+    const splitWithSpouse  = document.getElementById('splitWithSpouse');
+    const soloAmountCol    = document.getElementById('soloAmountCol');
+    const splitFields      = document.getElementById('splitFields');
+    const totalAmountInput = document.getElementById('totalAmountInput');
+    const selfShareInput   = document.getElementById('selfShareInput');
+    const selfShareLabel   = document.getElementById('selfShareLabel');
+    const spouseAmountLbl  = document.getElementById('spouseAmountLabel');
+    const spouseAmountIn   = document.getElementById('spouseAmountInput');
+    const allocationStatus = document.getElementById('allocationStatus');
+    const paymentForm      = document.getElementById('paymentForm');
+    const statusCheckUrl   = '{{ route('admin.payments.status-check') }}';
 
-    let selectedMember = null;
+    let selectedMember       = null;
+    let currentSpouseInfo    = null; // { id, name, obligation, paid, remaining } from status-check
+    let currentSelfRemaining = null; // this member's own remaining balance on the selected cycle
+    let currentFlatObligation = null; // flat-rate default for the non-split "Amount" field
 
     function checkSettledStatus(memberId, cycleId) {
         fetch(`${statusCheckUrl}?user_id=${memberId}&dues_cycle_id=${cycleId}`, {
@@ -155,15 +193,64 @@
         })
             .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data && data.settled) {
+                if (!data) return;
+
+                if (typeof data.remaining === 'number') {
+                    currentSelfRemaining = data.remaining;
+                }
+
+                if (data.settled) {
                     settledWarning.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>` +
                         `<strong>${selectedMember.name}</strong> has already completed their obligation for this cycle ` +
                         `(paid £${data.paid.toFixed(2)} of £${data.obligation.toFixed(2)}). ` +
                         `Please confirm the correct cycle is selected.`;
                     settledWarning.classList.remove('d-none');
                 }
+
+                if (data.spouse) {
+                    currentSpouseInfo = data.spouse;
+                    spouseAmountLbl.textContent = `${data.spouse.name}'s share (£)`;
+                }
             })
             .catch(() => {}); // fail open - never block the form over a network hiccup
+    }
+
+    function applySplitDefaults() {
+        selfShareLabel.textContent = selectedMember ? `${selectedMember.name}'s share (£)` : "This member's share (£)";
+
+        const selfDefault   = currentSelfRemaining ?? 0;
+        const spouseDefault = currentSpouseInfo ? currentSpouseInfo.remaining : 0;
+
+        totalAmountInput.value = (selfDefault + spouseDefault).toFixed(2);
+        selfShareInput.value   = selfDefault.toFixed(2);
+        spouseAmountIn.value   = spouseDefault.toFixed(2);
+
+        syncSelfShareIntoAmount();
+        updateAllocationStatus();
+    }
+
+    function syncSelfShareIntoAmount() {
+        amountInput.value = selfShareInput.value;
+    }
+
+    function updateAllocationStatus() {
+        const total     = parseFloat(totalAmountInput.value) || 0;
+        const self      = parseFloat(selfShareInput.value) || 0;
+        const spouse    = parseFloat(spouseAmountIn.value) || 0;
+        const allocated = Math.round((self + spouse) * 100) / 100;
+        const diff      = Math.round((allocated - total) * 100) / 100;
+
+        if (Math.abs(diff) < 0.01) {
+            allocationStatus.textContent = `Allocated £${allocated.toFixed(2)} of £${total.toFixed(2)} ✓`;
+            allocationStatus.classList.remove('text-danger');
+            allocationStatus.classList.add('text-success');
+        } else {
+            const verb = diff > 0 ? 'over' : 'under';
+            allocationStatus.textContent =
+                `Allocated £${allocated.toFixed(2)} of £${total.toFixed(2)} — £${Math.abs(diff).toFixed(2)} ${verb}-allocated`;
+            allocationStatus.classList.remove('text-success');
+            allocationStatus.classList.add('text-danger');
+        }
     }
 
     function updateObligation() {
@@ -174,6 +261,16 @@
         pledgeHint.classList.add('d-none');
         settledWarning.classList.add('d-none');
         couplePayWrap.classList.add('d-none');
+        splitFields.classList.add('d-none');
+        soloAmountCol.classList.remove('d-none');
+        splitWithSpouse.checked  = false;
+        totalAmountInput.value   = '';
+        selfShareInput.value     = '';
+        spouseAmountIn.value     = '';
+        allocationStatus.textContent = '';
+        currentSpouseInfo        = null;
+        currentSelfRemaining     = null;
+        currentFlatObligation    = null;
 
         if (!selectedMember || !cycleId) return;
 
@@ -211,17 +308,56 @@
             obligationHint.classList.remove('d-none');
         }
         amountInput.value = obligation.toFixed(2);
+        currentFlatObligation = obligation;
 
         // Member has a spouse, but this cycle isn't couple_shared — each spouse owes their
-        // own independent amount, so warn rather than offer to duplicate a payment for them.
+        // own independent amount. Offer to split this payment between the two of them
+        // instead of recording it against just one (spouse's remaining balance is filled
+        // in once the status-check request above resolves).
         if (selectedMember.has_spouse && !cycle.couple_shared) {
             const spouse = spouseMap[memberId];
             if (spouse) {
-                spouseNameHint.textContent = `Spouse payment isn't supported for this dues cycle. Record ${spouse.name}'s payment separately.`;
+                spouseNameHint.textContent = `${spouse.name} owes their own amount independently on this cycle.`;
                 couplePayWrap.classList.remove('d-none');
             }
         }
     }
+
+    splitWithSpouse.addEventListener('change', function () {
+        if (this.checked) {
+            soloAmountCol.classList.add('d-none');
+            splitFields.classList.remove('d-none');
+            applySplitDefaults();
+        } else {
+            soloAmountCol.classList.remove('d-none');
+            splitFields.classList.add('d-none');
+            totalAmountInput.value = '';
+            selfShareInput.value   = '';
+            spouseAmountIn.value   = '';
+            allocationStatus.textContent = '';
+            amountInput.value = currentFlatObligation !== null ? currentFlatObligation.toFixed(2) : '';
+        }
+    });
+
+    totalAmountInput.addEventListener('input', updateAllocationStatus);
+    selfShareInput.addEventListener('input', function () {
+        syncSelfShareIntoAmount();
+        updateAllocationStatus();
+    });
+    spouseAmountIn.addEventListener('input', updateAllocationStatus);
+
+    paymentForm.addEventListener('submit', function (e) {
+        if (!splitWithSpouse.checked) return;
+
+        const total     = parseFloat(totalAmountInput.value) || 0;
+        const allocated = (parseFloat(selfShareInput.value) || 0) + (parseFloat(spouseAmountIn.value) || 0);
+
+        if (Math.abs(Math.round((allocated - total) * 100) / 100) > 0.01) {
+            e.preventDefault();
+            updateAllocationStatus();
+            allocationStatus.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    });
 
     cycleSelect.addEventListener('change', updateObligation);
 
@@ -274,6 +410,15 @@
         pledgeHint.classList.add('d-none');
         settledWarning.classList.add('d-none');
         couplePayWrap.classList.add('d-none');
+        splitFields.classList.add('d-none');
+        soloAmountCol.classList.remove('d-none');
+        splitWithSpouse.checked  = false;
+        totalAmountInput.value   = '';
+        selfShareInput.value     = '';
+        spouseAmountIn.value     = '';
+        allocationStatus.textContent = '';
+        currentSpouseInfo        = null;
+        currentSelfRemaining     = null;
         searchInput.focus();
     });
 

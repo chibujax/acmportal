@@ -118,6 +118,136 @@ class StripeController extends Controller
     }
 
     /**
+     * Show the family-split Stripe checkout for a dues cycle: one combined
+     * charge, split between the member and their spouse, for cycles where
+     * each spouse owes their own amount independently (not couple_shared).
+     */
+    public function familyCheckout(DuesCycle $cycle)
+    {
+        if (! config('services.stripe.enabled')) {
+            return redirect()->route('member.dashboard')
+                ->with('warning', 'Online card payment is not available yet.');
+        }
+
+        $user   = auth()->user();
+        $spouse = $user->spouse();
+
+        if (! $spouse || $cycle->is_pledge_based || $cycle->couple_shared) {
+            return redirect()->route('member.dashboard')
+                ->with('warning', 'Family payment is not available for this dues cycle.');
+        }
+
+        $selfRemaining   = $this->remainingBalance($user, $cycle);
+        $spouseRemaining = $this->remainingBalance($spouse, $cycle);
+
+        if ($selfRemaining <= 0 && $spouseRemaining <= 0) {
+            return redirect()->route('member.dashboard')
+                ->with('warning', 'This dues cycle is already fully paid for you and your spouse.');
+        }
+
+        return view('payment.stripe.family-checkout', [
+            'cycle'           => $cycle,
+            'spouse'          => $spouse,
+            'selfRemaining'   => $selfRemaining,
+            'spouseRemaining' => $spouseRemaining,
+            'stripeKey'       => config('services.stripe.key'),
+        ]);
+    }
+
+    /**
+     * Create a single PaymentIntent for a combined family amount, and two
+     * linked Payment rows (one per spouse) that share its gateway_reference —
+     * mirrors createIntent() but splits the charge instead of paying it as
+     * one person. See markCompleted()/handleIntentFailed()/handleRefund()
+     * for how both rows are kept in sync once Stripe confirms the charge.
+     */
+    public function createFamilyIntent(Request $request)
+    {
+        if (! config('services.stripe.enabled')) {
+            return response()->json(['error' => 'Online card payment is not available yet.'], 503);
+        }
+
+        $request->validate([
+            'dues_cycle_id' => 'required|exists:dues_cycles,id',
+            // Either share may be 0 — e.g. the member's own dues are already settled and
+            // they're only paying their spouse's remaining balance (see familyCheckout()).
+            'self_amount'   => 'required|numeric|min:0',
+            'spouse_amount' => 'required|numeric|min:0',
+        ]);
+
+        $cycle  = DuesCycle::findOrFail($request->dues_cycle_id);
+        $user   = auth()->user();
+        $spouse = $user->spouse();
+
+        if (! $spouse || $cycle->is_pledge_based || $cycle->couple_shared) {
+            return response()->json(['error' => 'Family payment is not available for this dues cycle.'], 422);
+        }
+
+        $selfRemaining   = $this->remainingBalance($user, $cycle);
+        $spouseRemaining = $this->remainingBalance($spouse, $cycle);
+
+        // Enforce the caps server-side — the amounts on the form are only a suggestion.
+        if ($request->self_amount > $selfRemaining + 0.01 || $request->spouse_amount > $spouseRemaining + 0.01) {
+            return response()->json([
+                'error' => 'One of the amounts is more than that person\'s remaining balance.',
+            ], 422);
+        }
+
+        $total = round($request->self_amount + $request->spouse_amount, 2);
+
+        if ($total < 0.50) {
+            return response()->json(['error' => 'The combined amount must be at least £0.50.'], 422);
+        }
+
+        try {
+            $intent = PaymentIntent::create([
+                'amount'   => (int) round($total * 100), // pence/cents
+                'currency' => strtolower($cycle->currency),
+                'metadata' => [
+                    'user_id'      => $user->id,
+                    'spouse_id'    => $spouse->id,
+                    'cycle_id'     => $cycle->id,
+                    'cycle_title'  => $cycle->title,
+                    'family_split' => 'true',
+                ],
+                'automatic_payment_methods' => ['enabled' => true],
+            ]);
+
+            // Create both pending payment rows and link them to each other.
+            $selfPayment = Payment::create([
+                'user_id'           => $user->id,
+                'dues_cycle_id'     => $cycle->id,
+                'amount'            => $request->self_amount,
+                'currency'          => $cycle->currency,
+                'method'            => 'stripe',
+                'status'            => 'pending',
+                'gateway_reference' => $intent->id,
+            ]);
+
+            $spousePayment = Payment::create([
+                'user_id'           => $spouse->id,
+                'dues_cycle_id'     => $cycle->id,
+                'amount'            => $request->spouse_amount,
+                'currency'          => $cycle->currency,
+                'method'            => 'stripe',
+                'status'            => 'pending',
+                'gateway_reference' => $intent->id,
+                'linked_payment_id' => $selfPayment->id,
+            ]);
+
+            $selfPayment->update(['linked_payment_id' => $spousePayment->id]);
+
+            return response()->json([
+                'clientSecret' => $intent->client_secret,
+                'payment_id'   => $selfPayment->id,
+            ]);
+
+        } catch (ApiErrorException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
      * How much a member (plus spouse, where pledges/dues are shared) still
      * owes on a cycle — mirrors the calculation in Member\DashboardController
      * so the cap shown here matches what's shown on the dashboard.
@@ -302,12 +432,14 @@ class StripeController extends Controller
             return;
         }
 
-        $payment->update([
-            'status'           => 'failed',
-            'gateway_response' => $intent->last_payment_error?->message ?? 'failed',
-        ]);
+        $reason = $intent->last_payment_error?->message ?? 'failed';
 
-        $this->flagIfSuspicious($payment);
+        // A family-split charge has two Payment rows sharing this gateway_reference
+        // (see createFamilyIntent()) — both need to flip to failed together.
+        foreach (array_filter([$payment, $payment->pairedPayment]) as $p) {
+            $p->update(['status' => 'failed', 'gateway_response' => $reason]);
+            $this->flagIfSuspicious($p);
+        }
     }
 
     /**
@@ -371,13 +503,18 @@ class StripeController extends Controller
         }
 
         $fullyRefunded = $charge->amount_refunded >= $charge->amount;
+        $response      = $fullyRefunded
+            ? 'refunded'
+            : 'partially refunded: £' . number_format($charge->amount_refunded / 100, 2);
 
-        $payment->update([
-            'status'           => $fullyRefunded ? 'refunded' : $payment->status,
-            'gateway_response' => $fullyRefunded
-                ? 'refunded'
-                : 'partially refunded: £' . number_format($charge->amount_refunded / 100, 2),
-        ]);
+        // A refund applies to the underlying charge as a whole, so both sides
+        // of a family-split payment (see createFamilyIntent()) reflect it.
+        foreach (array_filter([$payment, $payment->pairedPayment]) as $p) {
+            $p->update([
+                'status'           => $fullyRefunded ? 'refunded' : $p->status,
+                'gateway_response' => $response,
+            ]);
+        }
     }
 
     /**
@@ -387,12 +524,27 @@ class StripeController extends Controller
      */
     private function markCompleted(Payment $payment, object $intent): void
     {
+        $payload = $this->redactSensitiveKeys($intent->toArray());
+
         $payment->update([
             'status'           => 'completed',
             'gateway_response' => 'succeeded',
-            'gateway_payload'  => $this->redactSensitiveKeys($intent->toArray()),
+            'gateway_payload'  => $payload,
             'payment_date'     => $payment->payment_date ?? now(),
             'receipt_number'   => $payment->receipt_number ?? Payment::generateReceiptNumber(),
         ]);
+
+        // A family-split charge (see createFamilyIntent()) has a second Payment row
+        // sharing this same gateway_reference — complete it too, with its own receipt.
+        $pair = $payment->pairedPayment;
+        if ($pair && $pair->status !== 'completed') {
+            $pair->update([
+                'status'           => 'completed',
+                'gateway_response' => 'succeeded',
+                'gateway_payload'  => $payload,
+                'payment_date'     => $pair->payment_date ?? now(),
+                'receipt_number'   => $pair->receipt_number ?? Payment::generateReceiptNumber(),
+            ]);
+        }
     }
 }

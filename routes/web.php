@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\CsvImportController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\DuesCycleController;
 use App\Http\Controllers\Admin\ChildrenController;
+use App\Http\Controllers\Admin\SpouseController;
 use App\Http\Controllers\Admin\PledgeController;
 use App\Http\Controllers\Admin\DonationItemController;
 use App\Http\Controllers\Admin\SmsTemplateController;
@@ -306,6 +307,14 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/children/{child}',           [ChildrenController::class, 'update'])->name('children.update');
             Route::delete('/children/{child}',        [ChildrenController::class, 'destroy'])->name('children.destroy');
         });
+
+        // Spouse linking (admin overview / correction)
+        Route::middleware('page:relationships')->group(function () {
+            Route::get('/spouses',                    [SpouseController::class, 'index'])->name('spouses.index');
+            Route::get('/spouses/search',              [SpouseController::class, 'search'])->name('spouses.search');
+            Route::post('/spouses',                    [SpouseController::class, 'link'])->name('spouses.link');
+            Route::delete('/spouses/{relationship}',   [SpouseController::class, 'unlink'])->name('spouses.unlink');
+        });
     });
 
     /*
@@ -347,8 +356,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Stripe – /stripe/success must come before /stripe/{cycle} so the
         // wildcard doesn't swallow it and try to bind a DuesCycle to "success".
-        Route::get('/stripe/success',   [StripeController::class, 'success'])->name('stripe.success');
-        Route::get('/stripe/{cycle}',   [StripeController::class, 'checkout'])->name('stripe.checkout');
-        Route::post('/stripe/intent',   [StripeController::class, 'createIntent'])->name('stripe.intent')->middleware('throttle:10,1');
+        Route::get('/stripe/success',              [StripeController::class, 'success'])->name('stripe.success');
+        Route::get('/stripe/{cycle}/family',        [StripeController::class, 'familyCheckout'])->name('stripe.family-checkout');
+        Route::get('/stripe/{cycle}',               [StripeController::class, 'checkout'])->name('stripe.checkout');
+        Route::post('/stripe/intent',               [StripeController::class, 'createIntent'])->name('stripe.intent')->middleware('throttle:10,1');
+        Route::post('/stripe/family-intent',        [StripeController::class, 'createFamilyIntent'])->name('stripe.family-intent')->middleware('throttle:10,1');
     });
 });

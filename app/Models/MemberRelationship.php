@@ -60,4 +60,16 @@ class MemberRelationship extends Model
               ->orWhere('member_id_2', $userId);
         })->where('relationship_type', 'spouse')->first();
     }
+
+    public function getActivityDescription(string $action): string
+    {
+        $name1 = $this->member1?->name ?? "member #{$this->member_id_1}";
+        $name2 = $this->member2?->name ?? "member #{$this->member_id_2}";
+
+        return match ($action) {
+            'created' => "Linked {$name1} and {$name2} as {$this->relationship_type}s",
+            'deleted' => "Unlinked {$this->relationship_type} relationship between {$name1} and {$name2}",
+            default   => ucfirst($action) . " {$this->relationship_type} relationship between {$name1} and {$name2}",
+        };
+    }
 }

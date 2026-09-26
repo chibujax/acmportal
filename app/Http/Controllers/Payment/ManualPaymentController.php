@@ -99,17 +99,17 @@ class ManualPaymentController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id'        => 'required|exists:users,id',
-            'dues_cycle_id'  => ['required', function ($attr, $value, $fail) {
+            'user_id'           => 'required|exists:users,id',
+            'dues_cycle_id'     => ['required', function ($attr, $value, $fail) {
                 if ($value !== 'general' && ! DuesCycle::where('id', $value)->exists()) {
                     $fail('Please select a valid dues cycle.');
                 }
             }],
-            'amount'         => 'required|numeric|min:0.01',
-            'payment_date'   => 'required|date',
-            'pay_for_spouse' => 'nullable|boolean',
-            'notes'          => 'nullable|string|max:1000',
-            'proof'          => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
+            'amount'            => 'required|numeric|min:0.01',
+            'payment_date'      => 'required|date',
+            'split_with_spouse' => 'nullable|boolean',
+            'notes'             => 'nullable|string|max:1000',
+            'proof'             => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
         ]);
 
         // Convert 'general' sentinel to null for storage
@@ -120,27 +120,51 @@ class ManualPaymentController extends Controller
             $proofPath = $request->file('proof')->store('payment-proofs', 'public');
         }
 
-        $payForSpouse = $request->boolean('pay_for_spouse');
+        $splitWithSpouse = $request->boolean('split_with_spouse');
+        $spouse          = null;
 
-        // "Pay for spouse" duplicated the entered amount into two separate payment rows
-        // instead of splitting/sharing it, which produced incorrect totals (see the Onuoha
-        // £90-recorded-as-£180 case). couple_shared cycles never needed this — a single
-        // payment there already counts for both spouses via totalPaidWithSpouse()'s merge —
-        // so this was only ever reachable for non-couple_shared cycles, which is exactly
-        // where it's now rejected. Admins must record each person's payment separately.
-        if ($payForSpouse) {
-            $cycle = $request->dues_cycle_id ? DuesCycle::find($request->dues_cycle_id) : null;
+        // Splitting only makes sense where each spouse owes independently — couple_shared
+        // cycles already merge into one obligation via totalPaidWithSpouse(), and pledges
+        // are shared via MemberPledge.shared_with_spouse instead of splitting. An earlier
+        // version of this feature ("pay for spouse") duplicated the entered amount into two
+        // rows instead of splitting it, producing incorrect totals (the Onuoha
+        // £90-recorded-as-£180 case) — this validates a real split amount per person instead.
+        if ($splitWithSpouse) {
+            $cycle  = $request->dues_cycle_id ? DuesCycle::find($request->dues_cycle_id) : null;
+            $member = User::find($request->user_id);
+            $spouse = $member?->spouse();
 
-            if (! $cycle || ! $cycle->couple_shared) {
+            if (! $cycle || $cycle->is_pledge_based || $cycle->couple_shared || ! $spouse) {
                 return back()->withInput()->withErrors([
-                    'pay_for_spouse' => "Spouse payment isn't supported for this dues cycle. Please record each person's payment separately.",
+                    'split_with_spouse' => "Spouse split isn't supported for this member/cycle combination.",
+                ]);
+            }
+
+            $request->validate([
+                'spouse_amount' => 'required|numeric|min:0.01',
+                'total_amount'  => 'required|numeric|min:0.02',
+            ]);
+
+            // The finance secretary enters the total amount actually received first, then
+            // adjusts the two shares below it — this check is what actually enforces that
+            // they add up, rather than trusting two independently-editable fields to agree
+            // (a prior version let "amount" default to one figure and "spouse_amount" to
+            // another with nothing tying them together, so an admin who only edited one
+            // field ended up recording each person's full outstanding balance instead of
+            // the amount that was actually paid).
+            $allocated = round((float) $request->amount + (float) $request->spouse_amount, 2);
+            $total     = round((float) $request->total_amount, 2);
+
+            if (abs($allocated - $total) > 0.01) {
+                return back()->withInput()->withErrors([
+                    'total_amount' => 'The split (£' . number_format($allocated, 2) . ') doesn\'t match the total amount entered (£'
+                        . number_format($total, 2) . '). Please adjust the breakdown so it adds up.',
                 ]);
             }
         }
 
         $commonData = [
             'dues_cycle_id'    => $request->dues_cycle_id,
-            'amount'           => $request->amount,
             'currency'         => 'GBP',
             'method'           => 'manual',
             'status'           => 'completed',
@@ -150,10 +174,24 @@ class ManualPaymentController extends Controller
             'proof_of_payment' => $proofPath,
         ];
 
-        Payment::create(array_merge($commonData, [
+        $payment = Payment::create(array_merge($commonData, [
             'user_id'        => $request->user_id,
+            'amount'         => $request->amount,
             'receipt_number' => Payment::generateReceiptNumber(),
         ]));
+
+        if ($splitWithSpouse) {
+            $spousePayment = Payment::create(array_merge($commonData, [
+                'user_id'           => $spouse->id,
+                'amount'            => $request->spouse_amount,
+                'receipt_number'    => Payment::generateReceiptNumber(),
+                'linked_payment_id' => $payment->id,
+            ]));
+
+            $payment->update(['linked_payment_id' => $spousePayment->id]);
+
+            return redirect()->route('admin.payments.index')->with('success', 'Payment recorded for member and spouse.');
+        }
 
         return redirect()->route('admin.payments.index')->with('success', 'Payment recorded successfully.');
     }
@@ -198,12 +236,35 @@ class ManualPaymentController extends Controller
         $paid      = $user->totalPaidWithSpouse($cycle->id, $mergeWithSpouse);
         $remaining = $obligation - $paid;
 
-        return response()->json([
+        $response = [
             'settled'    => $remaining <= 0 && $obligation != 0,
             'obligation' => round($obligation, 2),
             'paid'       => round($paid, 2),
             'remaining'  => round($remaining, 2),
-        ]);
+        ];
+
+        // Independent (non-couple_shared, non-pledge) cycle with a linked spouse: also
+        // return the spouse's own figures so the split-payment fields can default without
+        // a page reload — see the "Split with spouse" control on the create form.
+        if (! $cycle->is_pledge_based && ! $cycle->couple_shared) {
+            $spouse = $user->spouse();
+
+            if ($spouse) {
+                $spouseObligation = $spouse->obligationFor($cycle);
+                $spousePaid       = $spouse->totalPaidWithSpouse($cycle->id, false);
+                $spouseRemaining  = max(0, round($spouseObligation - $spousePaid, 2));
+
+                $response['spouse'] = [
+                    'id'         => $spouse->id,
+                    'name'       => $spouse->name,
+                    'obligation' => round($spouseObligation, 2),
+                    'paid'       => round($spousePaid, 2),
+                    'remaining'  => $spouseRemaining,
+                ];
+            }
+        }
+
+        return response()->json($response);
     }
 
     public function show(Payment $payment)

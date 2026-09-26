@@ -82,6 +82,24 @@ class DashboardController extends Controller
             $cycle->user_percent      = $percent;
             $cycle->is_family_billing = $user->hasSpouse() && $mergeWithSpouse;
             $cycle->spouse_name       = $spouseName;
+
+            // Family split payment only applies to plain (non-couple_shared, non-pledge)
+            // cycles — couple_shared cycles already merge into one obligation above, and
+            // pledges are shared via MemberPledge.shared_with_spouse instead of splitting.
+            $cycle->family_eligible = false;
+
+            if (! $cycle->is_pledge_based && ! $cycle->couple_shared && $spouse) {
+                $spouseObligation = $spouse->obligationFor($cycle);
+                $spousePaid       = $spouse->totalPaidWithSpouse($cycle->id, false);
+                $spouseRemaining  = max(0, round($spouseObligation - $spousePaid, 2));
+
+                $cycle->spouse_obligation = $spouseObligation;
+                $cycle->spouse_paid       = $spousePaid;
+                $cycle->spouse_remaining  = $spouseRemaining;
+                $cycle->family_remaining  = max(0, round($remaining, 2)) + $spouseRemaining;
+                $cycle->family_eligible   = $cycle->family_remaining > 0;
+            }
+
             return $cycle;
         };
 

@@ -72,7 +72,7 @@ class ManualPaymentSpouseTest extends TestCase
         ]);
     }
 
-    public function test_store_rejects_pay_for_spouse_on_non_couple_shared_cycle(): void
+    public function test_store_splits_payment_between_spouses_on_non_couple_shared_cycle(): void
     {
         $member = $this->makeMember('07100000010');
         $spouse = $this->makeMember('07100000011');
@@ -80,24 +80,61 @@ class ManualPaymentSpouseTest extends TestCase
         $cycle = $this->makeCycle(['couple_shared' => false]);
 
         $request = new Request([
-            'user_id'        => $member->id,
-            'dues_cycle_id'  => $cycle->id,
-            'amount'         => 90,
-            'payment_date'   => '2026-08-07',
-            'pay_for_spouse' => '1',
+            'user_id'           => $member->id,
+            'dues_cycle_id'     => $cycle->id,
+            'amount'            => 40,
+            'payment_date'      => '2026-08-07',
+            'split_with_spouse' => '1',
+            'spouse_amount'     => 60,
+            'total_amount'      => 100,
+        ]);
+
+        app(ManualPaymentController::class)->store($request);
+
+        $this->assertSame(2, Payment::count());
+
+        $memberPayment = Payment::where('user_id', $member->id)->firstOrFail();
+        $spousePayment = Payment::where('user_id', $spouse->id)->firstOrFail();
+
+        $this->assertEquals(40, $memberPayment->amount);
+        $this->assertEquals(60, $spousePayment->amount);
+        $this->assertSame($spousePayment->id, $memberPayment->linked_payment_id);
+        $this->assertSame($memberPayment->id, $spousePayment->linked_payment_id);
+        $this->assertNotSame($memberPayment->receipt_number, $spousePayment->receipt_number);
+    }
+
+    public function test_store_rejects_split_when_shares_dont_add_up_to_the_total(): void
+    {
+        // Regression test: husband owed 17, spouse owed 52. Admin entered a total of 17
+        // (the amount actually received) but the spouse_amount field was left at its
+        // default of 52 — previously nothing tied these together, so both got recorded
+        // in full (17 + 52) instead of just the 17 actually paid.
+        $member = $this->makeMember('07100000021');
+        $spouse = $this->makeMember('07100000022');
+        $this->linkSpouses($member, $spouse);
+        $cycle = $this->makeCycle(['couple_shared' => false, 'amount' => 17]);
+
+        $request = new Request([
+            'user_id'           => $member->id,
+            'dues_cycle_id'     => $cycle->id,
+            'amount'            => 17,
+            'payment_date'      => '2026-08-07',
+            'split_with_spouse' => '1',
+            'spouse_amount'     => 52,
+            'total_amount'      => 17,
         ]);
 
         $response = app(ManualPaymentController::class)->store($request);
 
         $this->assertTrue($response->getSession()->has('errors'));
         $this->assertStringContainsString(
-            "isn't supported",
-            $response->getSession()->get('errors')->first('pay_for_spouse')
+            "doesn't match",
+            $response->getSession()->get('errors')->first('total_amount')
         );
         $this->assertSame(0, Payment::count());
     }
 
-    public function test_store_succeeds_normally_on_couple_shared_cycle(): void
+    public function test_store_rejects_split_with_spouse_on_couple_shared_cycle(): void
     {
         $member = $this->makeMember('07100000012');
         $spouse = $this->makeMember('07100000013');
@@ -105,16 +142,42 @@ class ManualPaymentSpouseTest extends TestCase
         $cycle = $this->makeCycle(['couple_shared' => true, 'amount' => 120]);
 
         $request = new Request([
-            'user_id'        => $member->id,
-            'dues_cycle_id'  => $cycle->id,
-            'amount'         => 120,
-            'payment_date'   => '2026-08-07',
-            'pay_for_spouse' => '1',
+            'user_id'           => $member->id,
+            'dues_cycle_id'     => $cycle->id,
+            'amount'            => 120,
+            'payment_date'      => '2026-08-07',
+            'split_with_spouse' => '1',
+            'spouse_amount'     => 60,
+        ]);
+
+        $response = app(ManualPaymentController::class)->store($request);
+
+        $this->assertTrue($response->getSession()->has('errors'));
+        $this->assertStringContainsString(
+            "isn't supported",
+            $response->getSession()->get('errors')->first('split_with_spouse')
+        );
+        $this->assertSame(0, Payment::count());
+    }
+
+    public function test_store_succeeds_normally_on_couple_shared_cycle_without_split(): void
+    {
+        $member = $this->makeMember('07100000017');
+        $spouse = $this->makeMember('07100000018');
+        $this->linkSpouses($member, $spouse);
+        $cycle = $this->makeCycle(['couple_shared' => true, 'amount' => 120]);
+
+        $request = new Request([
+            'user_id'       => $member->id,
+            'dues_cycle_id' => $cycle->id,
+            'amount'        => 120,
+            'payment_date'  => '2026-08-07',
         ]);
 
         app(ManualPaymentController::class)->store($request);
 
-        // Exactly one payment row - no duplication, no linked spouse record
+        // Exactly one payment row — couple_shared cycles merge via totalPaidWithSpouse(),
+        // they never need a second linked row.
         $this->assertSame(1, Payment::count());
         $payment = Payment::first();
         $this->assertSame($member->id, $payment->user_id);
@@ -156,6 +219,30 @@ class ManualPaymentSpouseTest extends TestCase
         ]));
 
         $this->assertFalse($response->getData(true)['settled']);
+    }
+
+    public function test_check_status_includes_spouse_figures_for_non_couple_shared_cycle(): void
+    {
+        $member = $this->makeMember('07100000019');
+        $spouse = $this->makeMember('07100000020');
+        $this->linkSpouses($member, $spouse);
+        $cycle = $this->makeCycle(['couple_shared' => false]);
+
+        Payment::create([
+            'user_id' => $spouse->id, 'dues_cycle_id' => $cycle->id,
+            'amount' => 25, 'status' => 'completed', 'method' => 'manual', 'payment_date' => now(),
+        ]);
+
+        $response = app(ManualPaymentController::class)->checkStatus(new Request([
+            'user_id' => $member->id, 'dues_cycle_id' => (string) $cycle->id,
+        ]));
+
+        $data = $response->getData(true);
+        $this->assertArrayHasKey('spouse', $data);
+        $this->assertSame($spouse->id, $data['spouse']['id']);
+        $this->assertEquals(60.0, $data['spouse']['obligation']);
+        $this->assertEquals(25.0, $data['spouse']['paid']);
+        $this->assertEquals(35.0, $data['spouse']['remaining']);
     }
 
     public function test_check_status_reports_not_settled_for_general_sentinel(): void

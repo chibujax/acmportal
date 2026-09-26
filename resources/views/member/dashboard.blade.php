@@ -260,15 +260,37 @@
                                 / £{{ number_format($cycle->user_obligation, 2) }}
                             @endif
                         </small>
+                        @php $spouseOwes = $cycle->family_eligible && $cycle->spouse_remaining > 0; @endphp
                         @if($cycle->user_remaining > 0 && $cycle->user_obligation > 0)
                             <div class="text-end">
                                 @if(config('services.stripe.enabled'))
-                                <a href="{{ route('payment.stripe.checkout', $cycle) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-credit-card me-1"></i>Pay by Card
-                                </a>
+                                    @if($spouseOwes)
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" data-bs-target="#payChoice-{{ $cycle->id }}">
+                                        <i class="bi bi-credit-card me-1"></i>Pay
+                                    </button>
+                                    @else
+                                    <a href="{{ route('payment.stripe.checkout', $cycle) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-credit-card me-1"></i>Pay by Card
+                                    </a>
+                                    @endif
                                 @else
                                 <button class="btn btn-sm btn-outline-primary" disabled>
                                     <i class="bi bi-credit-card me-1"></i>Pay by Card
+                                </button>
+                                <div class="text-muted mt-1" style="font-size:.7rem">Coming soon</div>
+                                @endif
+                            </div>
+                        @elseif($spouseOwes && $cycle->user_obligation > 0)
+                            {{-- This member's own dues here are settled, but their spouse still owes --}}
+                            <div class="text-end">
+                                @if(config('services.stripe.enabled'))
+                                <a href="{{ route('payment.stripe.family-checkout', $cycle) }}" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-credit-card me-1"></i>Pay for {{ $cycle->spouse_name }}
+                                </a>
+                                @else
+                                <button class="btn btn-sm btn-outline-success" disabled>
+                                    <i class="bi bi-credit-card me-1"></i>Pay for {{ $cycle->spouse_name }}
                                 </button>
                                 <div class="text-muted mt-1" style="font-size:.7rem">Coming soon</div>
                                 @endif
@@ -277,6 +299,43 @@
                             <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Fully Paid</span>
                         @endif
                     </div>
+
+                    @if($cycle->family_eligible)
+                    <div class="mt-2 p-2 rounded" style="background:#f8fafc; border:1px dashed #cbd5e1">
+                        <div class="d-flex justify-content-between flex-wrap small">
+                            <span><i class="bi bi-person me-1"></i>You owe: <strong>£{{ number_format(max(0, $cycle->user_remaining), 2) }}</strong></span>
+                            <span><i class="bi bi-person me-1"></i>{{ $cycle->spouse_name }} owes: <strong>£{{ number_format($cycle->spouse_remaining, 2) }}</strong></span>
+                        </div>
+                        <div class="text-center small fw-semibold mt-1 text-primary">
+                            <i class="bi bi-people-fill me-1"></i>Family total owed: £{{ number_format($cycle->family_remaining, 2) }}
+                        </div>
+                    </div>
+
+                    @if(config('services.stripe.enabled'))
+                    <div class="modal fade" id="payChoice-{{ $cycle->id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h6 class="modal-title mb-0">How would you like to pay?</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body d-grid gap-2">
+                                    @if($cycle->user_remaining > 0)
+                                    <a href="{{ route('payment.stripe.checkout', $cycle) }}" class="btn btn-outline-primary text-start py-2">
+                                        <i class="bi bi-person me-2"></i><strong>Pay as Individual</strong>
+                                        <div class="small text-muted">Just your own share — £{{ number_format($cycle->user_remaining, 2) }}</div>
+                                    </a>
+                                    @endif
+                                    <a href="{{ route('payment.stripe.family-checkout', $cycle) }}" class="btn btn-outline-success text-start py-2">
+                                        <i class="bi bi-people-fill me-2"></i><strong>Pay as Family</strong>
+                                        <div class="small text-muted">Cover you and {{ $cycle->spouse_name }} — £{{ number_format($cycle->family_remaining, 2) }} total</div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                    @endif
                 </div>
                 @empty
                 <p class="text-muted small">No active dues cycles at the moment.</p>

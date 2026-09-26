@@ -275,11 +275,19 @@
             @endif
             @endif
 
-            @if($user->hasAccess('children'))
+            @if($user->hasAccess('children') || $user->hasAccess('relationships'))
             <div class="nav-section">Family Records</div>
+            @endif
+            @if($user->hasAccess('children'))
             <a href="{{ route('admin.children.index') }}"
                class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.children.*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i> Children
+            </a>
+            @endif
+            @if($user->hasAccess('relationships'))
+            <a href="{{ route('admin.spouses.index') }}"
+               class="nav-link d-flex align-items-center gap-2 {{ request()->routeIs('admin.spouses.*') ? 'active' : '' }}">
+                <i class="bi bi-heart"></i> Spouse Linking
             </a>
             @endif
 

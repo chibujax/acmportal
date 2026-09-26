@@ -32,6 +32,7 @@ class Role extends Model
         'recipients'     => 'Cron Alert Recipients',
         'import'         => 'CSV Import & Pending Invites',
         'children'       => 'Children & Family Records',
+        'relationships'  => 'Family & Spouse Linking',
         'audit'          => 'Audit Trail',
         'reconciliation' => 'Stripe Reconciliation',
         'minutes'        => 'Meeting Minutes',

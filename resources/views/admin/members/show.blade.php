@@ -302,18 +302,51 @@
                     </div>
                     <div class="card-body">
                         @if($spouse)
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0"
-                                 style="width:40px;height:40px;font-size:1rem;font-weight:700">
-                                {{ strtoupper(substr($spouse->name, 0, 1)) }}
+                        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                                     style="width:40px;height:40px;font-size:1rem;font-weight:700">
+                                    {{ strtoupper(substr($spouse->name, 0, 1)) }}
+                                </div>
+                                <div>
+                                    <a href="{{ route('admin.members.show', $spouse) }}" class="fw-medium text-decoration-none">
+                                        {{ $spouse->name }}
+                                    </a>
+                                    <div class="small text-muted">{{ $spouse->phone }}</div>
+                                </div>
                             </div>
-                            <div>
-                                <a href="{{ route('admin.members.show', $spouse) }}" class="fw-medium text-decoration-none">
-                                    {{ $spouse->name }}
-                                </a>
-                                <div class="small text-muted">{{ $spouse->phone }}</div>
+                            <div class="text-end">
+                                <div class="fw-bold {{ $spouseSummary['totalOutstanding'] < 0 ? 'text-success' : 'text-danger' }}">
+                                    £{{ number_format(abs($spouseSummary['totalOutstanding']), 2) }}
+                                </div>
+                                <div class="small text-muted">{{ $spouseSummary['totalOutstanding'] < 0 ? 'Credit balance' : 'Outstanding' }}</div>
                             </div>
                         </div>
+
+                        @if($spouseSummary['currentCycles']->isNotEmpty())
+                        <div class="table-responsive mt-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Cycle</th>
+                                        <th class="text-end">Owed</th>
+                                        <th class="text-end">Paid</th>
+                                        <th class="text-end">Remaining</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($spouseSummary['currentCycles'] as $cycle)
+                                    <tr>
+                                        <td>{{ $cycle->title }}</td>
+                                        <td class="text-end">£{{ number_format($cycle->user_obligation, 2) }}</td>
+                                        <td class="text-end text-success">£{{ number_format($cycle->user_paid, 2) }}</td>
+                                        <td class="text-end fw-bold text-danger">£{{ number_format($cycle->user_remaining, 2) }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @endif
                         @else
                         <p class="text-muted small mb-0">No spouse linked.</p>
                         @endif
