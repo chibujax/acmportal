@@ -29,6 +29,7 @@
                         <th>Meeting Date</th>
                         <th>Status</th>
                         <th>Published</th>
+                        <th>Views</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -47,6 +48,16 @@
                         </td>
                         <td class="small text-muted">
                             {{ $m->published_at ? $m->published_at->format('d M Y') : '—' }}
+                        </td>
+                        <td class="small">
+                            @if($m->status === 'published')
+                                <a href="{{ route('member.minutes.show', $m) }}#viewers" title="See who viewed" class="text-nowrap">
+                                    <span title="Viewed by"><i class="bi bi-eye me-1"></i>{{ $m->views_count }}</span>
+                                    <span class="ms-2" title="Downloaded by"><i class="bi bi-download me-1"></i>{{ $m->downloads_count }}</span>
+                                </a>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
                         </td>
                         <td class="text-end">
                             <div class="btn-group btn-group-sm">
@@ -83,7 +94,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-5">
+                        <td colspan="6" class="text-center text-muted py-5">
                             <i class="bi bi-journal-x fs-2 d-block mb-2"></i>
                             No minutes for {{ $year }}.
                             <a href="{{ route('admin.minutes.create') }}" class="d-block mt-2">Upload one</a>

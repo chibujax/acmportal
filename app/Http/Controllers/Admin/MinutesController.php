@@ -15,7 +15,8 @@ class MinutesController extends Controller
 
         $perPage = in_array((int) $request->get('per_page'), [10, 20, 50, 100]) ? (int) $request->get('per_page') : 20;
 
-        $minutes = MeetingMinutes::whereYear('meeting_date', $year)
+        $minutes = MeetingMinutes::withAccessCounts()
+            ->whereYear('meeting_date', $year)
             ->orderByDesc('meeting_date')
             ->paginate($perPage)
             ->withQueryString();
