@@ -152,6 +152,7 @@ class DashboardController extends Controller
         $liveMeeting = Meeting::where('status', 'active')
             ->whereNotNull('qr_expires_at')
             ->where('qr_expires_at', '>', now())
+            ->whereDoesntHave('attendanceRecords', fn ($q) => $q->where('user_id', $user->id))
             ->first();
 
         // Most recently published minutes, shown as a banner for 5 days after publishing

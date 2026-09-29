@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Attendance;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\Meeting;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -189,14 +188,7 @@ class CheckInController extends Controller
             }
         }
 
-        // Determine late: compare against late_after_time if set, else 15 min after meeting start.
-        // Explicitly use the app timezone so the comparison is correct regardless of server timezone.
-        $tz = config('app.timezone', 'Europe/London');
-        $lateThreshold = $meeting->late_after_time
-            ? Carbon::parse($meeting->meeting_date->format('Y-m-d') . ' ' . $meeting->late_after_time, $tz)
-            : Carbon::parse($meeting->meeting_date->format('Y-m-d') . ' ' . $meeting->meeting_time, $tz)->addMinutes(15);
-
-        $isLate = now($tz)->gt($lateThreshold);
+        $isLate = $meeting->isLateCheckIn();
 
         $record = AttendanceRecord::create([
             'meeting_id'        => $meeting->id,

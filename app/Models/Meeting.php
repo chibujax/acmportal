@@ -85,6 +85,25 @@ class Meeting extends Model
     }
 
     /**
+     * Check-ins after this moment count as late: late_after_time if set, else 15 min after start.
+     * Uses the app timezone explicitly so the comparison is correct regardless of server timezone.
+     */
+    public function lateThreshold(): \Carbon\Carbon
+    {
+        $tz   = config('app.timezone', 'Europe/London');
+        $date = $this->meeting_date->format('Y-m-d');
+
+        return $this->late_after_time
+            ? \Carbon\Carbon::parse($date . ' ' . $this->late_after_time, $tz)
+            : \Carbon\Carbon::parse($date . ' ' . $this->meeting_time, $tz)->addMinutes(15);
+    }
+
+    public function isLateCheckIn(?\Carbon\Carbon $at = null): bool
+    {
+        return ($at ?? now())->gt($this->lateThreshold());
+    }
+
+    /**
      * Whether this meeting has GPS coordinates set.
      */
     public function hasLocation(): bool

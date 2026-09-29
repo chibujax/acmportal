@@ -162,7 +162,7 @@ class MeetingController extends Controller
             'user_id'          => $request->user_id,
             'check_in_time'    => now(),
             'check_in_method'  => 'manual',
-            'status'           => 'present',
+            'status'           => $meeting->isLateCheckIn() ? 'late' : 'present',
             'notes'            => $request->notes,
             'recorded_by'      => auth()->id(),
         ]);
